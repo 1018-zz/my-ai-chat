@@ -1,0 +1,200 @@
+import { useState, useRef, useEffect } from 'react'
+import { sendMessageToAI, MODELS, fetchMessages } from '../utils/api'
+import '../styles/theme.css'
+import './ChatArea.css'
+
+function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('deepseek-chat')
+  const [tokenUsage, setTokenUsage] = useState({ prompt: 0, completion: 0, total: 0 })
+  const [showTokenPanel, setShowTokenPanel] = useState(false)
+  const [conversationId, setConversationId] = useState(initialConversationId || null)
+  const messagesEndRef = useRef(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isTyping])
+
+  useEffect(() => {
+    setConversationId(initialConversationId || null)
+  }, [initialConversationId])
+
+  useEffect(() => {
+    if (!conversationId) return
+    fetchMessages(conversationId)
+      .then(msgs => {
+        const formatted = msgs.map(m => ({ role: m.role, content: m.content }))
+        setMessages(formatted)
+      })
+      .catch(() => {
+        const saved = localStorage.getItem('chat-messages')
+        if (saved) setMessages(JSON.parse(saved))
+      })
+  }, [conversationId])
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('chat-messages', JSON.stringify(messages))
+    }
+  }, [messages])
+
+  const handleSend = async () => {
+    if (!input.trim()) return
+
+    const userMsg = input.trim()
+    const newUserMessage = { role: 'user', content: userMsg }
+
+    const contextMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+      newUserMessage,
+    ]
+
+    const updatedMessages = [...messages, newUserMessage]
+    setMessages(updatedMessages)
+    setInput('')
+    setLoading(true)
+    setIsTyping(true)
+
+    try {
+      const result = await sendMessageToAI(contextMessages, selectedModel, conversationId)
+
+      setTokenUsage(prev => ({
+        prompt: prev.prompt + (result.usage?.prompt_tokens || 0),
+        completion: prev.completion + (result.usage?.completion_tokens || 0),
+        total: prev.total + (result.usage?.total_tokens || 0),
+      }))
+
+      if (result.conversationId && !conversationId) {
+        setConversationId(result.conversationId)
+      }
+
+      setMessages([...updatedMessages, { role: 'assistant', content: result.content }])
+    } catch (err) {
+      setMessages([...updatedMessages, { role: 'assistant', content: '抱歉，出错了: ' + err.message }])
+    } finally {
+      setLoading(false)
+      setIsTyping(false)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const formatTime = () => {
+    const now = new Date()
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+    const weekday = weekdays[now.getDay()]
+    const time = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return `${weekday} ${time}`
+  }
+
+  return (
+    <div className="chat-container">
+      <header className="chat-header">
+        <select
+          className="model-select"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+        >
+          {MODELS.map(m => (
+            <option key={m.id} value={m.id}>{m.label}</option>
+          ))}
+        </select>
+
+        <button
+          className="token-trigger"
+          onClick={() => setShowTokenPanel(!showTokenPanel)}
+          title="查看用量"
+        >
+          🪙
+          {tokenUsage.total > 0 && (
+            <span className="token-badge">{tokenUsage.total}</span>
+          )}
+        </button>
+
+        {showTokenPanel && (
+          <div className="token-panel">
+            <div className="token-panel-row">
+              <span>输入</span>
+              <span>{tokenUsage.prompt.toLocaleString()} tokens</span>
+            </div>
+            <div className="token-panel-row">
+              <span>输出</span>
+              <span>{tokenUsage.completion.toLocaleString()} tokens</span>
+            </div>
+            <div className="token-panel-row total">
+              <span>合计</span>
+              <span>{tokenUsage.total.toLocaleString()} tokens</span>
+            </div>
+            <div className="token-panel-row">
+              <span>预估费用</span>
+              <span>
+                {selectedModel === 'deepseek-reasoner'
+                  ? `¥${((tokenUsage.prompt * 0.004 + tokenUsage.completion * 0.016) / 1000).toFixed(4)}`
+                  : `¥${((tokenUsage.total * 0.001) / 1000).toFixed(4)}`
+                }
+              </span>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <div className="message-list">
+        {messages.map((msg, i) => (
+          <div key={i} className={`message-row ${msg.role === 'user' ? 'message-mine' : 'message-yours'}`}>
+            <div>
+              <div className="bubble">{msg.content}</div>
+              <div className="timestamp">{formatTime()}</div>
+            </div>
+          </div>
+        ))}
+
+        {isTyping && (
+          <div className="message-row message-yours">
+            <div className="typing-indicator">
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="input-bar">
+        <textarea
+          className="input-field"
+          placeholder="写点什么..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={2}
+          disabled={loading}
+        />
+        <button
+          className="send-btn"
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
+          title="发送"
+        >
+          ↑
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default ChatArea

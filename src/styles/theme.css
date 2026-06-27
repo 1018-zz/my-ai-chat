@@ -1,0 +1,27 @@
+:root {
+  /* 背景 */
+  --bg-warm: #f5f0eb;
+  --bg-sidebar: #ede6df;
+  --bg-card: #ffffff;
+
+  /* 气泡 */
+  --bubble-mine: #5c4a3d;
+  --bubble-mine-text: #fef9f3;
+  --bubble-yours: #faf5ef;
+  --bubble-yours-border: #e8d9cc;
+  --bubble-yours-text: #3a2e26;
+
+  /* 点缀 */
+  --accent: #c47b3b;
+  --accent-hover: #aa6028;
+  --accent-soft: rgba(196, 123, 59, 0.12);
+
+  /* 时间戳 */
+  --timestamp: #a39688;
+
+  /* 文字 */
+  --text-primary: #3a2e26;
+  --text-secondary: #6b5e52;
+  --font-serif: 'Noto Serif SC', 'Georgia', serif;
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
