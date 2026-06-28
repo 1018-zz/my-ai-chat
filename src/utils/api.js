@@ -36,3 +36,8 @@ export async function createConversation(title = '新对话') {
   const res = await axios.post(`${API_BASE}/api/conversations`, { title })
   return res.data
 }
+
+export async function searchMemories(query) {
+  const res = await axios.post(`${API_BASE}/api/memories/search`, { query })
+  return res.data
+}

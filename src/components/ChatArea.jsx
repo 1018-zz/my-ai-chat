@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { sendMessageToAI, MODELS, fetchMessages } from '../utils/api'
+import { sendMessageToAI, MODELS, fetchMessages, searchMemories } from '../utils/api'
 import '../styles/theme.css'
 import './ChatArea.css'
 
-function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
+const API_BASE = 'https://my-ai-chat-server-production.up.railway.app'
+
+function ChatArea({ systemPrompt, conversationId: initialConversationId, showThinking }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,11 +29,16 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
   }, [initialConversationId])
 
   useEffect(() => {
-    if (!conversationId) return
+    if (!conversationId) {
+      const saved = localStorage.getItem('chat-messages')
+      if (saved) setMessages(JSON.parse(saved))
+      return
+    }
     fetchMessages(conversationId)
       .then(msgs => {
         const formatted = msgs.map(m => ({ role: m.role, content: m.content }))
         setMessages(formatted)
+        localStorage.setItem('chat-messages', JSON.stringify(formatted))
       })
       .catch(() => {
         const saved = localStorage.getItem('chat-messages')
@@ -51,11 +58,31 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
     const userMsg = input.trim()
     const newUserMessage = { role: 'user', content: userMsg }
 
+    // 检索相关记忆
+    let memoryContext = ''
+    if (userMsg.length > 2) {
+      try {
+        const { memories } = await searchMemories(userMsg)
+        if (memories && memories.length > 0) {
+          memoryContext = '【相关记忆】\n' + memories.map(m => m.summary).join('\n')
+        }
+      } catch (e) {
+        console.error('记忆检索失败:', e)
+      }
+    }
+
     const contextMessages = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') },
       ...messages,
       newUserMessage,
     ]
+
+    if (showThinking) {
+      contextMessages.unshift({
+        role: 'system',
+        content: '请在回复之前先写出你的思考过程。格式：【思考】你的思考内容【/思考】\n然后另起一行写正式回复。这是强制要求。'
+      })
+    }
 
     const updatedMessages = [...messages, newUserMessage]
     setMessages(updatedMessages)
@@ -63,21 +90,55 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
     setLoading(true)
     setIsTyping(true)
 
-    try {
-      const result = await sendMessageToAI(contextMessages, selectedModel, conversationId)
+   try {
+  const response = await fetch(`${API_BASE}/api/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: contextMessages,
+      model: selectedModel,
+      conversationId,
+    }),
+  })
 
-      setTokenUsage(prev => ({
-        prompt: prev.prompt + (result.usage?.prompt_tokens || 0),
-        completion: prev.completion + (result.usage?.completion_tokens || 0),
-        total: prev.total + (result.usage?.total_tokens || 0),
-      }))
+  setMessages([...updatedMessages, { role: 'assistant', content: '' }])
 
-      if (result.conversationId && !conversationId) {
-        setConversationId(result.conversationId)
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let fullContent = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const chunk = decoder.decode(value)
+    const lines = chunk.split('\n')
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.content) {
+            fullContent += data.content
+            setMessages(prev => {
+              const updated = [...prev]
+              updated[updated.length - 1] = { role: 'assistant', content: fullContent }
+              return updated
+            })
+          }
+          if (data.done && data.conversationId && !conversationId) {
+            setConversationId(data.conversationId)
+          }
+        } catch (e) {}
       }
+    }
+  }
 
-      setMessages([...updatedMessages, { role: 'assistant', content: result.content }])
-    } catch (err) {
+  setTokenUsage(prev => ({
+    ...prev,
+    total: prev.total + Math.ceil(fullContent.length / 4),
+  }))
+} catch (err) {
       setMessages([...updatedMessages, { role: 'assistant', content: '抱歉，出错了: ' + err.message }])
     } finally {
       setLoading(false)
@@ -155,6 +216,12 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId }) {
         {messages.map((msg, i) => (
           <div key={i} className={`message-row ${msg.role === 'user' ? 'message-mine' : 'message-yours'}`}>
             <div>
+              {msg.role === 'assistant' && msg.thinking && (
+                <div className="thinking-bubble">
+                  <span className="thinking-label">💭 思考过程</span>
+                  {msg.thinking}
+                </div>
+              )}
               <div className="bubble">{msg.content}</div>
               <div className="timestamp">{formatTime()}</div>
             </div>

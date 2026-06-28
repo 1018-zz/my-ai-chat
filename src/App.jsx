@@ -10,6 +10,7 @@ function App() {
   const [systemPrompt, setSystemPrompt] = useState(buildSystemPrompt())
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
+  const [showThinking, setShowThinking] = useState(false)
 
   // 开屏页定时
   useEffect(() => {
@@ -65,6 +66,28 @@ function App() {
         }}>
           🤖 对话
         </h3>
+
+{/* 💭 显示思考过程 开关 */}
+<div style={{ marginBottom: '4px' }}>
+  <label style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '0.8rem',
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    userSelect: 'none',
+  }}>
+    <input
+      type="checkbox"
+      checked={showThinking}
+      onChange={(e) => setShowThinking(e.target.checked)}
+      style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
+    />
+    💭 显示思考过程
+  </label>
+</div>
 
         {/* 新建对话按钮 */}
         <button
@@ -164,9 +187,10 @@ function App() {
       {/* 主对话区 */}
       <main style={{ flex: 1 }}>
         <ChatArea
-          systemPrompt={systemPrompt}
-          conversationId={activeConversationId}
-        />
+  systemPrompt={systemPrompt}
+  conversationId={activeConversationId}
+  showThinking={showThinking}
+/>
       </main>
     </div>
   )

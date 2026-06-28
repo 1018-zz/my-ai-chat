@@ -240,3 +240,26 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.thinking-bubble {
+  max-width: 70%;
+  margin: 8px 0 8px 0;
+  padding: 10px 14px;
+  background-color: #fef9f3;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+.thinking-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--timestamp);
+  margin-bottom: 6px;
+  font-style: normal;
+}
