@@ -57,6 +57,7 @@ function App() {
         left: window.innerWidth <= 768 ? (sidebarOpen ? '0' : '-280px') : 'auto',
         top: 0, bottom: 0, zIndex: 10,
         transition: 'left 0.3s ease',
+        overflow: 'hidden',
       }}>
         <h3 style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-primary)', margin: 0 }}>🤖 对话</h3>
 
@@ -72,7 +73,7 @@ function App() {
           onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-warm)'}
         >＋ 新建对话</button>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
           {conversations.length === 0 && (
             <p style={{ color: 'var(--timestamp)', fontSize: '0.8rem', textAlign: 'center', marginTop: '20px' }}>暂无对话</p>
           )}
@@ -101,7 +102,7 @@ function App() {
         {/* 移动端汉堡按钮 */}
         {window.innerWidth <= 768 && (
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '10px', left: '10px', zIndex: 5,
+            position: 'absolute', top: '10px', left: '10px', zIndex: 25,
             background: 'var(--bg-card)', border: '1px solid var(--bubble-yours-border)',
             borderRadius: '8px', padding: '6px 10px', fontSize: '1.2rem',
             cursor: 'pointer', color: 'var(--text-primary)'
