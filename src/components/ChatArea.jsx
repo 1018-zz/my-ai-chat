@@ -62,7 +62,7 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [
-              { role: 'system', content: '你刚才请求的文件内容已经返回。请直接分析这个内容，不需要再次请求。' },
+              { role: 'user', content: '你看看这个文件，说说你的想吧。' },
               { role: 'system', content: `[工具结果]\n${toolResult}` },
             ],
             model: selectedModel,
