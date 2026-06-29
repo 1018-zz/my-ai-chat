@@ -181,6 +181,8 @@ const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sideToggle');
 let sideOpen = false;
 
+sidebar.style.left = '-80px';
+
 toggleBtn.addEventListener('click', () => {
   sideOpen = !sideOpen;
   if(sideOpen){

@@ -104,16 +104,7 @@ function App() {
       {/* 主对话区 */}
       <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {/* 移动端汉堡按钮 */}
-        {window.innerWidth <= 768 && (
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '10px', left: '10px', zIndex: 30,
-            background: 'var(--bg-card)', border: '1px solid var(--bubble-yours-border)',
-            borderRadius: '8px', padding: '6px 10px', fontSize: '1.2rem',
-            cursor: 'pointer', color: 'var(--text-primary)'
-          }}>
-            ☰
-          </button>
-        )}
+        
         <div style={{ flex: 1, width: '100%' }}>
     <ChatArea systemPrompt={systemPrompt} conversationId={activeConversationId} showThinking={showThinking} />
   </div>
