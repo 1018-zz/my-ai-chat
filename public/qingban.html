@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>清伴 · 温柔对话 PWA</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#83a7c2" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        main: {
+          brown: '#A8907C',
+          blue: '#83A7C2',
+          green: '#87B8A9',
+          bg: '#F6F8FA',
+          text: '#454A52',
+          light: '#8A94A0',
+          border: 'rgba(168,144,124,0.25)'
+        }
+      },
+      fontFamily: {
+        sans: ['system-ui', 'PingFang SC', 'Microsoft YaHei', 'sans-serif']
+      }
+    }
+  }
+}
+</script>
+
+<style type="text/tailwindcss">
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.48);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid main-border;
+  }
+  .glass-deep {
+    background: rgba(255,255,255,0.62);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .bubble-left {
+    background: rgba(255,255,255,0.42);
+    border-radius: 20px 20px 20px 6px;
+  }
+  .bubble-right {
+    background: rgba(131,167,194,0.28);
+    border-radius: 20px 20px 6px 20px;
+  }
+  .sidebar-transition {
+    transition: left 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: rgba(138,148,160,0.3);
+    border-radius: 3px;
+  }
+}
+</style>
+</head>
+
+<body class="bg-main-bg text-main-text h-screen overflow-hidden relative">
+
+<!-- 侧边工具栏：默认隐藏在左侧外，点击展开 -->
+<div id="sidebar" class="sidebar-transition fixed left-[-60px] top-1/2 -translate-y-1/2 z-30">
+  <div class="glass-deep rounded-r-xl py-5 px-3 flex flex-col items-center gap-5 relative">
+    <!-- 展开/收起按钮 -->
+    <button id="sideToggle" class="absolute right-[-16px] top-1/2 -translate-y-1/2 w-8 h-8 rounded-full glass flex items-center justify-center text-main-blue text-sm">
+      <i class="fa fa-chevron-right"></i>
+    </button>
+
+    <div class="flex flex-col items-center gap-4 mt-2">
+      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-blue transition">
+        <i class="fa fa-user-o"></i>
+      </button>
+      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-green transition">
+        <i class="fa fa-heart-o"></i>
+      </button>
+      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-brown transition">
+        <i class="fa fa-music"></i>
+      </button>
+      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-light transition">
+        <i class="fa fa-moon-o"></i>
+      </button>
+      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-light transition">
+        <i class="fa fa-cog"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 顶部头部 -->
+<header class="glass-deep max-w-3xl mx-auto mt-5 rounded-xl px-5 py-4 flex items-center justify-between z-20 relative">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full glass flex items-center justify-center text-main-green">
+      <i class="fa fa-heart-o"></i>
+    </div>
+    <div>
+      <h2 class="font-medium text-sm">清伴</h2>
+      <p class="text-xs text-main-light">安静陪伴 · 轻声对话</p>
+    </div>
+  </div>
+  <div class="text-main-light cursor-pointer hover:text-main-blue">
+    <i class="fa fa-ellipsis-h"></i>
+  </div>
+</header>
+
+<!-- 聊天消息区域 -->
+<main class="max-w-3xl mx-auto px-4 py-6 h-[calc(100vh-190px)] overflow-y-auto scroll-slim space-y-5">
+
+  <!-- AI左侧气泡 -->
+  <div class="flex items-start gap-3">
+    <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-green">
+      <i class="fa fa-user-o"></i>
+    </div>
+    <div class="bubble-left glass px-4 py-3 max-w-[72%]">
+      <p class="text-sm leading-relaxed">
+        不必勉强热闹，清冷本身也是一种松弛。慢慢说，或是静静待着都可以。
+      </p>
+    </div>
+  </div>
+
+  <!-- 用户右侧气泡 -->
+  <div class="flex items-start gap-3 justify-end">
+    <div class="bubble-right glass px-4 py-3 max-w-[72%]">
+      <p class="text-sm leading-relaxed">
+        更喜欢这种淡淡的、克制的氛围，温柔又有距离感。
+      </p>
+    </div>
+    <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-brown">
+      <i class="fa fa-user"></i>
+    </div>
+  </div>
+
+  <!-- AI回复 -->
+  <div class="flex items-start gap-3">
+    <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-green">
+      <i class="fa fa-user-o"></i>
+    </div>
+    <div class="bubble-left glass px-4 py-3 max-w-[72%]">
+      <p class="text-sm leading-relaxed">
+        保持恰到好处的温柔距离，不浓烈、不疏离，安安静静地陪着你🌫️
+      </p>
+    </div>
+  </div>
+
+  <div class="h-8"></div>
+</main>
+
+<!-- 底部输入框 -->
+<footer class="max-w-3xl mx-auto px-4 pb-6">
+  <div class="glass-deep rounded-2xl px-4 py-4 flex items-end gap-3">
+    <button class="text-main-light hover:text-main-green text-lg">
+      <i class="fa fa-smile-o"></i>
+    </button>
+    <textarea id="msgInput"
+      class="flex-1 bg-transparent outline-none resize-none min-h-[46px] max-h-[130px] text-sm leading-relaxed placeholder:text-main-light"
+      rows="1"
+      placeholder="想说些什么……"></textarea>
+    <button id="sendBtn" class="w-10 h-10 rounded-full glass flex items-center justify-center text-main-blue hover:text-white hover:bg-main-blue/25 transition">
+      <i class="fa fa-paper-plane-o"></i>
+    </button>
+  </div>
+</footer>
+
+<script>
+// 侧边栏展开收起逻辑（默认隐藏）
+const sidebar = document.getElementById('sidebar');
+const toggleBtn = document.getElementById('sideToggle');
+let sideOpen = false;
+
+toggleBtn.addEventListener('click', () => {
+  sideOpen = !sideOpen;
+  if(sideOpen){
+    sidebar.style.left = '0';
+    toggleBtn.innerHTML = '<i class="fa fa-chevron-left"></i>';
+  }else{
+    sidebar.style.left = '-60px';
+    toggleBtn.innerHTML = '<i class="fa fa-chevron-right"></i>';
+  }
+})
+
+// 输入框自适应高度
+const input = document.getElementById('msgInput');
+input.addEventListener('input', function(){
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight,130) + 'px';
+})
+
+// Enter发送
+input.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    document.getElementById('sendBtn').click();
+  }
+})
+
+// PWA注册
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+     navigator.serviceWorker.register('/service-worker.js').catch(()=>{})
+   })
+ }
+ </script>
+ </body>
+ </html>
