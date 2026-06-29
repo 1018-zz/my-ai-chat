@@ -57,9 +57,6 @@ tailwind.config = {
     background: rgba(131,167,194,0.28);
     border-radius: 20px 20px 6px 20px;
   }
-  .sidebar-transition {
-    transition: left 0.38s cubic-bezier(0.4,0,0.2,1);
-  }
   .scroll-slim::-webkit-scrollbar {
     width: 4px;
   }
@@ -73,22 +70,21 @@ tailwind.config = {
 
 <body class="bg-main-bg text-main-text h-screen overflow-hidden relative">
 
-<!-- 展开按钮：始终在屏幕左边缘可见 -->
-<button id="sideToggle" style="position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:31; width:28px; height:56px; border-radius:0 14px 14px 0; background:rgba(255,255,255,0.62); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(168,144,124,0.25); display:flex; align-items:center; justify-content:center; color:#83A7C2; font-size:14px; cursor:pointer; padding:0; transition:left 0.38s cubic-bezier(0.4,0,0.2,1);">
-  <i class="fa fa-chevron-right"></i>
-</button>
-
-<!-- 侧边工具栏：默认隐藏 -->
-<div id="sidebar" style="position:fixed; left:-80px; top:50%; transform:translateY(-50%); z-index:30; transition:left 0.38s cubic-bezier(0.4,0,0.2,1);">
-  <div class="glass-deep rounded-r-xl py-5 px-3 flex flex-col items-center gap-5">
-    <div class="flex flex-col items-center gap-4 mt-2">
-      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-blue transition"><i class="fa fa-user-o"></i></button>
-      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-green transition"><i class="fa fa-heart-o"></i></button>
-      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-brown transition"><i class="fa fa-music"></i></button>
-      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-light transition"><i class="fa fa-moon-o"></i></button>
-      <button class="w-9 h-9 rounded-full hover:bg-main-border flex items-center justify-center text-main-light hover:text-main-light transition"><i class="fa fa-cog"></i></button>
-    </div>
+<!-- 侧边工具栏容器 -->
+<div id="sidebarWrapper" style="position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:30; pointer-events:none;">
+  <!-- 侧边栏面板 -->
+  <div id="sidebarPanel" style="position:absolute; left:-80px; top:-120px; width:60px; background:rgba(255,255,255,0.62); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:0 16px 16px 0; padding:16px 8px; display:flex; flex-direction:column; align-items:center; gap:20px; transition:left 0.38s cubic-bezier(0.4,0,0.2,1); pointer-events:auto; border:1px solid rgba(168,144,124,0.25); border-left:none;">
+    <button onclick="alert('用户信息')" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.48);display:flex;align-items:center;justify-content:center;color:#8A94A0;cursor:pointer;"><i class="fa fa-user-o"></i></button>
+    <button onclick="alert('收藏')" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.48);display:flex;align-items:center;justify-content:center;color:#8A94A0;cursor:pointer;"><i class="fa fa-heart-o"></i></button>
+    <button onclick="alert('音乐')" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.48);display:flex;align-items:center;justify-content:center;color:#8A94A0;cursor:pointer;"><i class="fa fa-music"></i></button>
+    <button onclick="alert('主题')" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.48);display:flex;align-items:center;justify-content:center;color:#8A94A0;cursor:pointer;"><i class="fa fa-moon-o"></i></button>
+    <button onclick="alert('设置')" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.48);display:flex;align-items:center;justify-content:center;color:#8A94A0;cursor:pointer;"><i class="fa fa-cog"></i></button>
   </div>
+  
+  <!-- 展开按钮：独立定位，始终在屏幕上 -->
+  <button id="sideToggle" style="position:absolute; left:0; top:-20px; width:28px; height:44px; border-radius:0 14px 14px 0; background:rgba(255,255,255,0.62); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(168,144,124,0.25); border-left:none; display:flex; align-items:center; justify-content:center; color:#83A7C2; font-size:14px; cursor:pointer; transition:left 0.38s cubic-bezier(0.4,0,0.2,1); pointer-events:auto; padding:0;">
+    <i class="fa fa-chevron-right"></i>
+  </button>
 </div>
 
 <!-- 顶部头部 -->
@@ -109,86 +105,70 @@ tailwind.config = {
 
 <!-- 聊天消息区域 -->
 <main class="max-w-3xl mx-auto px-4 py-6 h-[calc(100vh-190px)] overflow-y-auto scroll-slim space-y-5">
-
-  <!-- AI左侧气泡 -->
   <div class="flex items-start gap-3">
     <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-green">
       <i class="fa fa-user-o"></i>
     </div>
     <div class="bubble-left glass px-4 py-3 max-w-[72%]">
-      <p class="text-sm leading-relaxed">
-        不必勉强热闹，清冷本身也是一种松弛。慢慢说，或是静静待着都可以。
-      </p>
+      <p class="text-sm leading-relaxed">不必勉强热闹，清冷本身也是一种松弛。慢慢说，或是静静待着都可以。</p>
     </div>
   </div>
-
-  <!-- 用户右侧气泡 -->
   <div class="flex items-start gap-3 justify-end">
     <div class="bubble-right glass px-4 py-3 max-w-[72%]">
-      <p class="text-sm leading-relaxed">
-        更喜欢这种淡淡的、克制的氛围，温柔又有距离感。
-      </p>
+      <p class="text-sm leading-relaxed">更喜欢这种淡淡的、克制的氛围，温柔又有距离感。</p>
     </div>
     <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-brown">
       <i class="fa fa-user"></i>
     </div>
   </div>
-
-  <!-- AI回复 -->
   <div class="flex items-start gap-3">
     <div class="w-9 h-9 rounded-full glass flex-shrink-0 flex items-center justify-center text-main-green">
       <i class="fa fa-user-o"></i>
     </div>
     <div class="bubble-left glass px-4 py-3 max-w-[72%]">
-      <p class="text-sm leading-relaxed">
-        保持恰到好处的温柔距离，不浓烈、不疏离，安安静静地陪着你🌫️
-      </p>
+      <p class="text-sm leading-relaxed">保持恰到好处的温柔距离，不浓烈、不疏离，安安静静地陪着你🌫️</p>
     </div>
   </div>
-
   <div class="h-8"></div>
 </main>
 
 <!-- 底部输入框 -->
 <footer class="max-w-3xl mx-auto px-4 pb-6">
   <div class="glass-deep rounded-2xl px-4 py-4 flex items-end gap-3">
-    <button class="text-main-light hover:text-main-green text-lg">
-      <i class="fa fa-smile-o"></i>
-    </button>
-    <textarea id="msgInput"
-      class="flex-1 bg-transparent outline-none resize-none min-h-[46px] max-h-[130px] text-sm leading-relaxed placeholder:text-main-light"
-      rows="1"
-      placeholder="想说些什么……"></textarea>
-    <button id="sendBtn" class="w-10 h-10 rounded-full glass flex items-center justify-center text-main-blue hover:text-white hover:bg-main-blue/25 transition">
-      <i class="fa fa-paper-plane-o"></i>
-    </button>
+    <button class="text-main-light hover:text-main-green text-lg"><i class="fa fa-smile-o"></i></button>
+    <textarea id="msgInput" class="flex-1 bg-transparent outline-none resize-none min-h-[46px] max-h-[130px] text-sm leading-relaxed placeholder:text-main-light" rows="1" placeholder="想说些什么……"></textarea>
+    <button id="sendBtn" class="w-10 h-10 rounded-full glass flex items-center justify-center text-main-blue hover:text-white hover:bg-main-blue/25 transition"><i class="fa fa-paper-plane-o"></i></button>
   </div>
 </footer>
 
 <script>
-const sidebar = document.getElementById('sidebar');
-const toggleBtn = document.getElementById('sideToggle');
-let sideOpen = false;
+// 侧边栏逻辑
+(function(){
+  const panel = document.getElementById('sidebarPanel');
+  const toggleBtn = document.getElementById('sideToggle');
+  let sideOpen = false;
 
-toggleBtn.addEventListener('click', () => {
-  sideOpen = !sideOpen;
-  if(sideOpen){
-    sidebar.style.left = '0px';
-    toggleBtn.style.left = '80px';
-    toggleBtn.innerHTML = '<i class="fa fa-chevron-left"></i>';
-  }else{
-    sidebar.style.left = '-80px';
-    toggleBtn.style.left = '0px';
-    toggleBtn.innerHTML = '<i class="fa fa-chevron-right"></i>';
-  }
-})
+  toggleBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    sideOpen = !sideOpen;
+    if(sideOpen){
+      panel.style.left = '0px';
+      toggleBtn.style.left = '60px';
+      toggleBtn.innerHTML = '<i class="fa fa-chevron-left"></i>';
+    }else{
+      panel.style.left = '-80px';
+      toggleBtn.style.left = '0px';
+      toggleBtn.innerHTML = '<i class="fa fa-chevron-right"></i>';
+    }
+  });
+})();
 
 // 输入框自适应高度
 const input = document.getElementById('msgInput');
 input.addEventListener('input', function(){
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight,130) + 'px';
-})
+});
 
 // Enter发送
 input.addEventListener('keydown', e => {
@@ -196,14 +176,14 @@ input.addEventListener('keydown', e => {
     e.preventDefault();
     document.getElementById('sendBtn').click();
   }
-})
+});
 
 // PWA注册
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-     navigator.serviceWorker.register('/service-worker.js').catch(()=>{})
-   })
- }
- </script>
- </body>
- </html>
+    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
