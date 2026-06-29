@@ -21,10 +21,9 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
   const [editingTitle, setEditingTitle] = useState(false)
   const messagesEndRef = useRef(null)
   const [showModelMenu, setShowModelMenu] = useState(false)
+  const autoTriggerRef = useRef(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }
 
   useEffect(() => { scrollToBottom() }, [messages, isTyping])
   useEffect(() => { setConversationId(initialConversationId || null) }, [initialConversationId])
@@ -51,6 +50,49 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
     if (messages.length > 0) localStorage.setItem('chat-messages', JSON.stringify(messages))
   }, [messages])
 
+  useEffect(() => {
+    if (!autoTriggerRef.current) return
+    const { toolResult, convId } = autoTriggerRef.current
+    autoTriggerRef.current = null
+
+    setTimeout(async () => {
+      try {
+        const followUp = await fetch(`${API_BASE}/api/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: '你刚才请求的文件内容已经返回。请直接分析这个内容，不需要再次请求。' },
+              { role: 'system', content: `[工具结果]\n${toolResult}` },
+            ],
+            model: selectedModel,
+            conversationId: convId,
+          }),
+        })
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        const r2 = followUp.body.getReader()
+        const d2 = new TextDecoder()
+        let fc2 = ''
+        while (true) {
+          const { done: d, value: v } = await r2.read()
+          if (d) break
+          const lines2 = d2.decode(v).split('\n')
+          for (const l2 of lines2) {
+            if (l2.startsWith('data: ')) {
+              try {
+                const d3 = JSON.parse(l2.slice(6))
+                if (d3.content) {
+                  fc2 += d3.content
+                  setMessages(p => { const u = [...p]; u[u.length-1] = { role:'assistant', content:fc2 }; return u })
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+    }, 500)
+  }, [messages])
+
   const handleSend = async () => {
     if (!input.trim()) return
     let convId = conversationId
@@ -66,8 +108,24 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
         if (memories && memories.length > 0) memoryContext = '【相关记忆】\n' + memories.map(m => m.summary).join('\n')
       } catch (e) {}
     }
+
+    let projectContext = ''
+    try {
+      const [memoriesFile, instructionsFile] = await Promise.all([
+        githubFile('src/project/memories.js'),
+        githubFile('src/project/instructions.js'),
+      ])
+      const parts = []
+      if (memoriesFile.content) parts.push('【不能丢的时刻】\n' + memoriesFile.content.slice(0, 800))
+      if (instructionsFile.content) {
+        const capMatch = instructionsFile.content.match(/const capabilities = `([\s\S]*?)`/)
+        if (capMatch) parts.push('【当前能力】\n' + capMatch[1].slice(0, 1000))
+      }
+      projectContext = parts.join('\n\n')
+    } catch (e) {}
+
     const contextMessages = [
-      { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') },
+      { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') + (projectContext ? '\n\n' + projectContext : '') },
       ...messages, newUserMessage,
     ]
     if (showThinking) contextMessages.unshift({ role: 'system', content: '请在回复之前先写出你的思考过程。格式：【思考】你的思考内容【/思考】\n然后另起一行写正式回复。' })
@@ -95,7 +153,6 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
       }
       setTokenUsage(prev => ({ ...prev, total: prev.total + Math.ceil(fullContent.length / 4) }))
 
-      // 检查 AI 回复中是否有 GitHub 工具调用指令
       const toolMatch = fullContent.match(/GET\s+https:\/\/my-ai-chat-server-production\.up\.railway\.app\/api\/github\/(file|tree)\?path=([^\s\n]+)/)
       if (toolMatch) {
         const [, type, path] = toolMatch
@@ -110,7 +167,9 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
             const data = await githubTree(path)
             toolResult = `📁 ${path || '根目录'}:\n${data.items?.map(i => `- ${i.name} (${i.type})`).join('\n') || JSON.stringify(data)}`
           }
-          setMessages(prev => [...prev, { role: 'system', content: `[工具结果]\n${toolResult}` }])
+          const withTool = [...updatedMessages, { role: 'assistant', content: fullContent }, { role: 'system', content: `[工具结果]\n${toolResult}` }]
+          setMessages(withTool)
+          autoTriggerRef.current = { toolResult, convId }
         } catch (e) {
           console.error('GitHub 工具调用失败:', e)
         }
@@ -171,7 +230,7 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
           <div key={i} className={`message-row ${msg.role==='user'?'message-mine':'message-yours'}${i===messages.length-1&&msg.role==='user'?' tail':''}${i===messages.length-1&&msg.role==='assistant'?' tail':''}`}>
             <div>
               {msg.role==='assistant'&&msg.thinking&&(<div className="thinking-bubble"><span className="thinking-label">💭 思考过程</span>{msg.thinking}</div>)}
-              <div className="bubble"><ReactMarkdown components={{code({node,inline,className,children,...props}){const m=/language-(\w+)/.exec(className||'');return !inline&&m?<SyntaxHighlighter style={oneLight} language={m[1]} PreTag="div" wrapLongLines {...props}>{String(children).replace(/\n$/,'')}</SyntaxHighlighter>:<code className={className} {...props}>{children}</code>}}}>{msg.content}</ReactMarkdown></div>
+              <div className={`bubble${msg.role==='system'?' tool-result':''}`}><ReactMarkdown components={{code({node,inline,className,children,...props}){const m=/language-(\w+)/.exec(className||'');return !inline&&m?<SyntaxHighlighter style={oneLight} language={m[1]} PreTag="div" wrapLongLines {...props}>{String(children).replace(/\n$/,'')}</SyntaxHighlighter>:<code className={className} {...props}>{children}</code>}}}>{msg.content}</ReactMarkdown></div>
               <div className="timestamp">{formatTime()}</div>
             </div>
           </div>

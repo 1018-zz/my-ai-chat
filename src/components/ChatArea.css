@@ -30,6 +30,7 @@
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -410,3 +411,18 @@
   border-color: var(--accent);
 }
 .function-label { font-size: 0.75rem; }
+
+.bubble.tool-result {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.bubble pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.bubble pre code {
+  white-space: pre;
+}
