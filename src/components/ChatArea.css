@@ -2,7 +2,9 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-warm);
+  overflow: hidden;
 }
 
 .chat-header {
@@ -13,7 +15,9 @@
   border-bottom: 1px solid var(--bubble-yours-border);
   background-color: var(--bg-card);
   position: relative;
+  flex-shrink: 0;
 }
+
 .model-indicator {
   font-size: 0.8rem;
   color: var(--text-secondary);
@@ -23,7 +27,8 @@
 }
 
 .message-list {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px;
   display: flex;
@@ -34,6 +39,7 @@
 .message-row {
   display: flex;
   margin: 8px 0;
+  flex-shrink: 0;
 }
 
 .message-mine {
@@ -53,6 +59,7 @@
   font-size: 0.95rem;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow: visible;
 }
 
 .message-mine .bubble {
@@ -84,7 +91,6 @@
   margin-left: 10px;
 }
 
-/* 打字动画 */
 .typing-indicator {
   display: flex;
   gap: 5px;
@@ -111,7 +117,6 @@
   30% { opacity: 1; transform: scale(1.2); }
 }
 
-/* 底部输入 */
 .input-bar {
   display: flex;
   align-items: flex-end;
@@ -119,6 +124,7 @@
   padding: 16px 20px;
   background-color: var(--bg-card);
   border-top: 1px solid var(--bubble-yours-border);
+  flex-shrink: 0;
 }
 
 .input-field {
@@ -167,7 +173,6 @@
   cursor: not-allowed;
 }
 
-/* 模型选择 */
 .model-select {
   background: none;
   border: 1px solid var(--bubble-yours-border);
@@ -179,7 +184,6 @@
   font-family: var(--font-sans);
 }
 
-/* Token 入口 */
 .token-trigger {
   position: relative;
   background: none;
@@ -204,7 +208,6 @@
   font-weight: bold;
 }
 
-/* Token 弹出面板 */
 .token-panel {
   position: absolute;
   top: 48px;
@@ -243,7 +246,7 @@
 
 .thinking-bubble {
   max-width: 55%;
-  margin: 8px 0 8px 0;
+  margin: 8px 0;
   padding: 10px 14px;
   background-color: #fef9f3;
   border-left: 3px solid var(--accent);
@@ -254,6 +257,8 @@
   line-height: 1.6;
   font-style: italic;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .thinking-label {
@@ -264,14 +269,7 @@
   font-style: normal;
 }
 
-.bubble p { margin: 0 0 8px 0; }
-.bubble p:last-child { margin-bottom: 0; }
-.bubble code { background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-.bubble pre { background: rgba(0,0,0,0.06); padding: 12px; border-radius: 8px; overflow-x: auto; }
-.bubble pre code { background: none; padding: 0; }
-.bubble strong { color: var(--accent); }
-
-/* Markdown 渲染样式 */
+/* Markdown */
 .bubble p { margin: 0.3em 0; }
 .bubble ul, .bubble ol { margin: 0.3em 0; padding-left: 1.5em; }
 .bubble li { margin: 0.15em 0; }
@@ -291,13 +289,13 @@
   border-radius: 4px;
   font-size: 0.9em;
   font-family: 'Fira Code', 'Consolas', monospace;
+  word-break: break-all;
 }
 
 .bubble pre {
-  max-width: 100%;
+  max-width: 70vw;
   overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;
 }
 
 .bubble pre code {
@@ -346,4 +344,8 @@
 .bubble th {
   background: var(--accent-soft);
   color: var(--text-primary);
+}
+
+.bubble strong {
+  color: var(--accent);
 }

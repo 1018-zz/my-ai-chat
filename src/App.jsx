@@ -43,6 +43,8 @@ function App() {
     <div style={{ display: 'flex', height: '100vh' }}>
       <aside style={{
         width: '260px',
+        flexShrink: 0,
+        backgroundColor: 'var(--bg-sidebar)',
         backgroundColor: 'var(--bg-sidebar)',
         padding: '20px',
         display: 'flex',

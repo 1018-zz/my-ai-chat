@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import { useState, useRef, useEffect } from 'react'
-import { sendMessageToAI, MODELS, fetchMessages, searchMemories } from '../utils/api'
+import { sendMessageToAI, MODELS, fetchMessages, searchMemories, createConversation } from '../utils/api'
 import '../styles/theme.css'
 import './ChatArea.css'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -58,6 +58,19 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
   const handleSend = async () => {
     if (!input.trim()) return
 
+    // 如果没有选中会话，自动创建一个
+    let convId = conversationId
+    if (!convId) {
+      try {
+        const { id } = await createConversation('新对话')
+        convId = id
+        setConversationId(id)
+      } catch (e) {
+        console.error('创建会话失败:', e)
+        return
+      }
+    }
+
     const userMsg = input.trim()
     const newUserMessage = { role: 'user', content: userMsg }
 
@@ -93,55 +106,55 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
     setLoading(true)
     setIsTyping(true)
 
-   try {
-  const response = await fetch(`${API_BASE}/api/chat/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: contextMessages,
-      model: selectedModel,
-      conversationId,
-    }),
-  })
+    try {
+      const response = await fetch(`${API_BASE}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: contextMessages,
+          model: selectedModel,
+          conversationId: convId,
+        }),
+      })
 
-  setMessages([...updatedMessages, { role: 'assistant', content: '' }])
+      setMessages([...updatedMessages, { role: 'assistant', content: '' }])
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let fullContent = ''
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-    const chunk = decoder.decode(value)
-    const lines = chunk.split('\n')
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
 
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          if (data.content) {
-            fullContent += data.content
-            setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = { role: 'assistant', content: fullContent }
-              return updated
-            })
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.content) {
+                fullContent += data.content
+                setMessages(prev => {
+                  const updated = [...prev]
+                  updated[updated.length - 1] = { role: 'assistant', content: fullContent }
+                  return updated
+                })
+              }
+              if (data.done && data.conversationId && !convId) {
+                setConversationId(data.conversationId)
+              }
+            } catch (e) {}
           }
-          if (data.done && data.conversationId && !conversationId) {
-            setConversationId(data.conversationId)
-          }
-        } catch (e) {}
+        }
       }
-    }
-  }
 
-  setTokenUsage(prev => ({
-    ...prev,
-    total: prev.total + Math.ceil(fullContent.length / 4),
-  }))
-} catch (err) {
+      setTokenUsage(prev => ({
+        ...prev,
+        total: prev.total + Math.ceil(fullContent.length / 4),
+      }))
+    } catch (err) {
       setMessages([...updatedMessages, { role: 'assistant', content: '抱歉，出错了: ' + err.message }])
     } finally {
       setLoading(false)
@@ -225,31 +238,31 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
                   {msg.thinking}
                 </div>
               )}
-             <div className="bubble">
-  <ReactMarkdown
-  components={{
-    code({ node, inline, className, children, ...props }) {
-      const match = /language-(\w+)/.exec(className || '')
-      return !inline && match ? (
-        <SyntaxHighlighter
-          style={oneLight}
-          language={match[1]}
-          PreTag="div"
-          {...props}
-        >
-          {String(children).replace(/\n$/, '')}
-        </SyntaxHighlighter>
-      ) : (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      )
-    },
-  }}
->
-  {msg.content}
-</ReactMarkdown>
-</div>
+              <div className="bubble">
+                <ReactMarkdown
+                  components={{
+                    code({ node, inline, className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || '')
+                      return !inline && match ? (
+                        <SyntaxHighlighter
+                          style={oneLight}
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    },
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
               <div className="timestamp">{formatTime()}</div>
             </div>
           </div>
