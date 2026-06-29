@@ -11,7 +11,7 @@ function App() {
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
   const [showThinking, setShowThinking] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 3500)
@@ -19,9 +19,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    fetchConversations()
-      .then(setConversations)
-      .catch(console.error)
+    fetchConversations().then(setConversations).catch(console.error)
   }, [])
 
   const handleNewConversation = async () => {
@@ -29,28 +27,36 @@ function App() {
     const updatedList = await fetchConversations()
     setConversations(updatedList)
     setActiveConversationId(id)
+    if (window.innerWidth <= 768) setSidebarOpen(false)
   }
 
   const handleSelectConversation = (id) => {
     setActiveConversationId(id)
     fetchConversations().then(setConversations).catch(console.error)
+    if (window.innerWidth <= 768) setSidebarOpen(false)
   }
 
-  if (showSplash) {
-    return <SplashScreen />
-  }
+  if (showSplash) return <SplashScreen />
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <div style={{ display: 'flex', height: '100vh', position: 'relative' }}>
+      {/* 移动端遮罩 */}
+      {sidebarOpen && window.innerWidth <= 768 && (
+        <div onClick={() => setSidebarOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 9
+        }} />
+      )}
+
+      {/* 侧边栏 */}
       <aside style={{
-        width: '260px',
-        flexShrink: 0,
-        backgroundColor: 'var(--bg-sidebar)',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
+        width: '260px', minWidth: '260px', flexShrink: 0,
+        backgroundColor: 'var(--bg-sidebar)', padding: '20px',
+        display: 'flex', flexDirection: 'column', gap: '10px',
         borderRight: '1px solid var(--bubble-yours-border)',
+        position: window.innerWidth <= 768 ? 'fixed' : 'relative',
+        left: window.innerWidth <= 768 ? (sidebarOpen ? '0' : '-280px') : 'auto',
+        top: 0, bottom: 0, zIndex: 10,
+        transition: 'left 0.3s ease',
       }}>
         <h3 style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-primary)', margin: 0 }}>🤖 对话</h3>
 
@@ -90,7 +96,19 @@ function App() {
         </div>
       </aside>
 
-      <main style={{ flex: 1 }}>
+      {/* 主对话区 */}
+      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        {/* 移动端汉堡按钮 */}
+        {window.innerWidth <= 768 && (
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+            position: 'absolute', top: '10px', left: '10px', zIndex: 5,
+            background: 'var(--bg-card)', border: '1px solid var(--bubble-yours-border)',
+            borderRadius: '8px', padding: '6px 10px', fontSize: '1.2rem',
+            cursor: 'pointer', color: 'var(--text-primary)'
+          }}>
+            ☰
+          </button>
+        )}
         <ChatArea systemPrompt={systemPrompt} conversationId={activeConversationId} showThinking={showThinking} />
       </main>
     </div>
