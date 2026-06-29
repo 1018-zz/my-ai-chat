@@ -45,3 +45,13 @@ export async function searchMemories(query) {
 export async function deleteConversation(id) {
   await axios.delete(`${API_BASE}/api/conversations/${id}`)
 }
+
+export async function githubFile(path, repo = 'my-ai-chat') {
+  const res = await axios.get(`${API_BASE}/api/github/file`, { params: { path, repo } })
+  return res.data
+}
+
+export async function githubTree(path = '', repo = 'my-ai-chat') {
+  const res = await axios.get(`${API_BASE}/api/github/tree`, { params: { path, repo } })
+  return res.data
+}

@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import { useState, useRef, useEffect } from 'react'
-import { sendMessageToAI, MODELS, fetchMessages, searchMemories, createConversation } from '../utils/api'
+import { sendMessageToAI, MODELS, fetchMessages, searchMemories, createConversation, githubFile, githubTree } from '../utils/api'
 import '../styles/theme.css'
 import './ChatArea.css'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -94,6 +94,27 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
         }
       }
       setTokenUsage(prev => ({ ...prev, total: prev.total + Math.ceil(fullContent.length / 4) }))
+
+      // 检查 AI 回复中是否有 GitHub 工具调用指令
+      const toolMatch = fullContent.match(/GET\s+https:\/\/my-ai-chat-server-production\.up\.railway\.app\/api\/github\/(file|tree)\?path=([^\s\n]+)/)
+      if (toolMatch) {
+        const [, type, path] = toolMatch
+        try {
+          let toolResult
+          if (type === 'file') {
+            const data = await githubFile(path)
+            toolResult = data.content
+              ? `📄 ${path}:\n\`\`\`\n${data.content.slice(0, 2000)}\n\`\`\``
+              : JSON.stringify(data)
+          } else {
+            const data = await githubTree(path)
+            toolResult = `📁 ${path || '根目录'}:\n${data.items?.map(i => `- ${i.name} (${i.type})`).join('\n') || JSON.stringify(data)}`
+          }
+          setMessages(prev => [...prev, { role: 'system', content: `[工具结果]\n${toolResult}` }])
+        } catch (e) {
+          console.error('GitHub 工具调用失败:', e)
+        }
+      }
     } catch (err) {
       setMessages([...updatedMessages, { role: 'assistant', content: '抱歉，出错了: ' + err.message }])
     } finally { setLoading(false); setIsTyping(false) }
@@ -109,7 +130,6 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
 
   return (
     <div className="chat-container">
-      {/* 顶部导航栏 — Tidal Echo 风格：居中名字 + 状态，左侧汉堡，右侧功能 */}
       <header className="chat-header">
         <button onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))} className="hamburger-btn" aria-label="菜单">☰</button>
         <div className="header-center" onClick={() => setEditingTitle(true)}>
@@ -123,65 +143,49 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
           )}
         </div>
         <div className="header-actions">
-  <div className="model-switcher" style={{ position: 'relative' }}>
-    <button onClick={() => setShowModelMenu(!showModelMenu)} className="icon-btn" title="切换模型">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
-        <path d="M12 2a10 10 0 0 1 10 10h-5.5"/>
-        <path d="M17.5 12H22"/>
-      </svg>
-    </button>
-    {showModelMenu && (
-      <div className="model-menu">
-        {MODELS.map(m => (
-          <button key={m.id} className={selectedModel === m.id ? 'active' : ''} onClick={() => { setSelectedModel(m.id); setShowModelMenu(false) }}>
-            {m.label}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-  <button className="token-trigger" onClick={() => setShowTokenPanel(!showTokenPanel)} title="用量">💰</button>
-</div>
+          <div className="model-switcher" style={{ position: 'relative' }}>
+            <button onClick={() => setShowModelMenu(!showModelMenu)} className="icon-btn" title="切换模型">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10h-5.5"/><path d="M17.5 12H22"/>
+              </svg>
+            </button>
+            {showModelMenu && (
+              <div className="model-menu">
+                {MODELS.map(m => (<button key={m.id} className={selectedModel===m.id?'active':''} onClick={()=>{setSelectedModel(m.id);setShowModelMenu(false)}}>{m.label}</button>))}
+              </div>
+            )}
+          </div>
+          <button className="token-trigger" onClick={() => setShowTokenPanel(!showTokenPanel)} title="用量">💰</button>
+        </div>
         {showTokenPanel && (
           <div className="token-panel">
             <div className="token-panel-row"><span>输入</span><span>{tokenUsage.prompt.toLocaleString()} tokens</span></div>
             <div className="token-panel-row"><span>输出</span><span>{tokenUsage.completion.toLocaleString()} tokens</span></div>
             <div className="token-panel-row total"><span>合计</span><span>{tokenUsage.total.toLocaleString()} tokens</span></div>
-            <div className="token-panel-row"><span>预估费用</span><span>{selectedModel==='deepseek-reasoner' ? `¥${((tokenUsage.prompt*0.004+tokenUsage.completion*0.016)/1000).toFixed(4)}` : `¥${((tokenUsage.total*0.001)/1000).toFixed(4)}`}</span></div>
+            <div className="token-panel-row"><span>预估费用</span><span>{selectedModel==='deepseek-reasoner'?`¥${((tokenUsage.prompt*0.004+tokenUsage.completion*0.016)/1000).toFixed(4)}`:`¥${((tokenUsage.total*0.001)/1000).toFixed(4)}`}</span></div>
           </div>
         )}
       </header>
-
-      {/* 消息列表 */}
       <div className="message-list">
         {messages.map((msg, i) => (
           <div key={i} className={`message-row ${msg.role==='user'?'message-mine':'message-yours'}${i===messages.length-1&&msg.role==='user'?' tail':''}${i===messages.length-1&&msg.role==='assistant'?' tail':''}`}>
             <div>
               {msg.role==='assistant'&&msg.thinking&&(<div className="thinking-bubble"><span className="thinking-label">💭 思考过程</span>{msg.thinking}</div>)}
-              <div className="bubble"><ReactMarkdown components={{ code({node,inline,className,children,...props}){ const m=/language-(\w+)/.exec(className||''); return !inline&&m?<SyntaxHighlighter style={oneLight} language={m[1]} PreTag="div" wrapLongLines {...props}>{String(children).replace(/\n$/,'')}</SyntaxHighlighter>:<code className={className} {...props}>{children}</code> }}}>{msg.content}</ReactMarkdown></div>
+              <div className="bubble"><ReactMarkdown components={{code({node,inline,className,children,...props}){const m=/language-(\w+)/.exec(className||'');return !inline&&m?<SyntaxHighlighter style={oneLight} language={m[1]} PreTag="div" wrapLongLines {...props}>{String(children).replace(/\n$/,'')}</SyntaxHighlighter>:<code className={className} {...props}>{children}</code>}}}>{msg.content}</ReactMarkdown></div>
               <div className="timestamp">{formatTime()}</div>
             </div>
           </div>
         ))}
-        {isTyping && (<div className="message-row message-yours"><div className="typing-indicator"><span className="dot"/><span className="dot"/><span className="dot"/></div></div>)}
+        {isTyping&&(<div className="message-row message-yours"><div className="typing-indicator"><span className="dot"/><span className="dot"/><span className="dot"/></div></div>)}
         <div ref={messagesEndRef}/>
       </div>
-
-      {/* 底部输入区 */}
       <div className="input-bar">
         <textarea className="input-field" placeholder="写点什么..." value={input} onChange={(e)=>setInput(e.target.value)} onKeyDown={handleKeyDown} rows={2} disabled={loading}/>
         <button className="send-btn" onClick={handleSend} disabled={loading||!input.trim()} title="发送">↑</button>
       </div>
       <div className="function-row">
-  <button
-    onClick={() => window.dispatchEvent(new CustomEvent('toggle-thinking', { detail: !showThinking }))}
-    className={`function-btn ${showThinking ? 'active' : ''}`}
-    title="思考过程"
-  >
-    💭 <span className="function-label">思考</span>
-  </button>
-</div>
+        <button onClick={()=>window.dispatchEvent(new CustomEvent('toggle-thinking',{detail:!showThinking}))} className={`function-btn ${showThinking?'active':''}`} title="思考过程">💭 <span className="function-label">思考</span></button>
+      </div>
     </div>
   )
 }
