@@ -20,6 +20,7 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
   const [convTitle, setConvTitle] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const messagesEndRef = useRef(null)
+  const [showModelMenu, setShowModelMenu] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -122,11 +123,26 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
           )}
         </div>
         <div className="header-actions">
-          <select className="model-select model-select-inline" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
-            {MODELS.map(m => (<option key={m.id} value={m.id}>{m.label}</option>))}
-          </select>
-          <button className="token-trigger" onClick={() => setShowTokenPanel(!showTokenPanel)} title="用量">💰</button>
-        </div>
+  <div className="model-switcher" style={{ position: 'relative' }}>
+    <button onClick={() => setShowModelMenu(!showModelMenu)} className="icon-btn" title="切换模型">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+        <path d="M12 2a10 10 0 0 1 10 10h-5.5"/>
+        <path d="M17.5 12H22"/>
+      </svg>
+    </button>
+    {showModelMenu && (
+      <div className="model-menu">
+        {MODELS.map(m => (
+          <button key={m.id} className={selectedModel === m.id ? 'active' : ''} onClick={() => { setSelectedModel(m.id); setShowModelMenu(false) }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+  <button className="token-trigger" onClick={() => setShowTokenPanel(!showTokenPanel)} title="用量">💰</button>
+</div>
         {showTokenPanel && (
           <div className="token-panel">
             <div className="token-panel-row"><span>输入</span><span>{tokenUsage.prompt.toLocaleString()} tokens</span></div>
@@ -157,6 +173,15 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
         <textarea className="input-field" placeholder="写点什么..." value={input} onChange={(e)=>setInput(e.target.value)} onKeyDown={handleKeyDown} rows={2} disabled={loading}/>
         <button className="send-btn" onClick={handleSend} disabled={loading||!input.trim()} title="发送">↑</button>
       </div>
+      <div className="function-row">
+  <button
+    onClick={() => window.dispatchEvent(new CustomEvent('toggle-thinking', { detail: !showThinking }))}
+    className={`function-btn ${showThinking ? 'active' : ''}`}
+    title="思考过程"
+  >
+    💭 <span className="function-label">思考</span>
+  </button>
+</div>
     </div>
   )
 }

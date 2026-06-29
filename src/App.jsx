@@ -14,6 +14,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
 
   useEffect(() => {
+  const handler = (e) => setShowThinking(e.detail)
+  window.addEventListener('toggle-thinking', handler)
+  return () => window.removeEventListener('toggle-thinking', handler)
+}, [])
+  
+  useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 3500)
     return () => clearTimeout(timer)
   }, [])
@@ -57,16 +63,11 @@ function App() {
         left: window.innerWidth <= 768 ? (sidebarOpen ? '0' : '-280px') : 'auto',
         top: 0, bottom: 0, zIndex: 10,
         transition: 'left 0.3s ease',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}>
         <h3 style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-primary)', margin: 0 }}>🤖 对话</h3>
 
-        <div style={{ marginBottom: '4px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', cursor: 'pointer', userSelect: 'none' }}>
-            <input type="checkbox" checked={showThinking} onChange={(e) => setShowThinking(e.target.checked)} style={{ cursor: 'pointer', accentColor: 'var(--accent)' }} />
-            💭 显示思考过程
-          </label>
-        </div>
 
         <button onClick={handleNewConversation} style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid var(--bubble-yours-border)', backgroundColor: 'var(--bg-warm)', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', transition: 'background-color 0.2s' }}
           onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--accent-soft)'}
@@ -98,11 +99,11 @@ function App() {
       </aside>
 
       {/* 主对话区 */}
-      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+      <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {/* 移动端汉堡按钮 */}
         {window.innerWidth <= 768 && (
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '10px', left: '10px', zIndex: 25,
+            position: 'absolute', top: '10px', left: '10px', zIndex: 30,
             background: 'var(--bg-card)', border: '1px solid var(--bubble-yours-border)',
             borderRadius: '8px', padding: '6px 10px', fontSize: '1.2rem',
             cursor: 'pointer', color: 'var(--text-primary)'
@@ -110,8 +111,10 @@ function App() {
             ☰
           </button>
         )}
-        <ChatArea systemPrompt={systemPrompt} conversationId={activeConversationId} showThinking={showThinking} />
-      </main>
+        <div style={{ flex: 1, width: '100%' }}>
+    <ChatArea systemPrompt={systemPrompt} conversationId={activeConversationId} showThinking={showThinking} />
+  </div>
+</main>
     </div>
   )
 }
