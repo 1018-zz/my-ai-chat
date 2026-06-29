@@ -11,6 +11,7 @@ function App() {
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
   const [showThinking, setShowThinking] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 3500)
@@ -44,7 +45,6 @@ function App() {
       <aside style={{
         width: '260px',
         flexShrink: 0,
-        backgroundColor: 'var(--bg-sidebar)',
         backgroundColor: 'var(--bg-sidebar)',
         padding: '20px',
         display: 'flex',

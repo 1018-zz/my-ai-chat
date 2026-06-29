@@ -349,3 +349,21 @@
 .bubble strong {
   color: var(--accent);
 }
+
+@media (max-width: 768px) {
+  .bubble {
+    max-width: 85%;
+  }
+  
+  .thinking-bubble {
+    max-width: 85%;
+  }
+  
+  .chat-header {
+    padding: 8px 12px;
+  }
+  
+  .input-bar {
+    padding: 10px 12px;
+  }
+}
