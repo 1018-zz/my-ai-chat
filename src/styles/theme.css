@@ -1,27 +1,18 @@
 :root {
-  /* 背景 */
-  --bg-warm: #f5f0eb;
-  --bg-sidebar: #ede6df;
-  --bg-card: #ffffff;
-
-  /* 气泡 */
-  --bubble-mine: #5c4a3d;
-  --bubble-mine-text: #fef9f3;
-  --bubble-yours: #faf5ef;
-  --bubble-yours-border: #e8d9cc;
-  --bubble-yours-text: #3a2e26;
-
-  /* 点缀 */
-  --accent: #c47b3b;
-  --accent-hover: #aa6028;
-  --accent-soft: rgba(196, 123, 59, 0.12);
-
-  /* 时间戳 */
-  --timestamp: #a39688;
-
-  /* 文字 */
-  --text-primary: #3a2e26;
-  --text-secondary: #6b5e52;
-  --font-serif: 'Noto Serif SC', 'Georgia', serif;
+  --bg-warm: #F6EFE6;
+  --bg-sidebar: #EBE2D5;
+  --bg-card: #FFFFFF;
+  --bubble-mine: #D9BFA7;
+  --bubble-mine-text: #3D2B1F;
+  --bubble-yours: #E6D9C8;
+  --bubble-yours-border: #D1C2B0;
+  --bubble-yours-text: #3D2B1F;
+  --accent: #8C5F45;
+  --accent-hover: #7A523A;
+  --accent-soft: rgba(140, 95, 69, 0.10);
+  --timestamp: #6A4E3A;
+  --text-primary: #3D2B1F;
+  --text-secondary: #6A4E3A;
+  --font-serif: 'Georgia', 'Noto Serif SC', serif;
   --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }

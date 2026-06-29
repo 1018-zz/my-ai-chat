@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react'
 import { sendMessageToAI, MODELS, fetchMessages, searchMemories } from '../utils/api'
 import '../styles/theme.css'
 import './ChatArea.css'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 const API_BASE = 'https://my-ai-chat-server-production.up.railway.app'
 
@@ -224,7 +226,29 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
                 </div>
               )}
              <div className="bubble">
-  <ReactMarkdown>{msg.content}</ReactMarkdown>
+  <ReactMarkdown
+  components={{
+    code({ node, inline, className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || '')
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={oneLight}
+          language={match[1]}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    },
+  }}
+>
+  {msg.content}
+</ReactMarkdown>
 </div>
               <div className="timestamp">{formatTime()}</div>
             </div>
