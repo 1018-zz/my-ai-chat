@@ -75,7 +75,7 @@ function App() {
               onMouseLeave={(e) => { if (activeConversationId !== conv.id) e.target.style.backgroundColor = 'transparent' }}
             >
               <span style={{ flex: 1 }}>{conv.title || '新对话'}</span>
-              <button onClick={(e) => { e.stopPropagation(); if (confirm('确定删除这个会话吗？')) { deleteConversation(conv.id).then(() => { if (activeConversationId === conv.id) setActiveConversationId(null); fetchConversations().then(setConversations) }) } }}
+              <button onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id).then(() => { if (activeConversationId === conv.id) setActiveConversationId(null); fetchConversations().then(setConversations) }) }}
                 style={{ background: 'none', border: 'none', color: 'var(--timestamp)', fontSize: '0.7rem', cursor: 'pointer', padding: '2px 4px', opacity: 0.5 }} title="删除会话">✕</button>
             </div>
           ))}
