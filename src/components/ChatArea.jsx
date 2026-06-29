@@ -1,3 +1,4 @@
+import ReactMarkdown from 'react-markdown'
 import { useState, useRef, useEffect } from 'react'
 import { sendMessageToAI, MODELS, fetchMessages, searchMemories } from '../utils/api'
 import '../styles/theme.css'
@@ -222,7 +223,9 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
                   {msg.thinking}
                 </div>
               )}
-              <div className="bubble">{msg.content}</div>
+             <div className="bubble">
+  <ReactMarkdown>{msg.content}</ReactMarkdown>
+</div>
               <div className="timestamp">{formatTime()}</div>
             </div>
           </div>
