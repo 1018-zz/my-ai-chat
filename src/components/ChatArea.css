@@ -45,7 +45,7 @@
 }
 
 .bubble {
-  max-width: 70%;
+  max-width: 55%;
   padding: 12px 18px;
   border-radius: 24px;
   font-family: var(--font-sans);
@@ -242,7 +242,7 @@
 }
 
 .thinking-bubble {
-  max-width: 70%;
+  max-width: 55%;
   margin: 8px 0 8px 0;
   padding: 10px 14px;
   background-color: #fef9f3;
