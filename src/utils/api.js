@@ -41,3 +41,7 @@ export async function searchMemories(query) {
   const res = await axios.post(`${API_BASE}/api/memories/search`, { query })
   return res.data
 }
+
+export async function deleteConversation(id) {
+  await axios.delete(`${API_BASE}/api/conversations/${id}`)
+}
