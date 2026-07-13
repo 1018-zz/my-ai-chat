@@ -3,8 +3,8 @@ import axios from 'axios'
 const API_BASE = 'https://my-ai-chat-server-production.up.railway.app'
 
 export const MODELS = [
-  { id: 'deepseek-chat', label: 'DeepSeek Chat', desc: '日常对话' },
-  { id: 'deepseek-reasoner', label: 'DeepSeek Reasoner', desc: '深度推理' },
+  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', desc: '快速响应' },
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', desc: '深度推理' },
 ]
 
 // 发送消息（走后端）
