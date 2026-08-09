@@ -29,24 +29,24 @@ export async function onRequestPost(context) {
       `${SUPABASE}/memories?select=summary&or=(summary.ilike.${enc(like)})&limit=${limit}`,
       { headers: sbHeaders(env) }
     )
-    const memories = await memRes.json()
+    const memData = await memRes.json()
 
     const msgRes = await fetch(
       `${SUPABASE}/messages?select=role,content&or=(content.ilike.${enc(like)})&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
-    const related = await msgRes.json()
+    const msgData = await msgRes.json()
 
     const recentRes = await fetch(
       `${SUPABASE}/messages?select=role,content,created_at&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
-    const recent = await recentRes.json()
+    const recentData = await recentRes.json()
 
     return new Response(JSON.stringify({
-      memories: memories || [],
-      relatedMessages: related || [],
-      recentMessages: recent || [],
+      memories: Array.isArray(memData) ? memData : [],
+      relatedMessages: Array.isArray(msgData) ? msgData : [],
+      recentMessages: Array.isArray(recentData) ? recentData : [],
     }), {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     })
