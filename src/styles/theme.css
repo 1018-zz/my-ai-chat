@@ -58,6 +58,7 @@ body {
   transition: opacity 0.2s;
 }
 .btn:active { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .input {
   background: var(--color-card-glass);
@@ -110,6 +111,7 @@ body {
 .tab-icon { font-size: 18px; margin-bottom: 4px; }
 .tab-text { font-size: 12px; font-weight: 500; }
 
+/* ===== ChatListPage ===== */
 .chat-page { padding: var(--padding-lg); padding-top: 10px; }
 .chat-header {
   display: flex;
@@ -140,6 +142,7 @@ body {
   transition: 0.2s ease;
 }
 .chat-item:active { background: rgba(255,255,255,0.75); }
+.chat-item:hover { background: rgba(255,255,255,0.85); }
 
 .chat-avatar {
   width: 42px;
@@ -178,6 +181,17 @@ body {
   align-items: center;
   justify-content: center;
 }
+.chat-item-delete {
+  background: none;
+  border: none;
+  color: var(--color-text-gray);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.chat-item-delete:hover { opacity: 1; color: var(--color-danger); }
 .chat-empty { text-align: center; padding: 80px 20px; color: var(--color-text-gray); }
 
 .float-note-btn {
@@ -197,17 +211,48 @@ body {
   z-index: 98;
   cursor: pointer;
   opacity: 0.92;
+  transition: transform 0.2s;
 }
 .float-note-btn:active { opacity: 1; transform: scale(0.95); }
 
-.chat-detail-wrap {
+/* ===== ChatDetailPage ===== */
+.chat-detail-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 130px);
-  padding: var(--padding-md);
+  height: calc(100vh - 60px);
 }
 
-.chat-message-list { flex: 1; overflow-y: auto; padding-bottom: 10px; }
+.chat-detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--padding-md);
+  padding: var(--padding-md) var(--padding-lg);
+  background: var(--color-card-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border-glass);
+  flex-shrink: 0;
+}
+.chat-back {
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--color-primary);
+  padding: 4px;
+}
+.chat-detail-title {
+  font-size: var(--font-title);
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
+}
+
+.chat-message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--padding-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
 .msg-left { display: flex; margin-bottom: 12px; }
 .msg-left .msg-bubble {
@@ -218,8 +263,11 @@ body {
   border-radius: var(--radius-lg);
   border-top-left-radius: 4px;
   padding: 10px 14px;
-  max-width: 70%;
+  max-width: 75%;
   color: var(--color-text-dark);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .msg-right { display: flex; justify-content: flex-end; margin-bottom: 12px; }
@@ -228,13 +276,52 @@ body {
   border-radius: var(--radius-lg);
   border-top-right-radius: 4px;
   padding: 10px 14px;
-  max-width: 70%;
+  max-width: 75%;
   color: #fff;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.chat-input-bar { display: flex; gap: 10px; padding: 10px 0; }
+.msg-typing {
+  display: flex;
+  gap: 5px;
+  padding: 12px 14px;
+  background: var(--color-card-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border-glass);
+  border-radius: var(--radius-lg);
+  border-top-left-radius: 4px;
+}
+.msg-typing .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  animation: breathe 1.4s infinite;
+}
+.msg-typing .dot:nth-child(1) { animation-delay: 0s; }
+.msg-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.msg-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes breathe {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.2); }
+}
+
+.chat-input-bar {
+  display: flex;
+  gap: 10px;
+  padding: var(--padding-md) var(--padding-lg);
+  background: var(--color-card-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-border-glass);
+  flex-shrink: 0;
+}
 .chat-input-bar .input { flex: 1; }
 
+/* ===== Note Modal ===== */
 .note-mask {
   position: fixed;
   top: 0;
@@ -292,3 +379,9 @@ body {
   border: 1px solid var(--color-border-glass);
 }
 .note-btn-save { flex: 1; }
+
+@media (max-width: 480px) {
+  .msg-left .msg-bubble, .msg-right .msg-bubble {
+    max-width: 85%;
+  }
+}
