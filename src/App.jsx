@@ -20,7 +20,7 @@ const MCP_SYSTEM_PROMPT = `
 - list_files(path, repo?) → 列目录  
 - write_file(path, content, message, repo?) → 修改代码（需要3个参数）
 
-支持 owner/repo 格式查阅第三方仓库。工具结果会自动注入，无需等待确认。`
+支持 owner/repo 格式查阅第三方仓库。`
 
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
@@ -70,14 +70,105 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
+// ==================== Terminal Panel ====================
+const Terminal = ({ open, onClose, onToolResult }) => {
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('term_history') || '[]') } catch { return [] }
+  })
+  const [input, setInput] = useState('')
+  const inputRef = useRef(null)
+  const logRef = useRef(null)
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 200)
+  }, [open])
+
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
+    try { localStorage.setItem('term_history', JSON.stringify(history.slice(-100))) } catch (_) {}
+  }, [history])
+
+  const addLog = (entry) => {
+    setHistory(prev => [...prev, { ...entry, id: Date.now() }])
+    if (entry.result && onToolResult) onToolResult(entry.result, entry.cmd)
+  }
+
+  const parseCommand = (raw) => {
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+    // shorthand: r path[ repo] / l path[ repo] / w path content[ repo]
+    const m = trimmed.match(/^([rlw])\s+(.+)$/)
+    if (m) {
+      const [, c, rest] = m
+      if (c === 'r') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'read_file', path: p, repo: r } }
+      if (c === 'l') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'list_files', path: p || '', repo: r } }
+      if (c === 'w') return { name: 'write_file', raw: rest } // needs more parsing
+    }
+    // json: {"name":"read_file","path":"src/App.jsx"}
+    if (trimmed.startsWith('{')) {
+      try { return JSON.parse(trimmed) } catch { return null }
+    }
+    return null
+  }
+
+  const execute = async (raw) => {
+    if (!raw.trim()) return
+    addLog({ type: 'cmd', text: raw })
+    setInput('')
+    const cmd = parseCommand(raw)
+    if (!cmd) { addLog({ type: 'err', text: '无法解析。格式: r path [repo] / l path [repo] / {"name":"read_file","path":"..."}' }); return }
+    addLog({ type: 'info', text: `执行: ${cmd.name} ${cmd.path || cmd.raw || ''}` })
+    try {
+      const { name, raw: wr, ...args } = cmd
+      const res = await fetch(MCP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args }, id: 1 }),
+      })
+      const data = await res.json()
+      const text = data.result?.content?.[0]?.text || JSON.stringify(data)
+      addLog({ type: 'result', text, cmd: raw })
+    } catch (e) {
+      addLog({ type: 'err', text: `调用失败: ${e.message}` })
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); execute(input) }
+  }
+
+  if (!open) return null
+  return (
+    <div className="term-panel">
+      <div className="term-top">
+        <button className="term-back" onClick={onClose}>✕</button>
+        <div className="term-title"><strong>Terminal</strong><span>MCP 工具 · r/l/w 快捷指令</span></div>
+      </div>
+      <div className="term-log" ref={logRef}>
+        {history.length === 0 && <div className="term-entry term-info">💡 r path — 读文件 · l path — 列目录 · w — 写文件<br/>示例: <span className="term-cmd">r src/App.jsx</span></div>}
+        {history.map(h => (
+          <div key={h.id} className={`term-entry ${h.type === 'cmd' ? 'term-user' : h.type === 'err' ? 'term-err' : h.type === 'info' ? 'term-info' : ''}`}>
+            {h.type === 'cmd' ? `> ${h.text}` : h.text}
+          </div>
+        ))}
+      </div>
+      <div className="term-form">
+        <span className="term-prompt">&gt;</span>
+        <textarea className="term-input" ref={inputRef} placeholder="r src/App.jsx" value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1} />
+        <button className="term-send" onClick={() => execute(input)}>↵</button>
+      </div>
+    </div>
+  )
+}
+
 // ==================== ChatDetailPage ====================
 const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [msgList, setMsgList] = useState([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
   const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
+  const [termOpen, setTermOpen] = useState(false)
   const messagesEndRef = useRef(null)
-  const autoTriggerRef = useRef(null)
   let nextId = useRef(Date.now())
 
   useEffect(() => {
@@ -97,9 +188,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
   const uid = () => { nextId.current += 1; return nextId.current }
 
-  // ★ 执行一次完整对话轮次
   const runChatTurn = async (messagesForContext, aiMsgId) => {
-    // 构建记忆 + 项目上下文
     const lastUserMsg = [...messagesForContext].reverse().find(m => m.isSelf)
     const userText = lastUserMsg?.text || ''
 
@@ -160,63 +249,6 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         } catch (_) {}
       }
     }
-
-    // MCP 工具调用检测
-    const toolMatch = fullText.match(/```tool\n([\s\S]*?)\n```/)
-    if (toolMatch && mcpEnabled) {
-      try {
-        const toolCall = JSON.parse(toolMatch[1])
-        const cleanText = fullText.replace(/```tool\n[\s\S]*?\n```/, `\n🔧 调用工具: ${toolCall.name}...`)
-        setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: cleanText } : m))
-
-        // 执行 MCP
-        const { name, ...args } = toolCall
-        const mcpRes = await fetch(MCP_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args }, id: 1 }),
-        })
-        const mcpData = await mcpRes.json()
-        const toolResult = mcpData.result?.content?.[0]?.text || JSON.stringify(mcpData)
-
-        // 注入结果，自动继续
-        const newAiMsgId = uid()
-        setMsgList(prev => [...prev, { id: newAiMsgId, text: '', isSelf: false, loading: true }])
-
-        const followContext = [
-          ...messagesForContext.filter(m => !m.loading),
-          { id: uid(), text: cleanText, isSelf: false },
-        ]
-        const followMessages = [
-          { role: 'system', content: systemPrompt + MCP_SYSTEM_PROMPT },
-          ...followContext.slice(-30).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
-          { role: 'system', content: `[工具结果]\n${toolResult.slice(0, 3000)}\n\n请根据工具结果继续回答。` },
-        ]
-
-        const followRes = await fetch(`${API_BASE}/api/chat/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: followMessages, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }),
-        })
-        const fReader = followRes.body.getReader()
-        let fText = ''
-        while (true) {
-          const { done, value } = await fReader.read()
-          if (done) break
-          const text = new TextDecoder().decode(value, { stream: true })
-          for (const line of text.split('\n')) {
-            if (!line.startsWith('data: ')) continue
-            try {
-              const d = JSON.parse(line.slice(6))
-              if (d.content) {
-                fText += d.content
-                setMsgList(prev => prev.map(m => m.id === newAiMsgId ? { ...m, text: fText, loading: false } : m))
-              }
-            } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    }
   }
 
   const handleSend = async () => {
@@ -243,10 +275,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
   return (
     <div className="chat-detail-page">
+      <Terminal open={termOpen} onClose={() => setTermOpen(false)} />
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>
         <span className="chat-detail-title">{chatInfo?.title || '新对话'}</span>
-        <span onClick={toggleMcp} style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <span onClick={() => setTermOpen(true)}
+            style={{ cursor: 'pointer', fontSize: 18, padding: '4px 8px', borderRadius: 8, background: termOpen ? '#050607' : 'transparent', color: termOpen ? '#9dffbc' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }}
+            title="Terminal">💻</span>
+          <span onClick={toggleMcp}
+            style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }}
+            title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
+        </div>
       </div>
       <div className="chat-message-list">
         {msgList.map(msg => (
