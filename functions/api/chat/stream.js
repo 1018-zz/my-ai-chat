@@ -2,18 +2,8 @@ const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 10
 const SUMMARIES_IN_FLIGHT = new Set()
 
-const TOOLS = [
-  { type: 'function', function: { name: 'list_files', description: '列出项目目录。**在读取任何文件之前，先用这个确认路径。**', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径' }, repo: { type: 'string', description: '仓库名' } } } },
-  { type: 'function', function: { name: 'read_file', description: '读取代码文件。先用 list_files 确认文件存在。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径' }, repo: { type: 'string', description: '仓库名' } }, required: ['path'] } },
-  { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } },
-]
-
-function sbHeaders(env) {
-  return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' }
-}
-function sbReturn(env) {
-  return { ...sbHeaders(env), 'Prefer': 'return=representation' }
-}
+function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
+function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
 
 export async function onRequestPost(context) {
   const { request, env } = context
@@ -23,7 +13,13 @@ export async function onRequestPost(context) {
   let body
   try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
 
-  const { messages, model = 'deepseek-v4-flash', conversationId, tools = TOOLS } = body
+  const defaultTools = [
+    { type: 'function', function: { name: 'list_files', description: '列出项目目录。在读取任何文件之前，先用这个确认路径。', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径' }, repo: { type: 'string', description: '仓库名' } } } } },
+    { type: 'function', function: { name: 'read_file', description: '读取代码文件。先用 list_files 确认文件存在。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径' }, repo: { type: 'string', description: '仓库名' } }, required: ['path'] } } },
+    { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } } }
+  ]
+
+  const { messages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools } = body
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return json(400, { error: 'messages is required' })
   }
@@ -52,7 +48,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify(dsBody),
     })
     if (!dsRes.ok) {
-      const t = await dsRes.text().catch(() => '')
+      const t = await dsRes.text().catch(() : '')
       return json(dsRes.status, { error: `DS [${dsRes.status}]: ${t.slice(0, 200)}` })
     }
 
@@ -88,7 +84,7 @@ export async function onRequestPost(context) {
                     if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments
                   }
                 }
-              } catch (_) { /* partial JSON, skip */ }
+              } catch (_) { /* skip partial JSON */ }
             }
           }
         } catch (e) {
