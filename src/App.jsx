@@ -1,8 +1,10 @@
-import { fetchConversations, createConversation, deleteConversation, fetchMessages } from './utils/api'
+import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
+import { buildSystemPrompt } from './project/instructions'
 import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const systemPrompt = buildSystemPrompt()
 
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
@@ -10,7 +12,6 @@ const tabList = [
   { key: 'life', label: 'LIFE', icon: '📋' },
 ]
 
-// ==================== TabNav ====================
 const TabNav = ({ activeTab, onChangeTab }) => (
   <div className="tab-nav">
     {tabList.map((item) => (
@@ -24,7 +25,6 @@ const TabNav = ({ activeTab, onChangeTab }) => (
   </div>
 )
 
-// ==================== LairPage ====================
 const LairPage = () => (
   <div style={{ padding: 20 }}>
     <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
@@ -32,7 +32,6 @@ const LairPage = () => (
   </div>
 )
 
-// ==================== LifePage ====================
 const LifePage = () => (
   <div style={{ padding: 20 }}>
     <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
@@ -40,13 +39,9 @@ const LifePage = () => (
   </div>
 )
 
-// ==================== ChatListPage ====================
 const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   const [conversations, setConversations] = useState([])
-
-  useEffect(() => {
-    fetchConversations().then(setConversations).catch(() => {})
-  }, [refreshTrigger])
+  useEffect(() => { fetchConversations().then(setConversations).catch(() => {}) }, [refreshTrigger])
 
   const handleCreate = async () => {
     try {
@@ -64,9 +59,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
 
   const formatTime = (ts) => {
     if (!ts) return ''
-    const d = new Date(ts)
-    const now = new Date()
-    const diff = now - d
+    const d = new Date(ts), diff = Date.now() - d
     if (diff < 60000) return '刚刚'
     if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`
     if (diff < 86400000) return d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
@@ -100,28 +93,22 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// ==================== ChatDetailPage ====================
 const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [msgList, setMsgList] = useState([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
 
-  // 加载历史消息
   useEffect(() => {
     if (!chatInfo?.id) return
     fetchMessages(chatInfo.id)
       .then(msgs => setMsgList(msgs.map(m => ({
-        id: m.id || m.created_at,
-        text: m.content,
-        isSelf: m.role === 'user',
+        id: m.id || m.created_at, text: m.content, isSelf: m.role === 'user',
       }))))
       .catch(() => {})
   }, [chatInfo?.id])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [msgList])
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgList])
 
   const handleSend = async () => {
     if (!inputText.trim() || loading) return
@@ -129,29 +116,58 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     setInputText('')
     setLoading(true)
 
-    // 添加用户消息
     const userMsg = { id: Date.now(), text: userText, isSelf: true }
     setMsgList(prev => [...prev, userMsg])
 
-    // 添加 AI 占位
     const aiMsgId = Date.now() + 1
     setMsgList(prev => [...prev, { id: aiMsgId, text: '', isSelf: false, loading: true }])
+
+    // ★ 人设 + 记忆 + 项目上下文
+    let memoryContext = ''
+    if (userText.length > 2) {
+      try {
+        const { memories, relatedMessages } = await searchMemories(userText)
+        const parts = []
+        if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n'))
+        if (relatedMessages?.length > 0) {
+          parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m =>
+            `[${m.role === 'user' ? '泠泠' : '钟泽'}] ${m.content.slice(0, 150)}`
+          ).join('\n'))
+        }
+        memoryContext = parts.join('\n\n')
+      } catch (_) {}
+    }
+
+    let projectContext = ''
+    try {
+      const [memFile, instFile] = await Promise.all([
+        githubFile('src/project/memories.js'),
+        githubFile('src/project/instructions.js'),
+      ])
+      const parts = []
+      if (memFile.content) parts.push('【不能丢的时刻】\n' + memFile.content.slice(0, 800))
+      if (instFile.content) {
+        const capMatch = instFile.content.match(/const capabilities = `([\s\S]*?)`/)
+        if (capMatch) parts.push('【当前能力】\n' + capMatch[1].slice(0, 1000))
+      }
+      projectContext = parts.join('\n\n')
+    } catch (_) {}
+
+    const contextMessages = [
+      { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') + (projectContext ? '\n\n' + projectContext : '') },
+      ...msgList.filter(m => !m.loading).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
+      { role: 'user', content: userText },
+    ]
 
     try {
       const res = await fetch(`${API_BASE}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: userText }],
-          model: 'deepseek-v4-flash',
-          conversationId: chatInfo?.id || null,
-        }),
+        body: JSON.stringify({ messages: contextMessages, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }),
       })
-
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -162,32 +178,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
             const d = JSON.parse(line.slice(6))
             if (d.content) {
               fullText += d.content
-              setMsgList(prev => prev.map(m =>
-                m.id === aiMsgId ? { ...m, text: fullText, loading: false } : m
-              ))
+              setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: fullText, loading: false } : m))
             }
-            if (d.done && d.conversationId && !chatInfo?.id) {
-              chatInfo.id = d.conversationId
-              chatInfo.title = userText.slice(0, 20)
-            }
+            if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId; chatInfo.title = userText.slice(0, 20) }
           } catch (_) {}
         }
       }
     } catch (e) {
-      setMsgList(prev => prev.map(m =>
-        m.id === aiMsgId ? { ...m, text: '出错啦，请重试', loading: false } : m
-      ))
-    } finally {
-      setLoading(false)
-    }
+      setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: '出错啦，请重试', loading: false } : m))
+    } finally { setLoading(false) }
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
+  const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
 
   return (
     <div className="chat-detail-page">
@@ -198,59 +200,30 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       <div className="chat-message-list">
         {msgList.map((msg) => (
           <div key={msg.id} className={msg.isSelf ? 'msg-right' : 'msg-left'}>
-            {msg.loading ? (
-              <div className="msg-typing">
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-              </div>
-            ) : (
-              <div className="msg-bubble">{msg.text}</div>
-            )}
+            {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble">{msg.text}</div>}
           </div>
         ))}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef}/>
       </div>
       <div className="chat-input-bar">
-        <input
-          className="input"
-          placeholder="写点什么..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-        />
+        <input className="input" placeholder="写点什么..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}/>
         <button className="btn" onClick={handleSend} disabled={loading || !inputText.trim()}>发送</button>
       </div>
     </div>
   )
 }
 
-// ==================== App ====================
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
   const [currentChat, setCurrentChat] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const handleOpenChat = (chat) => {
-    setCurrentChat(chat)
-  }
-
-  const handleBack = () => {
-    setCurrentChat(null)
-    setRefreshTrigger(t => t + 1) // 刷新会话列表
-  }
-
   return (
     <div className="page-wrap">
-      {activeTab === 'lair' && <LairPage />}
-      {activeTab === 'chat' && (
-        currentChat
-          ? <ChatDetailPage chatInfo={currentChat} onBack={handleBack} />
-          : <ChatListPage onOpenChat={handleOpenChat} refreshTrigger={refreshTrigger} />
-      )}
-      {activeTab === 'life' && <LifePage />}
-      <TabNav activeTab={activeTab} onChangeTab={setActiveTab} />
+      {activeTab === 'lair' && <LairPage/>}
+      {activeTab === 'chat' && (currentChat ? <ChatDetailPage chatInfo={currentChat} onBack={() => { setCurrentChat(null); setRefreshTrigger(t => t+1) }}/> : <ChatListPage onOpenChat={setCurrentChat} refreshTrigger={refreshTrigger}/>)}
+      {activeTab === 'life' && <LifePage/>}
+      <TabNav activeTab={activeTab} onChangeTab={setActiveTab}/>
     </div>
   )
 }
