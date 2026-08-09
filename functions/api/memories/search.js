@@ -1,20 +1,25 @@
 // functions/api/memories/search.js
-// POST /api/memories/search — 记忆检索
-// 使用 fetch 直调 Supabase REST API
+// POST /api/memories/search
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
 function sbHeaders(env) {
-  return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}` }
+  return {
+    'apikey': env.SUPABASE_SECRET_KEY,
+    'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`,
+  }
 }
 
 export async function onRequestPost(context) {
   const { request, env } = context
-  let body
-  try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
-
+  const body = await request.json()
   const { query, limit = 3 } = body
-  if (!query) return json(400, { error: 'query is required' })
+  if (!query) {
+    return new Response(JSON.stringify({ error: 'query required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
+  }
 
   try {
     const enc = encodeURIComponent
@@ -30,28 +35,35 @@ export async function onRequestPost(context) {
       `${SUPABASE}/messages?select=role,content&or=(content.ilike.${enc(like)})&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
-    const relatedMessages = await msgRes.json()
+    const related = await msgRes.json()
 
     const recentRes = await fetch(
       `${SUPABASE}/messages?select=role,content,created_at&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
-    const recentMessages = await recentRes.json()
+    const recent = await recentRes.json()
 
-    return json(200, {
+    return new Response(JSON.stringify({
       memories: memories || [],
-      relatedMessages: relatedMessages || [],
-      recentMessages: recentMessages || [],
+      relatedMessages: related || [],
+      recentMessages: recent || [],
+    }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     })
   } catch (error) {
-    return json(500, { error: error.message })
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
   }
 }
 
-function json(status, body) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
-}
-
 export async function onRequestOptions() {
-  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
 }
