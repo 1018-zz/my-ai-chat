@@ -1,179 +1,50 @@
-// 处理 CORS 预检请求
+// functions/api/mcp.js — 放宽截断到 40000
+
 export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    }
-  });
+  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
 }
 
-// 处理 POST 请求
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
-
+  const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
   try {
     const body = await request.json();
     const { method, params, id } = body;
-
-    // 初始化
     if (method === 'initialize') {
-      return new Response(JSON.stringify({
-        jsonrpc: '2.0', id,
-        result: {
-          protocolVersion: '2025-11-25',
-          serverInfo: { name: 'my-ai-chat-mcp', version: '1.0.0' },
-          capabilities: { tools: {} },
-        }
-      }), { headers });
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { protocolVersion: '2025-11-25', serverInfo: { name: 'my-ai-chat-mcp', version: '1.0.0' }, capabilities: { tools: {} } } }), { headers });
     }
-
-    if (method === 'notifications/initialized') {
-      return new Response(JSON.stringify({ jsonrpc: '2.0', id }), { headers })
-    }
-
-    // 工具列表
+    if (method === 'notifications/initialized') { return new Response(JSON.stringify({ jsonrpc: '2.0', id }), { headers }) }
     if (method === 'tools/list') {
-      return new Response(JSON.stringify({
-        jsonrpc: '2.0', id,
-        result: {
-          tools: [
-            {
-              name: 'read_file',
-              description: '读取项目代码文件。支持自家仓库和第三方开源仓库。',
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  path: { type: 'string', description: '文件路径，例如 src/App.jsx' },
-                  repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' },
-                },
-                required: ['path'],
-              },
-            },
-            {
-              name: 'list_files',
-              description: '列出项目目录。支持自家仓库和第三方开源仓库。',
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  path: { type: 'string', description: '目录路径，例如 src/' },
-                  repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' },
-                },
-              },
-            },
-            {
-              name: 'write_file',
-              description: '修改我们家项目代码并提交到 GitHub。仅限自家仓库。',
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  path: { type: 'string', description: '要修改的文件路径，例如 src/App.jsx' },
-                  content: { type: 'string', description: '文件的新内容' },
-                  message: { type: 'string', description: '提交信息（commit message）' },
-                  repo: { type: 'string', description: '仓库名，默认 my-ai-chat。可选 my-ai-chat-server' },
-                },
-                required: ['path', 'content', 'message'],
-              },
-            },
-          ],
-        }
-      }), { headers });
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { tools: [
+        { name: 'read_file', description: '读取我们家项目的代码文件。AI 用它来查看代码。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' } }, required: ['path'] } },
+        { name: 'list_files', description: '列出项目目录。AI 用它来浏览文件结构。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '目录路径，例如 src/' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' } } } },
+        { name: 'write_file', description: '修改我们家项目代码并提交到 GitHub。仅限自家仓库。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '要修改的文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '文件的新内容' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。可选 my-ai-chat-server' } }, required: ['path', 'content', 'message'] } }
+      ] } }), { headers });
     }
-
-    // 工具调用
     if (method === 'tools/call') {
       const { name, arguments: args } = params;
-
-      // 支持 owner/repo 格式（用于读第三方仓库），write_file 仍锁定 1018-zz
       const repoRaw = args.repo || 'my-ai-chat'
-      const [owner, repoName] = repoRaw.includes('/')
-        ? repoRaw.split('/')
-        : ['1018-zz', repoRaw]
-
-      // 读文件
+      const [owner, repoName] = repoRaw.includes('/') ? repoRaw.split('/') : ['1018-zz', repoRaw]
       if (name === 'read_file') {
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repoName}/contents/${args.path}`,
-          { 
-            headers: { 
-              Authorization: `Bearer ${env.GITHUB_TOKEN}`, 
-              Accept: 'application/vnd.github.v3.raw', 
-              'User-Agent': 'my-ai-chat' 
-            } 
-          }
-        );
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${args.path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.raw', 'User-Agent': 'my-ai-chat' } });
         const content = await res.text();
-        return new Response(JSON.stringify({
-          jsonrpc: '2.0', id,
-          result: { content: [{ type: 'text', text: content.slice(0, 20000) }] }
-        }), { headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: content.slice(0, 40000) }] } }), { headers });
       }
-
-      // 列目录
       if (name === 'list_files') {
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repoName}/contents/${args.path || ''}`,
-          { 
-            headers: { 
-              Authorization: `Bearer ${env.GITHUB_TOKEN}`, 
-              'User-Agent': 'my-ai-chat' 
-            } 
-          }
-        );
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${args.path || ''}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } });
         const items = await res.json();
         const listing = Array.isArray(items) ? items.map(i => `${i.type === 'dir' ? '📁' : '📄'} ${i.name}`).join('\n') : JSON.stringify(items);
-        return new Response(JSON.stringify({
-          jsonrpc: '2.0', id,
-          result: { content: [{ type: 'text', text: listing }] }
-        }), { headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: listing }] } }), { headers });
       }
-
-      // 写文件（仅限自家仓库）
       if (name === 'write_file') {
-        const { path, content, message } = args;
-        const targetRepo = repoRaw;
-
-        // 1. 先获取文件的 SHA（GitHub 要求修改文件时必须提供）
-        const getRes = await fetch(
-          `https://api.github.com/repos/1018-zz/${targetRepo}/contents/${path}`,
-          { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } }
-        );
+        const { path, content: newContent, message } = args;
+        const getRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } });
         const fileData = await getRes.json();
-        const sha = fileData.sha;
-
-        // 2. 更新文件
-        const updateRes = await fetch(
-          `https://api.github.com/repos/1018-zz/${targetRepo}/contents/${path}`,
-          {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-              'Content-Type': 'application/json',
-              'User-Agent': 'my-ai-chat',
-            },
-            body: JSON.stringify({
-              message: message,
-              content: btoa(unescape(encodeURIComponent(content))),
-              sha: sha,
-            }),
-          }
-        );
-        
+        const updateRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'User-Agent': 'my-ai-chat' }, body: JSON.stringify({ message: message, content: btoa(unescape(encodeURIComponent(newContent))), sha: fileData.sha }) });
         const result = await updateRes.json();
-        return new Response(JSON.stringify({
-          jsonrpc: '2.0', id,
-          result: { content: [{ type: 'text', text: `✅ 文件已更新：${result.content?.html_url || '成功'}` }] }
-        }), { headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 文件已更新：${result.content?.html_url || '成功'}` }] } }), { headers });
       }
     }
-
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
-  } catch (error) {
-    return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers });
-  }
+  } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
 }
