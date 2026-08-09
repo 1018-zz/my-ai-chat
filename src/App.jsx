@@ -136,7 +136,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     let mc = ''
     if (userText.length > 2) { try { const { memories, relatedMessages } = await searchMemories(userText); const parts = []; if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n')); if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n')); mc = parts.join('\n\n') } catch (_) {} }
     let pc = ''
-    try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 1000)) } pc = parts.join('\n\n') } catch (_) {}
+    try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
     const { ft, tcs } = await streamChat(cms, aiMsgId, (t) => setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, text: t, loading: false } : m)))
     if (tcs.length > 0) {
