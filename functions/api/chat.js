@@ -1,10 +1,9 @@
 // functions/api/chat.js
 // POST /api/chat — 非流式聊天 + 自动记忆摘要
 // 使用 fetch 直调 Supabase REST API
+import { trySummarize } from './chat/stream-summarize.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
-const SUMMARY_MIN_MESSAGES = 10
-const SUMMARIES_IN_FLIGHT = new Set()
 
 function sbHeaders(env) {
   return {
@@ -87,7 +86,7 @@ export async function onRequestPost(context) {
       })
     }
 
-    // 异步摘要
+    // 异步摘要（与 stream 共用同一份实现）
     context.waitUntil(trySummarize(env, convId))
 
     return json(200, { content: aiContent, usage: dsData.usage, conversationId: convId })
@@ -95,75 +94,6 @@ export async function onRequestPost(context) {
     console.error('Chat Error:', error.message)
     return json(500, { error: error.message })
   }
-}
-
-// 摘要逻辑同 stream.js
-async function trySummarize(env, convId) {
-  if (SUMMARIES_IN_FLIGHT.has(convId)) return
-  SUMMARIES_IN_FLIGHT.add(convId)
-  try {
-    const anchorRes = await fetch(
-      `${SUPABASE}/summary_anchors?conversation_id=eq.${convId}&select=last_message_id`,
-      { headers: sbHeaders(env) }
-    )
-    const anchorRows = await anchorRes.json()
-    const afterId = anchorRows[0]?.last_message_id
-
-    let msgUrl = `${SUPABASE}/messages?conversation_id=eq.${convId}&select=id,role,content,created_at&order=created_at.asc&limit=200`
-    if (afterId) {
-      const amRes = await fetch(`${SUPABASE}/messages?id=eq.${afterId}&select=created_at`, { headers: sbHeaders(env) })
-      const am = await amRes.json()
-      if (am[0]?.created_at) msgUrl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}`
-    }
-
-    const msgRes = await fetch(msgUrl, { headers: sbHeaders(env) })
-    const newMessages = await msgRes.json()
-    if (!Array.isArray(newMessages) || newMessages.length < SUMMARY_MIN_MESSAGES) return
-
-    const today = new Date().toISOString().slice(0, 10)
-    const transcript = newMessages.map(m =>
-      `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 200)}`
-    ).join('\n')
-
-    const summaryPrompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。
-普通流水内容可以丢弃；不要添加原文没有的事实。
-每条 content 使用绝对日期开头（今天是${today}），type 仅可为 daily 或 important，keywords 用中文逗号分隔，不超过5个。
-只输出 JSON 数组：
-[{"content":"","type":"daily","keywords":"关键词1,关键词2","importance":0.4}]
-
-对话：
-${transcript}`
-
-    const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
-      body: JSON.stringify({ messages: [{ role: 'user', content: summaryPrompt }], model: 'deepseek-v4-flash', temperature: 0.3 }),
-    })
-    if (!dsRes.ok) return
-    const dsData = await dsRes.json()
-    const raw = dsData.choices[0]?.message?.content || ''
-    const jsonMatch = raw.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return
-    const memories = JSON.parse(jsonMatch[0])
-    if (!Array.isArray(memories) || memories.length === 0) return
-
-    let inserted = 0
-    for (const mem of memories) {
-      if (!mem.content) continue
-      const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mem.content }) })
-      if (r.ok) inserted++
-    }
-
-    const lastId = newMessages[newMessages.length - 1].id
-    await fetch(`${SUPABASE}/summary_anchors`, {
-      method: 'POST',
-      headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify({ conversation_id: convId, last_message_id: lastId, updated_at: new Date().toISOString() }),
-    })
-
-    if (inserted > 0) console.log(`记忆摘要：${newMessages.length}条消息 → ${inserted}条记忆`)
-  } catch (e) { console.error('记忆摘要失败:', e.message) }
-  finally { SUMMARIES_IN_FLIGHT.delete(convId) }
 }
 
 function json(status, body) {
