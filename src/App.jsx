@@ -138,15 +138,25 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     let pc = ''
     try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
-    const { ft, tcs } = await streamChat(cms, aiMsgId, (t) => setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, text: t, loading: false } : m)))
-    if (tcs.length > 0) {
-      const results = []; setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, text: ft || '🔧 调用工具…', loading: false, toolCalls: tcs.map(tc => ({ ...tc, result: '' })) } : m))
-      for (const tc of tcs) { const r = await executeMcp(tc); results.push({ tool: tc.name, result: r }); setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, toolCalls: tcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m)) }
+    // 工具调用循环：最多 4 轮，每轮执行完把结果注入下一轮
+    let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0
+    const first = await streamChat(curMsgs, curAiId, (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)))
+    curFt = first.ft; curTcs = first.tcs
+    while (curTcs.length > 0 && rounds < 4) {
+      rounds++
+      const results = []
+      setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: curFt || '🔧 调用工具…', loading: false, toolCalls: curTcs.map(tc => ({ ...tc, result: '' })) } : m))
+      for (const tc of curTcs) {
+        let r
+        try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` }
+        results.push({ tool: tc.name, result: r })
+        setMsgList(p => p.map(m => m.id === curAiId ? { ...m, toolCalls: curTcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
+      }
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
       const toolText = results.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
-      const fms = [...cms, { role: 'assistant', content: ft || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
-      const f2 = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)))
-      if (f2.tcs.length > 0) { const r2 = []; for (const tc of f2.tcs) r2.push({ tool: tc.name, result: await executeMcp(tc) }); const xid = uid(); setMsgList(p => [...p, { id: xid, text: '', isSelf: false, loading: true }]); const r2t = r2.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n'); const xms = [...fms, { role: 'assistant', content: f2.ft || '' }, { role: 'user', content: `[工具结果]\n${r2t}\n\n继续。` }]; await streamChat(xms, xid, (t) => setMsgList(p => p.map(m => m.id === xid ? { ...m, text: t, loading: false } : m))) }
+      const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
+      const nxt = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)))
+      curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curAiId = nid
     }
   }
 
