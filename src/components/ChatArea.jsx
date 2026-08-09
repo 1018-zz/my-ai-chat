@@ -62,7 +62,7 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [
-              { role: 'user', content: '你看看这个文件，说说你的想吧。' },
+              { role: 'user', content: '你看看这个文件，说说你的想法吧。' },
               { role: 'system', content: `[工具结果]\n${toolResult}` },
             ],
             model: selectedModel,
@@ -101,13 +101,22 @@ function ChatArea({ systemPrompt, conversationId: initialConversationId, showThi
     }
     const userMsg = input.trim()
     const newUserMessage = { role: 'user', content: userMsg }
-    let memoryContext = ''
-    if (userMsg.length > 2) {
-      try {
-        const { memories } = await searchMemories(userMsg)
-        if (memories && memories.length > 0) memoryContext = '【相关记忆】\n' + memories.map(m => m.summary).join('\n')
-      } catch (e) {}
+let memoryContext = ''
+if (userMsg.length > 2) {
+  try {
+    const { memories, relatedMessages } = await searchMemories(userMsg)
+    const parts = []
+    if (memories && memories.length > 0) {
+      parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n'))
     }
+    if (relatedMessages && relatedMessages.length > 0) {
+      parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m =>
+        `[${m.role === 'user' ? '泠泠' : '钟泽'}] ${m.content.slice(0, 150)}`
+      ).join('\n'))
+    }
+    memoryContext = parts.join('\n\n')
+  } catch (e) {}
+}
 
     let projectContext = ''
     try {
