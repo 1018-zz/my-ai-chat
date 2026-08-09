@@ -1,12 +1,12 @@
-// functions/api/chat/stream.js — 修复死变量
+// functions/api/chat/stream.js
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 10
 const SUMMARIES_IN_FLIGHT = new Set()
 const TOOLS = [
-  { type: 'function', function: { name: 'read_file', description: '读取项目代码文件', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径' }, repo: { type: 'string', description: '仓库名' } }, required: ['path'] } } },
-  { type: 'function', function: { name: 'list_files', description: '列出项目目录', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径' }, repo: { type: 'string', description: '仓库名' } } } } },
-  { type: 'function', function: { name: 'write_file', description: '修改代码并提交', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } } },
+  { type: 'function', function: { name: 'list_files', description: '列出项目目录下的文件。**在读取任何文件之前，先用这个确认文件路径是否正确。**支持 owner/repo 格式查阅第三方仓库。', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径，如 src/、functions/api/、空字符串=根目录' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat' } } } },
+  { type: 'function', function: { name: 'read_file', description: '读取项目代码文件。先用 list_files 确认文件存在再读。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，如 src/App.jsx、functions/api/mcp.js、server.js' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。支持 owner/repo 格式' } }, required: ['path'] } },
+  { type: 'function', function: { name: 'write_file', description: '修改代码并提交到 GitHub。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } },
 ]
 function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
 function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
