@@ -24,8 +24,10 @@ export async function onRequestGet(context) {
     )
     const data = await res.json()
     if (data.content) {
-      // Cloudflare Workers 没有 Buffer，用 atob
-      const decoded = atob(data.content.replace(/\s/g, ''))
+      // atob → Uint8Array → TextDecoder 正确解码 UTF-8 中文
+      const raw = data.content.replace(/\s/g, '')
+      const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+      const decoded = new TextDecoder('utf-8').decode(bytes)
       return json(200, { path, content: decoded })
     }
     return json(200, data)
