@@ -6,7 +6,7 @@ import './ChatArea.css'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-const API_BASE = 'https://my-ai-chat-server-production.up.railway.app'
+const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 
 function ChatArea({ systemPrompt, conversationId: initialConversationId, showThinking }) {
   const [messages, setMessages] = useState([])
