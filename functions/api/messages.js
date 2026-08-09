@@ -24,7 +24,8 @@ export async function onRequestGet(context) {
     }
   )
   const data = await res.json()
-  return new Response(JSON.stringify({ messages: data }), {
+  const messages = Array.isArray(data) ? data : []
+  return new Response(JSON.stringify({ messages }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
