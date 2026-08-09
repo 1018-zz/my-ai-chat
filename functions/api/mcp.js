@@ -33,6 +33,10 @@ export async function onRequestPost(context) {
       }), { headers });
     }
 
+if (method === 'notifications/initialized') {
+  return new Response(JSON.stringify({ jsonrpc: '2.0', id }), { headers })
+}
+
     // 工具列表
     if (method === 'tools/list') {
       return new Response(JSON.stringify({
