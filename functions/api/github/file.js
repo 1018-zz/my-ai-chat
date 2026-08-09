@@ -7,8 +7,9 @@ export async function onRequestGet(context) {
   const path = url.searchParams.get('path')
   const repo = url.searchParams.get('repo') || env.GITHUB_REPO
 
-  if (!path) {
-    return json(400, { error: 'path is required' })
+  if (!path) return json(400, { error: 'path is required' })
+  if (!env.GITHUB_TOKEN || !env.GITHUB_OWNER) {
+    return json(500, { error: 'env: GITHUB_TOKEN or GITHUB_OWNER not set' })
   }
 
   try {
@@ -23,10 +24,9 @@ export async function onRequestGet(context) {
     )
     const data = await res.json()
     if (data.content) {
-      return json(200, {
-        path,
-        content: Buffer.from(data.content, 'base64').toString('utf-8'),
-      })
+      // Cloudflare Workers 没有 Buffer，用 atob
+      const decoded = atob(data.content.replace(/\s/g, ''))
+      return json(200, { path, content: decoded })
     }
     return json(200, data)
   } catch (error) {
