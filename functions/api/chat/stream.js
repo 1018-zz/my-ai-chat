@@ -1,6 +1,5 @@
 // functions/api/chat/stream.js
 // POST /api/chat/stream — 流式聊天（SSE）+ 自动记忆摘要
-// 使用 fetch 直调 Supabase REST API
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 10
@@ -20,6 +19,10 @@ function sbReturn(env) {
 export async function onRequestPost(context) {
   const { request, env } = context
 
+  // 快速诊断：检查环境变量
+  if (!env.DEEPSEEK_API_KEY) return json(500, { error: 'env: DEEPSEEK_API_KEY not set' })
+  if (!env.SUPABASE_SECRET_KEY) return json(500, { error: 'env: SUPABASE_SECRET_KEY not set' })
+
   let body
   try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
 
@@ -38,15 +41,18 @@ export async function onRequestPost(context) {
         headers: sbReturn(env),
         body: JSON.stringify({ title: lastMsg.slice(0, 30) }),
       })
-      if (!r.ok) return json(500, { error: 'failed to create conversation' })
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '')
+        return json(500, { error: `Supabase conversations insert failed [${r.status}]: ${txt.slice(0, 200)}` })
+      }
       const rows = await r.json()
-      convId = rows[0]?.id
-      if (!convId) return json(500, { error: 'failed to create conversation' })
+      convId = Array.isArray(rows) ? rows[0]?.id : null
+      if (!convId) return json(500, { error: 'Supabase conversations insert: no id returned' })
     }
 
     // 2. 存储用户消息
     const userMsg = messages[messages.length - 1]
-    await fetch(`${SUPABASE}/messages`, {
+    const msgRes = await fetch(`${SUPABASE}/messages`, {
       method: 'POST',
       headers: sbReturn(env),
       body: JSON.stringify({
@@ -55,6 +61,10 @@ export async function onRequestPost(context) {
         content: userMsg.content,
       }),
     })
+    if (!msgRes.ok) {
+      const txt = await msgRes.text().catch(() => '')
+      return json(500, { error: `Supabase messages insert failed [${msgRes.status}]: ${txt.slice(0, 200)}` })
+    }
 
     // 3. 调用 DeepSeek 流式 API
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
@@ -67,10 +77,10 @@ export async function onRequestPost(context) {
     })
     if (!dsRes.ok) {
       const errText = await dsRes.text().catch(() => '')
-      return json(dsRes.status, { error: `DeepSeek: ${errText.slice(0, 200)}` })
+      return json(dsRes.status, { error: `DeepSeek [${dsRes.status}]: ${errText.slice(0, 200)}` })
     }
 
-    // 4. SSE 流 — 转发 + 收集
+    // 4. SSE 流
     const encoder = new TextEncoder()
     let fullContent = ''
 
@@ -96,20 +106,16 @@ export async function onRequestPost(context) {
           console.error('Stream error:', e.message)
         } finally {
           try {
-            // 5. 存储 AI 消息
             await fetch(`${SUPABASE}/messages`, {
               method: 'POST',
               headers: sbReturn(env),
               body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }),
             })
-            // 更新会话时间
             await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, {
               method: 'PATCH',
               headers: sbHeaders(env),
               body: JSON.stringify({ updated_at: new Date().toISOString() }),
             })
-
-            // 手动记忆标记
             const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
             if (mm) {
               await fetch(`${SUPABASE}/memories`, {
@@ -118,11 +124,8 @@ export async function onRequestPost(context) {
                 body: JSON.stringify({ summary: mm[1].trim() }),
               })
             }
-
-            // 异步摘要
             trySummarize(env, convId)
           } catch (e) { console.error('Post-stream error:', e.message) }
-
           const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
           try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
           try { controller.close() } catch (_) {}
@@ -139,8 +142,7 @@ export async function onRequestPost(context) {
       },
     })
   } catch (error) {
-    console.error('Stream Error:', error.message)
-    return json(500, { error: error.message })
+    return json(500, { error: `catch: ${error.message}`.slice(0, 300) })
   }
 }
 
@@ -150,7 +152,6 @@ async function trySummarize(env, convId) {
   if (SUMMARIES_IN_FLIGHT.has(convId)) return
   SUMMARIES_IN_FLIGHT.add(convId)
   try {
-    // 锚点
     const anchorRes = await fetch(
       `${SUPABASE}/summary_anchors?conversation_id=eq.${convId}&select=last_message_id`,
       { headers: sbHeaders(env) }
@@ -158,24 +159,16 @@ async function trySummarize(env, convId) {
     const anchorRows = await anchorRes.json()
     const afterId = anchorRows[0]?.last_message_id
 
-    // 新消息
     let msgUrl = `${SUPABASE}/messages?conversation_id=eq.${convId}&select=id,role,content,created_at&order=created_at.asc&limit=200`
     if (afterId) {
-      const anchorMsgRes = await fetch(
-        `${SUPABASE}/messages?id=eq.${afterId}&select=created_at`,
-        { headers: sbHeaders(env) }
-      )
-      const am = await anchorMsgRes.json()
-      if (am[0]?.created_at) {
-        msgUrl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}`
-      }
+      const amRes = await fetch(`${SUPABASE}/messages?id=eq.${afterId}&select=created_at`, { headers: sbHeaders(env) })
+      const am = await amRes.json()
+      if (am[0]?.created_at) msgUrl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}`
     }
-
     const msgRes = await fetch(msgUrl, { headers: sbHeaders(env) })
     const newMessages = await msgRes.json()
     if (!Array.isArray(newMessages) || newMessages.length < SUMMARY_MIN_MESSAGES) return
 
-    // 构建提示词
     const today = new Date().toISOString().slice(0, 10)
     const transcript = newMessages.map(m =>
       `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 200)}`
@@ -192,15 +185,8 @@ ${transcript}`
 
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: summaryPrompt }],
-        model: 'deepseek-v4-flash',
-        temperature: 0.3,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({ messages: [{ role: 'user', content: summaryPrompt }], model: 'deepseek-v4-flash', temperature: 0.3 }),
     })
     if (!dsRes.ok) return
     const dsData = await dsRes.json()
@@ -213,47 +199,24 @@ ${transcript}`
     let inserted = 0
     for (const mem of memories) {
       if (!mem.content) continue
-      const r = await fetch(`${SUPABASE}/memories`, {
-        method: 'POST',
-        headers: sbReturn(env),
-        body: JSON.stringify({ summary: mem.content }),
-      })
+      const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mem.content }) })
       if (r.ok) inserted++
     }
-
-    // 更新锚点
     const lastId = newMessages[newMessages.length - 1].id
     await fetch(`${SUPABASE}/summary_anchors`, {
       method: 'POST',
       headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify({
-        conversation_id: convId,
-        last_message_id: lastId,
-        updated_at: new Date().toISOString(),
-      }),
+      body: JSON.stringify({ conversation_id: convId, last_message_id: lastId, updated_at: new Date().toISOString() }),
     })
-
     if (inserted > 0) console.log(`记忆摘要：${newMessages.length}条消息 → ${inserted}条记忆`)
-  } catch (e) {
-    console.error('记忆摘要失败:', e.message)
-  } finally {
-    SUMMARIES_IN_FLIGHT.delete(convId)
-  }
+  } catch (e) { console.error('摘要失败:', e.message) }
+  finally { SUMMARIES_IN_FLIGHT.delete(convId) }
 }
 
 function json(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-  })
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
 }
 
 export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  })
+  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
 }
