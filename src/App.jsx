@@ -55,7 +55,6 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// ==================== Tool Call Card ====================
 const ToolCard = ({ tool, result, collapsed }) => {
   const [open, setOpen] = useState(!collapsed)
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : '⚙️'
@@ -72,61 +71,38 @@ const ToolCard = ({ tool, result, collapsed }) => {
   )
 }
 
-// ==================== Terminal ====================
 const Terminal = ({ open, onClose }) => {
-  const [history, setHistory] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('term_history') || '[]') } catch { return [] }
-  })
-  const [input, setInput] = useState('')
-  const inputRef = useRef(null)
-  const logRef = useRef(null)
-
+  const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('term_history') || '[]') } catch { return [] } })
+  const [input, setInput] = useState(''); const inputRef = useRef(null); const logRef = useRef(null)
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 200) }, [open])
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }); try { localStorage.setItem('term_history', JSON.stringify(history.slice(-100))) } catch (_) {} }, [history])
-
-  const addLog = (entry) => setHistory(prev => [...prev, { ...entry, id: Date.now() }])
-
-  const parseCommand = (raw) => {
-    const trimmed = raw.trim()
-    if (!trimmed) return null
-    const m = trimmed.match(/^([rlw])\s+(.+)$/)
-    if (m) {
-      const [, c, rest] = m
-      if (c === 'r') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'read_file', path: p, repo: r } }
-      if (c === 'l') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'list_files', path: p || '', repo: r } }
-    }
-    if (trimmed.startsWith('{')) { try { return JSON.parse(trimmed) } catch { return null } }
+  const addLog = (e) => setHistory(p => [...p, { ...e, id: Date.now() }])
+  const parseCmd = (raw) => {
+    const m = raw.trim().match(/^([rlw])\s+(.+)$/)
+    if (m) { const [, c, rest] = m; if (c === 'r') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'read_file', path: p, repo: r } } if (c === 'l') { const [p, r = 'my-ai-chat'] = rest.split(/\s+/, 2); return { name: 'list_files', path: p || '', repo: r } } }
+    if (raw.startsWith('{')) { try { return JSON.parse(raw) } catch { return null } }
     return null
   }
-
   const execute = async (raw) => {
-    if (!raw.trim()) return
-    addLog({ type: 'cmd', text: raw }); setInput('')
-    const cmd = parseCommand(raw)
-    if (!cmd) { addLog({ type: 'err', text: '格式: r path [repo] / l path [repo] / JSON' }); return }
+    if (!raw.trim()) return; addLog({ type: 'cmd', text: raw }); setInput('')
+    const cmd = parseCmd(raw); if (!cmd) { addLog({ type: 'err', text: '格式: r path [repo] / l path [repo] / JSON' }); return }
     addLog({ type: 'info', text: `${cmd.name} ${cmd.path || ''}` })
     try {
       const { name, raw: _, ...args } = cmd
       const res = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args }, id: 1 }) })
-      const data = await res.json()
-      addLog({ type: 'result', text: data.result?.content?.[0]?.text || JSON.stringify(data) })
+      const data = await res.json(); addLog({ type: 'result', text: data.result?.content?.[0]?.text || JSON.stringify(data) })
     } catch (e) { addLog({ type: 'err', text: `失败: ${e.message}` }) }
   }
-
   if (!open) return null
   return (
     <div className="term-panel">
       <div className="term-top"><button className="term-back" onClick={onClose}>✕</button><div className="term-title"><strong>Terminal</strong><span>MCP · r/l 快捷指令</span></div></div>
-      <div className="term-log" ref={logRef}>
-        {history.length === 0 && <div className="term-entry term-info">💡 r path — 读文件 · l path — 列目录</div>}
-        {history.map(h => <div key={h.id} className={`term-entry ${h.type === 'cmd' ? 'term-user' : h.type === 'err' ? 'term-err' : h.type === 'info' ? 'term-info' : ''}`}>{h.type === 'cmd' ? `> ${h.text}` : h.text}</div>)}
-      </div>
-      <div className="term-form"><span className="term-prompt">&gt;</span><textarea className="term-input" ref={inputRef} placeholder="r src/App.jsx" value={input} onChange={e => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); execute(input) } }} rows={1} /><button className="term-send" onClick={() => execute(input)}>↵</button></div>
+      <div className="term-log" ref={logRef}>{history.length === 0 && <div className="term-entry term-info">💡 r path — 读文件 · l path — 列目录</div>}{history.map(h => <div key={h.id} className={`term-entry ${h.type==='cmd'?'term-user':h.type==='err'?'term-err':h.type==='info'?'term-info':''}`}>{h.type==='cmd'?`> ${h.text}`:h.text}</div>)}</div>
+      <div className="term-form"><span className="term-prompt">&gt;</span><textarea className="term-input" ref={inputRef} placeholder="r src/App.jsx" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();execute(input)}}} rows={1}/><button className="term-send" onClick={()=>execute(input)}>↵</button></div>
     </div>
   )
 }
 
-// ==================== ChatDetailPage ====================
 const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [msgList, setMsgList] = useState([])
   const [inputText, setInputText] = useState('')
@@ -136,142 +112,45 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const messagesEndRef = useRef(null)
   let nextId = useRef(Date.now())
 
-  useEffect(() => {
-    if (!chatInfo?.id) return
-    fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(m => ({
-      id: m.id || m.created_at, text: m.content, isSelf: m.role === 'user',
-    })))).catch(() => {})
-  }, [chatInfo?.id])
+  useEffect(() => { if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(m => ({ id: m.id || m.created_at, text: m.content, isSelf: m.role === 'user' })))).catch(() => {}) }, [chatInfo?.id])
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgList])
-
-  const toggleMcp = () => { const next = !mcpEnabled; setMcpEnabled(next); try { localStorage.setItem('mcp_enabled', next) } catch (_) {} }
+  const toggleMcp = () => { const n = !mcpEnabled; setMcpEnabled(n); try { localStorage.setItem('mcp_enabled', n) } catch (_) {} }
   const uid = () => { nextId.current += 1; return nextId.current }
 
-  // ★ 执行 MCP 工具
-  const executeMcp = async (toolCall) => {
-    const { name, arguments: args } = toolCall
-    const res = await fetch(MCP_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args || {} }, id: 1 }),
-    })
-    const data = await res.json()
-    return data.result?.content?.[0]?.text || JSON.stringify(data)
+  const executeMcp = async (tc) => {
+    const r = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: tc.name, arguments: tc.arguments || {} }, id: 1 }) })
+    const d = await r.json(); return d.result?.content?.[0]?.text || JSON.stringify(d)
   }
 
-  // ★ 流式调用 + tool calling 处理
-  const streamChat = async (contextMessages, aiMsgId, onText, onToolCalls) => {
-    const res = await fetch(`${API_BASE}/api/chat/stream`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: contextMessages, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, tools: mcpEnabled ? undefined : [] }),
-    })
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let fullText = '', buffer = '', toolCalls = []
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n'); buffer = lines.pop() || ''
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const d = JSON.parse(line.slice(6))
-          if (d.content) { fullText += d.content; onText(fullText) }
-          if (d.tool_calls) { toolCalls = d.tool_calls }
-          if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId; chatInfo.title = '' }
-        } catch (_) {}
-      }
-    }
-    return { fullText, toolCalls }
+  const streamChat = async (msgs, aiId, onText) => {
+    const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }) })
+    const reader = res.body.getReader(); const decoder = new TextDecoder()
+    let ft = '', buf = '', tcs = []
+    while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() || ''; for (const l of lines) { if (!l.startsWith('data: ')) continue; try { const d = JSON.parse(l.slice(6)); if (d.content) { ft += d.content; onText(ft) } if (d.tool_calls) tcs = d.tool_calls; if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId } } catch (_) {} } }
+    return { ft, tcs }
   }
 
-  const runChatTurn = async (messagesForContext, aiMsgId) => {
-    const lastUserMsg = [...messagesForContext].reverse().find(m => m.isSelf)
+  const runChatTurn = async (msgsForCtx, aiMsgId) => {
+    const lastUserMsg = [...msgsForCtx].reverse().find(m => m.isSelf)
     const userText = lastUserMsg?.text || ''
-
-    let memoryContext = ''
-    if (userText.length > 2) {
-      try {
-        const { memories, relatedMessages } = await searchMemories(userText)
-        const parts = []
-        if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n'))
-        if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role === 'user' ? '泠泠' : '钟泽'}] ${m.content.slice(0, 150)}`).join('\n'))
-        memoryContext = parts.join('\n\n')
-      } catch (_) {}
-    }
-    let projectContext = ''
-    try {
-      const [memFile, instFile] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')])
-      const parts = []
-      if (memFile.content) parts.push('【不能丢的时刻】\n' + memFile.content.slice(0, 800))
-      if (instFile.content) { const cap = instFile.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 1000)) }
-      projectContext = parts.join('\n\n')
-    } catch (_) {}
-
-    const contextMessages = [
-      { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') + (projectContext ? '\n\n' + projectContext : '') },
-      ...messagesForContext.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
-    ]
-
-    const { fullText, toolCalls } = await streamChat(contextMessages, aiMsgId,
-      (text) => setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text, loading: false } : m)),
-      null
-    )
-
-    // ★ tool_calls 处理
-    if (toolCalls.length > 0) {
-      const toolCardId = uid()
-      const results = []
-      setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: fullText || '🔧 调用工具…', loading: false, toolCalls: toolCalls.map(tc => ({ ...tc, result: '' })) } : m))
-
-      for (const tc of toolCalls) {
-        const result = await executeMcp(tc)
-        results.push({ tool: tc.name, result })
-        setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, toolCalls: toolCalls.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
-      }
-
-      // 继续对话：注入工具结果
-      const newAiMsgId = uid()
-      setMsgList(prev => [...prev, { id: newAiMsgId, text: '', isSelf: false, loading: true }])
-      const toolResultsText = results.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
-      const followMessages = [
-        ...contextMessages,
-        { role: 'assistant', content: fullText || '' },
-        { role: 'user', content: `[工具结果]\n${toolResultsText}\n\n请根据以上工具结果继续回答。` },
-      ]
-      const follow = await streamChat(followMessages, newAiMsgId,
-        (text) => setMsgList(prev => prev.map(m => m.id === newAiMsgId ? { ...m, text, loading: false } : m)),
-        null
-      )
-      if (follow.toolCalls.length > 0) {
-        // 递归处理第二轮工具调用（最多一层，防止无限循环）
-        const r2 = []
-        for (const tc of follow.toolCalls) {
-          r2.push({ tool: tc.name, result: await executeMcp(tc) })
-        }
-        const r2Id = uid()
-        setMsgList(prev => [...prev, { id: r2Id, text: '', isSelf: false, loading: true }])
-        const r2text = r2.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
-        const r2Messages = [...followMessages, { role: 'assistant', content: follow.fullText || '' }, { role: 'user', content: `[工具结果]\n${r2text}\n\n继续。` }]
-        const r2id = uid()
-        setMsgList(prev => [...prev, { id: r2id, text: '', isSelf: false, loading: true }])
-        const r2res = await streamChat(r2Messages, r2id, (text) => setMsgList(prev => prev.map(m => m.id === r2id ? { ...m, text, loading: false } : m)), null)
-      }
+    let mc = ''
+    if (userText.length > 2) { try { const { memories, relatedMessages } = await searchMemories(userText); const parts = []; if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n')); if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n')); mc = parts.join('\n\n') } catch (_) {} }
+    let pc = ''
+    try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 1000)) } pc = parts.join('\n\n') } catch (_) {}
+    const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
+    const { ft, tcs } = await streamChat(cms, aiMsgId, (t) => setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, text: t, loading: false } : m)))
+    if (tcs.length > 0) {
+      const results = []; setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, text: ft || '🔧 调用工具…', loading: false, toolCalls: tcs.map(tc => ({ ...tc, result: '' })) } : m))
+      for (const tc of tcs) { const r = await executeMcp(tc); results.push({ tool: tc.name, result: r }); setMsgList(p => p.map(m => m.id === aiMsgId ? { ...m, toolCalls: tcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m)) }
+      const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
+      const toolText = results.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
+      const fms = [...cms, { role: 'assistant', content: ft || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
+      const f2 = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)))
+      if (f2.tcs.length > 0) { const r2 = []; for (const tc of f2.tcs) r2.push({ tool: tc.name, result: await executeMcp(tc) }); const xid = uid(); setMsgList(p => [...p, { id: xid, text: '', isSelf: false, loading: true }]); const r2t = r2.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n'); const xms = [...fms, { role: 'assistant', content: f2.ft || '' }, { role: 'user', content: `[工具结果]\n${r2t}\n\n继续。` }]; await streamChat(xms, xid, (t) => setMsgList(p => p.map(m => m.id === xid ? { ...m, text: t, loading: false } : m))) }
     }
   }
 
-  const handleSend = async () => {
-    if (!inputText.trim() || loading) return
-    const userText = inputText.trim(); setInputText(''); setLoading(true)
-    const userMsgId = uid(), aiMsgId = uid()
-    const newUserMsg = { id: userMsgId, text: userText, isSelf: true }
-    setMsgList(prev => [...prev, newUserMsg, { id: aiMsgId, text: '', isSelf: false, loading: true }])
-    try { await runChatTurn([...msgList, newUserMsg], aiMsgId) }
-    catch (e) { setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: '出错啦，请重试', loading: false } : m)) }
-    finally { setLoading(false) }
-  }
-
+  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); setLoading(true); const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: '出错啦，请重试', loading: false } : m)) } finally { setLoading(false) } }
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
 
   return (
@@ -291,9 +170,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
             <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
               {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble">{msg.text}</div>}
             </div>
-            {msg.toolCalls && msg.toolCalls.map((tc, i) => (
-              <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} collapsed={!!tc.result} /></div>
-            ))}
+            {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} collapsed={!!tc.result}/></div>)}
           </div>
         ))}
         <div ref={messagesEndRef}/>
@@ -306,15 +183,22 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   )
 }
 
+// ★ App — 始终挂载，display 切换，不卸载
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
   const [currentChat, setCurrentChat] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
   return (
     <div className="page-wrap">
-      {activeTab === 'lair' && <LairPage/>}
-      {activeTab === 'chat' && (currentChat ? <ChatDetailPage chatInfo={currentChat} onBack={() => { setCurrentChat(null); setRefreshTrigger(t => t+1) }}/> : <ChatListPage onOpenChat={setCurrentChat} refreshTrigger={refreshTrigger}/>)}
-      {activeTab === 'life' && <LifePage/>}
+      <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
+      <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
+        {currentChat
+          ? <ChatDetailPage chatInfo={currentChat} onBack={() => { setCurrentChat(null); setRefreshTrigger(t => t+1) }}/>
+          : <ChatListPage onOpenChat={setCurrentChat} refreshTrigger={refreshTrigger}/>
+        }
+      </div>
+      <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage/></div>
       <TabNav activeTab={activeTab} onChangeTab={setActiveTab}/>
     </div>
   )
