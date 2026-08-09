@@ -90,7 +90,7 @@ if (method === 'notifications/initialized') {
         const content = await res.text();
         return new Response(JSON.stringify({
           jsonrpc: '2.0', id,
-          result: { content: [{ type: 'text', text: content.slice(0, 3000) }] }
+          result: { content: [{ type: 'text', text: content.slice(0, 20000) }] }
         }), { headers });
       }
 
