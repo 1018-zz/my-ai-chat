@@ -1,53 +1,200 @@
-// functions/api/chat/stream.js
-
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 10
 const SUMMARIES_IN_FLIGHT = new Set()
+
 const TOOLS = [
-  { type: 'function', function: { name: 'list_files', description: '列出项目目录下的文件。**在读取任何文件之前，先用这个确认文件路径是否正确。**支持 owner/repo 格式查阅第三方仓库。', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径，如 src/、functions/api/、空字符串=根目录' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat' } } } },
-  { type: 'function', function: { name: 'read_file', description: '读取项目代码文件。先用 list_files 确认文件存在再读。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，如 src/App.jsx、functions/api/mcp.js、server.js' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。支持 owner/repo 格式' } }, required: ['path'] } },
-  { type: 'function', function: { name: 'write_file', description: '修改代码并提交到 GitHub。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } },
+  { type: 'function', function: { name: 'list_files', description: '列出项目目录。**在读取任何文件之前，先用这个确认路径。**', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径' }, repo: { type: 'string', description: '仓库名' } } } },
+  { type: 'function', function: { name: 'read_file', description: '读取代码文件。先用 list_files 确认文件存在。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径' }, repo: { type: 'string', description: '仓库名' } }, required: ['path'] } },
+  { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } },
 ]
-function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
-function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
+
+function sbHeaders(env) {
+  return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' }
+}
+function sbReturn(env) {
+  return { ...sbHeaders(env), 'Prefer': 'return=representation' }
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context
   if (!env.DEEPSEEK_API_KEY) return json(500, { error: 'env: DEEPSEEK_API_KEY not set' })
   if (!env.SUPABASE_SECRET_KEY) return json(500, { error: 'env: SUPABASE_SECRET_KEY not set' })
-  let body; try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
+
+  let body
+  try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
+
   const { messages, model = 'deepseek-v4-flash', conversationId, tools = TOOLS } = body
-  if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return json(400, { error: 'messages is required' })
+  }
+
   try {
     let convId = conversationId
     if (!convId) {
       const lastMsg = messages[messages.length - 1]?.content || '新对话'
       const r = await fetch(`${SUPABASE}/conversations`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ title: lastMsg.slice(0, 30) }) })
       if (!r.ok) { const t = await r.text().catch(() => ''); return json(500, { error: `conv insert [${r.status}]: ${t.slice(0, 200)}` }) }
-      const rows = await r.json(); convId = Array.isArray(rows) ? rows[0]?.id : null
+      const rows = await r.json()
+      convId = Array.isArray(rows) ? rows[0]?.id : null
       if (!convId) return json(500, { error: 'conv insert: no id' })
     }
+
     const userMsg = messages[messages.length - 1]
     const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
     if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
-    const dsBody = { messages, model, temperature: 0.7, stream: true }; if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
-    const dsRes = await fetch('https://api.deepseek.com/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` }, body: JSON.stringify(dsBody) })
-    if (!dsRes.ok) { const t = await dsRes.text().catch(() => ''); return json(dsRes.status, { error: `DS [${dsRes.status}]: ${t.slice(0, 200)}` }) }
-    const encoder = new TextEncoder(); let fullContent = '', buffer = '', toolCalls = []
-    const sseStream = new ReadableStream({ async start(controller) {
-      const reader = dsRes.body.getReader()
-      try { while (true) { const { done, value } = await reader.read(); if (done) break; buffer += new TextDecoder().decode(value, { stream: true }); const lines = buffer.split('\n'); buffer = lines.pop() || ''; for (const line of lines) { if (!line.startsWith('data: ') || line === 'data: [DONE]') continue; try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) { fullContent += d.choices[0].delta.content; controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: d.choices[0].delta.content })}\n\n`)) } if (d.choices?.[0]?.delta?.tool_calls) { for (const tc of d.choices[0].delta.tool_calls) { const idx = tc.index ?? 0; if (!toolCalls[idx]) toolCalls[idx] = { index: idx, name: '', arguments: '' }; if (tc.function?.name) toolCalls[idx].name += tc.function.name; if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments } } } } catch (_) {} } } } catch (e) { console.error('Stream:', e.message) } finally {
-        for (const line of buffer.split('\n')) { if (!line.startsWith('data: ') || line === 'data: [DONE]') continue; try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content } catch (_) {} }
-        const complete = toolCalls.filter(tc => tc && tc.name); if (complete.length > 0) { for (const tc of complete) { try { tc.arguments = JSON.parse(tc.arguments || '{}') } catch { tc.arguments = {} } } controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`)) }
-        try { await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }) }); await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) }); const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/); if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) }); trySummarize(env, convId) } catch (e) { console.error('Post:', e.message) }
-        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`)) } catch (_) {}; try { controller.close() } catch (_) {}
-      }
-    }})
-    return new Response(sseStream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' } })
-  } catch (error) { return json(500, { error: `catch: ${error.message}`.slice(0, 300) }) }
+
+    const dsBody = { messages, model, temperature: 0.7, stream: true }
+    if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
+
+    const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+      body: JSON.stringify(dsBody),
+    })
+    if (!dsRes.ok) {
+      const t = await dsRes.text().catch(() => '')
+      return json(dsRes.status, { error: `DS [${dsRes.status}]: ${t.slice(0, 200)}` })
+    }
+
+    const encoder = new TextEncoder()
+    let fullContent = ''
+    let buffer = ''
+    let toolCalls = []
+
+    const sseStream = new ReadableStream({
+      async start(controller) {
+        const reader = dsRes.body.getReader()
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += new TextDecoder().decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+              try {
+                const d = JSON.parse(line.slice(6))
+                const delta = d.choices?.[0]?.delta
+                if (delta?.content) {
+                  fullContent += delta.content
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`))
+                }
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index ?? 0
+                    if (!toolCalls[idx]) toolCalls[idx] = { index: idx, name: '', arguments: '' }
+                    if (tc.function?.name) toolCalls[idx].name += tc.function.name
+                    if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments
+                  }
+                }
+              } catch (_) { /* partial JSON, skip */ }
+            }
+          }
+        } catch (e) {
+          console.error('Stream error:', e.message)
+        } finally {
+          for (const line of buffer.split('\n')) {
+            if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+            try {
+              const d = JSON.parse(line.slice(6))
+              if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content
+            } catch (_) {}
+          }
+
+          const complete = toolCalls.filter(tc => tc && tc.name)
+          if (complete.length > 0) {
+            for (const tc of complete) {
+              try { tc.arguments = JSON.parse(tc.arguments || '{}') } catch { tc.arguments = {} }
+            }
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`))
+          }
+
+          try {
+            await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }) })
+            await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
+            const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
+            if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
+            trySummarize(env, convId)
+          } catch (e) { console.error('Post-stream error:', e.message) }
+
+          const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
+          try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
+          try { controller.close() } catch (_) {}
+        }
+      },
+    })
+
+    return new Response(sseStream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' },
+    })
+  } catch (error) {
+    return json(500, { error: `catch: ${error.message}`.slice(0, 300) })
+  }
 }
 
-async function trySummarize(env, convId) { if (SUMMARIES_IN_FLIGHT.has(convId)) return; SUMMARIES_IN_FLIGHT.add(convId); try { const ar = await fetch(`${SUPABASE}/summary_anchors?conversation_id=eq.${convId}&select=last_message_id`, { headers: sbHeaders(env) }); const ar2 = await ar.json(); const afterId = ar2[0]?.last_message_id; let murl = `${SUPABASE}/messages?conversation_id=eq.${convId}&select=id,role,content,created_at&order=created_at.asc&limit=200`; if (afterId) { const amr = await fetch(`${SUPABASE}/messages?id=eq.${afterId}&select=created_at`, { headers: sbHeaders(env) }); const am = await amr.json(); if (am[0]?.created_at) murl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}` } const mr = await fetch(murl, { headers: sbHeaders(env) }); const nm = await mr.json(); if (!Array.isArray(nm) || nm.length < SUMMARY_MIN_MESSAGES) return; const today = new Date().toISOString().slice(0, 10); const transcript = nm.map(m => `[${m.role==='user'?'泠泠':'钟泽'}]: ${(m.content||'').slice(0,200)}`).join('\n'); const prompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。普通流水内容可以丢弃；不要添加原文没有的事实。每条 content 使用绝对日期开头（今天是${today}），type 仅可为 daily 或 important，keywords 用中文逗号分隔，不超过5个。只输出 JSON 数组：[{"content":"","type":"daily","keywords":"关键词1,关键词2","importance":0.4}] 对话：${transcript}`; const ds = await fetch('https://api.deepseek.com/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` }, body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'deepseek-v4-flash', temperature: 0.3 }) }); if (!ds.ok) return; const dd = await ds.json(); const raw = dd.choices[0]?.message?.content || ''; const jm = raw.match(/\[[\s\S]*\]/); if (!jm) return; const mems = JSON.parse(jm[0]); if (!Array.isArray(mems) || mems.length === 0) return; let ins = 0; for (const m of mems) { if (!m.content) continue; const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: m.content }) }); if (r.ok) ins++ } const lid = nm[nm.length-1].id; await fetch(`${SUPABASE}/summary_anchors`, { method: 'POST', headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ conversation_id: convId, last_message_id: lid, updated_at: new Date().toISOString() }) }); if (ins>0) console.log(`记忆摘要：${nm.length}条→${ins}条`) } catch (e) { console.error('摘要失败:', e.message) } finally { SUMMARIES_IN_FLIGHT.delete(convId) } }
+async function trySummarize(env, convId) {
+  if (SUMMARIES_IN_FLIGHT.has(convId)) return
+  SUMMARIES_IN_FLIGHT.add(convId)
+  try {
+    const ar = await fetch(`${SUPABASE}/summary_anchors?conversation_id=eq.${convId}&select=last_message_id`, { headers: sbHeaders(env) })
+    const ar2 = await ar.json()
+    const afterId = ar2[0]?.last_message_id
 
-function json(status, body) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }) }
-export async function onRequestOptions() { return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) }
+    let murl = `${SUPABASE}/messages?conversation_id=eq.${convId}&select=id,role,content,created_at&order=created_at.asc&limit=200`
+    if (afterId) {
+      const amr = await fetch(`${SUPABASE}/messages?id=eq.${afterId}&select=created_at`, { headers: sbHeaders(env) })
+      const am = await amr.json()
+      if (am[0]?.created_at) murl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}`
+    }
+
+    const mr = await fetch(murl, { headers: sbHeaders(env) })
+    const nm = await mr.json()
+    if (!Array.isArray(nm) || nm.length < SUMMARY_MIN_MESSAGES) return
+
+    const today = new Date().toISOString().slice(0, 10)
+    const transcript = nm.map(m => `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 200)}`).join('\n')
+    const prompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。普通流水内容可以丢弃；不要添加原文没有的事实。每条 content 使用绝对日期开头（今天是${today}），type 仅可为 daily 或 important，keywords 用中文逗号分隔，不超过5个。只输出 JSON 数组：[{"content":"","type":"daily","keywords":"关键词1,关键词2","importance":0.4}] 对话：${transcript}`
+
+    const ds = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'deepseek-v4-flash', temperature: 0.3 }),
+    })
+    if (!ds.ok) return
+    const dd = await ds.json()
+    const raw = dd.choices[0]?.message?.content || ''
+    const jm = raw.match(/\[[\s\S]*\]/)
+    if (!jm) return
+    const mems = JSON.parse(jm[0])
+    if (!Array.isArray(mems) || mems.length === 0) return
+
+    let ins = 0
+    for (const m of mems) {
+      if (!m.content) continue
+      const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: m.content }) })
+      if (r.ok) ins++
+    }
+
+    const lid = nm[nm.length - 1].id
+    await fetch(`${SUPABASE}/summary_anchors`, {
+      method: 'POST',
+      headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ conversation_id: convId, last_message_id: lid, updated_at: new Date().toISOString() }),
+    })
+
+    if (ins > 0) console.log(`记忆摘要：${nm.length}条消息 → ${ins}条记忆`)
+  } catch (e) {
+    console.error('摘要失败:', e.message)
+  } finally {
+    SUMMARIES_IN_FLIGHT.delete(convId)
+  }
+}
+
+function json(status, body) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+}
