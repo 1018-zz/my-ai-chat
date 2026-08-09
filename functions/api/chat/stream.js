@@ -19,7 +19,6 @@ function sbReturn(env) {
 export async function onRequestPost(context) {
   const { request, env } = context
 
-  // 快速诊断：检查环境变量
   if (!env.DEEPSEEK_API_KEY) return json(500, { error: 'env: DEEPSEEK_API_KEY not set' })
   if (!env.SUPABASE_SECRET_KEY) return json(500, { error: 'env: SUPABASE_SECRET_KEY not set' })
 
@@ -32,7 +31,6 @@ export async function onRequestPost(context) {
   }
 
   try {
-    // 1. 解析 / 创建会话
     let convId = conversationId
     if (!convId) {
       const lastMsg = messages[messages.length - 1]?.content || '新对话'
@@ -43,30 +41,24 @@ export async function onRequestPost(context) {
       })
       if (!r.ok) {
         const txt = await r.text().catch(() => '')
-        return json(500, { error: `Supabase conversations insert failed [${r.status}]: ${txt.slice(0, 200)}` })
+        return json(500, { error: `Supabase conversations insert [${r.status}]: ${txt.slice(0, 200)}` })
       }
       const rows = await r.json()
       convId = Array.isArray(rows) ? rows[0]?.id : null
       if (!convId) return json(500, { error: 'Supabase conversations insert: no id returned' })
     }
 
-    // 2. 存储用户消息
     const userMsg = messages[messages.length - 1]
     const msgRes = await fetch(`${SUPABASE}/messages`, {
       method: 'POST',
       headers: sbReturn(env),
-      body: JSON.stringify({
-        conversation_id: convId,
-        role: 'user',
-        content: userMsg.content,
-      }),
+      body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }),
     })
     if (!msgRes.ok) {
       const txt = await msgRes.text().catch(() => '')
-      return json(500, { error: `Supabase messages insert failed [${msgRes.status}]: ${txt.slice(0, 200)}` })
+      return json(500, { error: `Supabase messages insert [${msgRes.status}]: ${txt.slice(0, 200)}` })
     }
 
-    // 3. 调用 DeepSeek 流式 API
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -80,31 +72,50 @@ export async function onRequestPost(context) {
       return json(dsRes.status, { error: `DeepSeek [${dsRes.status}]: ${errText.slice(0, 200)}` })
     }
 
-    // 4. SSE 流
+    // ★ SSE 流：解析 DeepSeek 格式 → 转成 { content } 发送给前端
     const encoder = new TextEncoder()
     let fullContent = ''
+    let buffer = ''
 
     const sseStream = new ReadableStream({
       async start(controller) {
         const reader = dsRes.body.getReader()
-        const decoder = new TextDecoder()
         try {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            controller.enqueue(value)
-            const text = decoder.decode(value, { stream: true })
-            for (const line of text.split('\n')) {
+
+            buffer += new TextDecoder().decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''  // 最后一行可能不完整，留着
+
+            for (const line of lines) {
               if (!line.startsWith('data: ')) continue
               try {
                 const d = JSON.parse(line.slice(6))
-                if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content
+                const content = d.choices?.[0]?.delta?.content
+                if (content) {
+                  fullContent += content
+                  // ★ 转成前端期望的格式
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                }
               } catch (_) {}
             }
           }
         } catch (e) {
           console.error('Stream error:', e.message)
         } finally {
+          // 处理 buffer 中残留的完整行
+          for (const line of buffer.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const d = JSON.parse(line.slice(6))
+              const content = d.choices?.[0]?.delta?.content
+              if (content) fullContent += content
+            } catch (_) {}
+          }
+
+          // 存储 + 摘要
           try {
             await fetch(`${SUPABASE}/messages`, {
               method: 'POST',
@@ -126,6 +137,7 @@ export async function onRequestPost(context) {
             }
             trySummarize(env, convId)
           } catch (e) { console.error('Post-stream error:', e.message) }
+
           const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
           try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
           try { controller.close() } catch (_) {}
