@@ -18,7 +18,8 @@ export async function onRequestGet(context) {
     { headers: sbHeaders(env) }
   )
   const data = await res.json()
-  return new Response(JSON.stringify({ conversations: data }), {
+  const conversations = Array.isArray(data) ? data : []
+  return new Response(JSON.stringify({ conversations }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
@@ -32,7 +33,8 @@ export async function onRequestPost(context) {
     body: JSON.stringify({ title: (body.title || '新对话') }),
   })
   const rows = await res.json()
-  return new Response(JSON.stringify({ id: rows[0]?.id }), {
+  const id = Array.isArray(rows) ? rows[0]?.id : null
+  return new Response(JSON.stringify({ id }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
