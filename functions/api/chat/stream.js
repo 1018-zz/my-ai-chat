@@ -15,9 +15,9 @@ export async function onRequestPost(context) {
   try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
 
   const defaultTools = [
-    { type: 'function', function: { name: 'list_files', description: '列出项目目录。在读取任何文件之前，先用这个确认路径。', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径' }, repo: { type: 'string', description: '仓库名' } } } } },
-    { type: 'function', function: { name: 'read_file', description: '读取代码文件。先用 list_files 确认文件存在。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径' }, repo: { type: 'string', description: '仓库名' } }, required: ['path'] } } },
-    { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' }, message: { type: 'string' }, repo: { type: 'string' } }, required: ['path', 'content', 'message'] } } }
+    { type: 'function', function: { name: 'list_files', description: '列出项目目录。在读取任何文件之前，先用这个确认路径。repo 参数通常可省略，默认就是我们自己的项目 my-ai-chat。', parameters: { type: 'object', properties: { path: { type: 'string', description: '目录路径，例如 src/' }, repo: { type: 'string', description: '仓库名。默认 my-ai-chat，可省略。只有读取后端仓库时才填 my-ai-chat-server' } } } } },
+    { type: 'function', function: { name: 'read_file', description: '读取代码文件。先用 list_files 确认文件存在。repo 参数通常可省略，默认就是我们自己的项目 my-ai-chat。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, repo: { type: 'string', description: '仓库名。默认 my-ai-chat，可省略。只有读取后端仓库时才填 my-ai-chat-server' } }, required: ['path'] } } },
+    { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '文件的新内容' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名。默认 my-ai-chat，可省略。只有修改后端仓库时才填 my-ai-chat-server' } }, required: ['path', 'content', 'message'] } } }
   ]
 
   const { messages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools } = body
