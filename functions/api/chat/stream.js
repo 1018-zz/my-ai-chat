@@ -1,48 +1,59 @@
 // functions/api/chat/stream.js
 // POST /api/chat/stream — 流式聊天（SSE）+ 自动记忆摘要
+// 使用 fetch 直调 Supabase REST API
 
-import { createClient } from '@supabase/supabase-js'
-
+const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 10
 const SUMMARIES_IN_FLIGHT = new Set()
+
+function sbHeaders(env) {
+  return {
+    'apikey': env.SUPABASE_SECRET_KEY,
+    'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`,
+    'Content-Type': 'application/json',
+  }
+}
+function sbReturn(env) {
+  return { ...sbHeaders(env), 'Prefer': 'return=representation' }
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context
 
   let body
-  try { body = await request.json() } catch {
-    return json(400, { error: 'invalid json' })
-  }
+  try { body = await request.json() } catch { return json(400, { error: 'invalid json' }) }
 
   const { messages, model = 'deepseek-v4-flash', conversationId } = body
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return json(400, { error: 'messages is required' })
   }
 
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY)
-
   try {
     // 1. 解析 / 创建会话
     let convId = conversationId
     if (!convId) {
       const lastMsg = messages[messages.length - 1]?.content || '新对话'
-      const { data: newConv, error: convErr } = await supabase
-        .from('conversations')
-        .insert({ title: lastMsg.slice(0, 30) })
-        .select('id')
-        .single()
-      if (convErr || !newConv) {
-        return json(500, { error: 'failed to create conversation' })
-      }
-      convId = newConv.id
+      const r = await fetch(`${SUPABASE}/conversations`, {
+        method: 'POST',
+        headers: sbReturn(env),
+        body: JSON.stringify({ title: lastMsg.slice(0, 30) }),
+      })
+      if (!r.ok) return json(500, { error: 'failed to create conversation' })
+      const rows = await r.json()
+      convId = rows[0]?.id
+      if (!convId) return json(500, { error: 'failed to create conversation' })
     }
 
     // 2. 存储用户消息
     const userMsg = messages[messages.length - 1]
-    await supabase.from('messages').insert({
-      conversation_id: convId,
-      role: 'user',
-      content: userMsg.content,
+    await fetch(`${SUPABASE}/messages`, {
+      method: 'POST',
+      headers: sbReturn(env),
+      body: JSON.stringify({
+        conversation_id: convId,
+        role: 'user',
+        content: userMsg.content,
+      }),
     })
 
     // 3. 调用 DeepSeek 流式 API
@@ -54,13 +65,12 @@ export async function onRequestPost(context) {
       },
       body: JSON.stringify({ messages, model, temperature: 0.7, stream: true }),
     })
-
     if (!dsRes.ok) {
       const errText = await dsRes.text().catch(() => '')
       return json(dsRes.status, { error: `DeepSeek: ${errText.slice(0, 200)}` })
     }
 
-    // 4. 创建 SSE 流 — 同时转发 + 收集完整内容
+    // 4. SSE 流 — 转发 + 收集
     const encoder = new TextEncoder()
     let fullContent = ''
 
@@ -72,48 +82,47 @@ export async function onRequestPost(context) {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            // 转发原始 chunk
             controller.enqueue(value)
-            // 收集内容
             const text = decoder.decode(value, { stream: true })
             for (const line of text.split('\n')) {
               if (!line.startsWith('data: ')) continue
               try {
                 const d = JSON.parse(line.slice(6))
-                if (d.choices?.[0]?.delta?.content) {
-                  fullContent += d.choices[0].delta.content
-                }
-              } catch (_) { /* partial chunk, ok */ }
+                if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content
+              } catch (_) {}
             }
           }
         } catch (e) {
           console.error('Stream error:', e.message)
         } finally {
-          // 5. 流结束后：存储 AI 消息 + 检查手动记忆 + 更新会话
           try {
-            await supabase.from('messages').insert({
-              conversation_id: convId,
-              role: 'assistant',
-              content: fullContent,
+            // 5. 存储 AI 消息
+            await fetch(`${SUPABASE}/messages`, {
+              method: 'POST',
+              headers: sbReturn(env),
+              body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }),
             })
-            await supabase.from('conversations')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', convId)
+            // 更新会话时间
+            await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, {
+              method: 'PATCH',
+              headers: sbHeaders(env),
+              body: JSON.stringify({ updated_at: new Date().toISOString() }),
+            })
 
             // 手动记忆标记
             const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
             if (mm) {
-              await supabase.from('memories').insert({ summary: mm[1].trim() })
-              console.log('手动标记记忆:', mm[1].trim().slice(0, 50))
+              await fetch(`${SUPABASE}/memories`, {
+                method: 'POST',
+                headers: sbReturn(env),
+                body: JSON.stringify({ summary: mm[1].trim() }),
+              })
             }
 
-            // 异步触发自动摘要
-            trySummarize(supabase, env, convId)
-          } catch (e) {
-            console.error('Post-stream storage error:', e.message)
-          }
+            // 异步摘要
+            trySummarize(env, convId)
+          } catch (e) { console.error('Post-stream error:', e.message) }
 
-          // 发送结束标记
           const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
           try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
           try { controller.close() } catch (_) {}
@@ -135,41 +144,41 @@ export async function onRequestPost(context) {
   }
 }
 
-// ==================== 自动记忆摘要（与 chat.js 共用逻辑） ====================
+// ==================== 自动记忆摘要 ====================
 
-async function trySummarize(supabase, env, convId) {
+async function trySummarize(env, convId) {
   if (SUMMARIES_IN_FLIGHT.has(convId)) return
   SUMMARIES_IN_FLIGHT.add(convId)
   try {
-    const { data: anchor } = await supabase
-      .from('summary_anchors')
-      .select('last_message_id')
-      .eq('conversation_id', convId)
-      .maybeSingle()
+    // 锚点
+    const anchorRes = await fetch(
+      `${SUPABASE}/summary_anchors?conversation_id=eq.${convId}&select=last_message_id`,
+      { headers: sbHeaders(env) }
+    )
+    const anchorRows = await anchorRes.json()
+    const afterId = anchorRows[0]?.last_message_id
 
-    const afterId = anchor?.last_message_id
-
-    let query = supabase
-      .from('messages')
-      .select('id, role, content, created_at')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true })
-
+    // 新消息
+    let msgUrl = `${SUPABASE}/messages?conversation_id=eq.${convId}&select=id,role,content,created_at&order=created_at.asc&limit=200`
     if (afterId) {
-      const { data: anchorMsg } = await supabase
-        .from('messages')
-        .select('created_at')
-        .eq('id', afterId)
-        .maybeSingle()
-      if (anchorMsg) query = query.gt('created_at', anchorMsg.created_at)
+      const anchorMsgRes = await fetch(
+        `${SUPABASE}/messages?id=eq.${afterId}&select=created_at`,
+        { headers: sbHeaders(env) }
+      )
+      const am = await anchorMsgRes.json()
+      if (am[0]?.created_at) {
+        msgUrl += `&created_at=gt.${encodeURIComponent(am[0].created_at)}`
+      }
     }
 
-    const { data: newMessages } = await query
-    if (!newMessages || newMessages.length < SUMMARY_MIN_MESSAGES) return
+    const msgRes = await fetch(msgUrl, { headers: sbHeaders(env) })
+    const newMessages = await msgRes.json()
+    if (!Array.isArray(newMessages) || newMessages.length < SUMMARY_MIN_MESSAGES) return
 
+    // 构建提示词
     const today = new Date().toISOString().slice(0, 10)
     const transcript = newMessages.map(m =>
-      `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${m.content.slice(0, 200)}`
+      `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 200)}`
     ).join('\n')
 
     const summaryPrompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。
@@ -196,7 +205,6 @@ ${transcript}`
     if (!dsRes.ok) return
     const dsData = await dsRes.json()
     const raw = dsData.choices[0]?.message?.content || ''
-
     const jsonMatch = raw.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return
     const memories = JSON.parse(jsonMatch[0])
@@ -205,22 +213,27 @@ ${transcript}`
     let inserted = 0
     for (const mem of memories) {
       if (!mem.content) continue
-      try {
-        await supabase.from('memories').insert({ summary: mem.content })
-        inserted++
-      } catch (_) { /* skip duplicates */ }
+      const r = await fetch(`${SUPABASE}/memories`, {
+        method: 'POST',
+        headers: sbReturn(env),
+        body: JSON.stringify({ summary: mem.content }),
+      })
+      if (r.ok) inserted++
     }
 
+    // 更新锚点
     const lastId = newMessages[newMessages.length - 1].id
-    await supabase.from('summary_anchors').upsert({
-      conversation_id: convId,
-      last_message_id: lastId,
-      updated_at: new Date().toISOString(),
+    await fetch(`${SUPABASE}/summary_anchors`, {
+      method: 'POST',
+      headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({
+        conversation_id: convId,
+        last_message_id: lastId,
+        updated_at: new Date().toISOString(),
+      }),
     })
 
-    if (inserted > 0) {
-      console.log(`记忆摘要：${newMessages.length}条消息 → ${inserted}条记忆`)
-    }
+    if (inserted > 0) console.log(`记忆摘要：${newMessages.length}条消息 → ${inserted}条记忆`)
   } catch (e) {
     console.error('记忆摘要失败:', e.message)
   } finally {
@@ -228,15 +241,10 @@ ${transcript}`
   }
 }
 
-// ==================== 工具函数 ====================
-
 function json(status, body) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
 
