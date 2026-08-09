@@ -30,20 +30,21 @@ export async function onRequestPost(context) {
 
     if (words.length === 0) return json(400, { error: 'query required' })
 
+    // 注意：只对最终的 or 值编码一次，避免 % 被双重编码成 %2525
     const likeWords = words.map(w => `%${w.replace(/[%*]/g, '')}%`)
-    const memOr = likeWords.map(w => `summary.ilike.${enc(w)}`).join(',')
-    const msgOr = likeWords.map(w => `content.ilike.${enc(w)}`).join(',')
+    const memOr = enc(`(${likeWords.map(w => `summary.ilike.${w}`).join(',')})`)
+    const msgOr = enc(`(${likeWords.map(w => `content.ilike.${w}`).join(',')})`)
 
     // 搜索 memories
     const memRes = await fetch(
-      `${SUPABASE}/memories?select=summary&or=${enc(`(${memOr})`)}&limit=${limit}`,
+      `${SUPABASE}/memories?select=summary&or=${memOr}&limit=${limit}`,
       { headers: sbHeaders(env) }
     )
     const memData = await memRes.json()
 
     // 搜索 messages（相关历史消息）
     const msgRes = await fetch(
-      `${SUPABASE}/messages?select=role,content&or=${enc(`(${msgOr})`)}&order=created_at.desc&limit=5`,
+      `${SUPABASE}/messages?select=role,content&or=${msgOr}&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
     const msgData = await msgRes.json()
