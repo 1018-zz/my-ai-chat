@@ -1,11 +1,13 @@
 // functions/api/conversations/[id].js
-// DELETE /api/conversations/:id — 删除会话
-// 使用 fetch 直调 Supabase REST API
+// DELETE /api/conversations/:id
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
 function sbHeaders(env) {
-  return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}` }
+  return {
+    'apikey': env.SUPABASE_SECRET_KEY,
+    'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`,
+  }
 }
 
 export async function onRequestDelete(context) {
@@ -13,17 +15,33 @@ export async function onRequestDelete(context) {
   const url = new URL(request.url)
   const segments = url.pathname.replace(/\/$/, '').split('/')
   const id = segments[segments.length - 1]
-  if (!id) return json(400, { error: 'id is required' })
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'id required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
+  }
 
-  await fetch(`${SUPABASE}/messages?conversation_id=eq.${id}`, { method: 'DELETE', headers: sbHeaders(env) })
-  await fetch(`${SUPABASE}/conversations?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders(env) })
-  return json(200, { success: true })
-}
+  await fetch(`${SUPABASE}/messages?conversation_id=eq.${id}`, {
+    method: 'DELETE',
+    headers: sbHeaders(env),
+  })
+  await fetch(`${SUPABASE}/conversations?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: sbHeaders(env),
+  })
 
-function json(status, body) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+  })
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
 }
