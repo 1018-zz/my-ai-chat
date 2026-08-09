@@ -29,7 +29,16 @@ export async function trySummarize(env, convId) {
     const jm = raw.match(/\[[\s\S]*\]/); if (!jm) return
     const mems = JSON.parse(jm[0]); if (!Array.isArray(mems) || mems.length === 0) return
     let ins = 0
-    for (const m of mems) { if (!m.content) continue; const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: m.content }) }); if (r.ok) ins++ }
+    for (const m of mems) {
+      if (!m.content) continue
+      // 把 type / keywords 编码进 summary，避免信息丢失（表里目前只有 summary 列）
+      const extra = []
+      if (m.type === 'important') extra.push('重要')
+      if (m.keywords) extra.push('关键词：' + String(m.keywords))
+      const summary = extra.length > 0 ? `${m.content}（${extra.join(' | ')}）` : m.content
+      const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary }) })
+      if (r.ok) ins++
+    }
     const lid = nm[nm.length - 1].id
     await fetch(`${SUPABASE}/summary_anchors`, { method: 'POST', headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ conversation_id: convId, last_message_id: lid, updated_at: new Date().toISOString() }) })
     if (ins > 0) console.log(`记忆摘要：${nm.length}条消息 → ${ins}条记忆`)
