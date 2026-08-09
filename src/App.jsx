@@ -1,6 +1,6 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { buildSystemPrompt } from './project/instructions'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
@@ -17,13 +17,11 @@ const MCP_SYSTEM_PROMPT = `
 
 可用工具：
 - read_file(path, repo?) → 读取代码
-- list_files(path, repo?) → 列目录
+- list_files(path, repo?) → 列目录  
 - write_file(path, content, message, repo?) → 修改代码（需要3个参数）
 
-支持 owner/repo 格式查阅第三方仓库（如 death34018-hue/AionsHome）。
-工具结果会自动注入，无需等待确认。`
+支持 owner/repo 格式查阅第三方仓库。工具结果会自动注入，无需等待确认。`
 
-// ==================== Tab 等基础组件（不变） ====================
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
   { key: 'chat', label: 'CHAT', icon: '💬' },
@@ -52,8 +50,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   const handleDelete = async (e, convId) => { e.stopPropagation(); await deleteConversation(convId); fetchConversations().then(setConversations) }
   const formatTime = (ts) => {
     if (!ts) return ''; const d = new Date(ts), diff = Date.now() - d
-    if (diff < 60000) return '刚刚'
-    if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`
+    if (diff < 60000) return '刚刚'; if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`
     if (diff < 86400000) return d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
     return d.toLocaleDateString('zh-CN', { month:'short', day:'numeric' })
   }
@@ -73,17 +70,15 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// ==================== ChatDetailPage（带 MCP 开关） ====================
+// ==================== ChatDetailPage ====================
 const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [msgList, setMsgList] = useState([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(() => {
-    try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false }
-  })
-  const [mcpBusy, setMcpBusy] = useState(false)
+  const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
   const messagesEndRef = useRef(null)
   const autoTriggerRef = useRef(null)
+  let nextId = useRef(Date.now())
 
   useEffect(() => {
     if (!chatInfo?.id) return
@@ -100,31 +95,14 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     try { localStorage.setItem('mcp_enabled', next) } catch (_) {}
   }
 
-  // ★ 执行 MCP 工具调用
-  const executeMcpTool = async (toolCall) => {
-    const { name, ...args } = toolCall
-    if (!name) return null
-    try {
-      const res = await fetch(MCP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args }, id: 1 }),
-      })
-      const data = await res.json()
-      const text = data.result?.content?.[0]?.text
-      if (text) return text
-      return JSON.stringify(data)
-    } catch (e) {
-      return `工具调用失败: ${e.message}`
-    }
-  }
+  const uid = () => { nextId.current += 1; return nextId.current }
 
-  // ★ 核心发送逻辑（支持自动重触发）
-  const doSend = useCallback(async (userText, overrideMsgs) => {
-    const baseMsgs = overrideMsgs || msgList
-    const aiMsgId = Date.now()
+  // ★ 执行一次完整对话轮次
+  const runChatTurn = async (messagesForContext, aiMsgId) => {
+    // 构建记忆 + 项目上下文
+    const lastUserMsg = [...messagesForContext].reverse().find(m => m.isSelf)
+    const userText = lastUserMsg?.text || ''
 
-    // 构建上下文
     let memoryContext = ''
     if (userText.length > 2) {
       try {
@@ -142,10 +120,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
     let projectContext = ''
     try {
-      const [memFile, instFile] = await Promise.all([
-        githubFile('src/project/memories.js'),
-        githubFile('src/project/instructions.js'),
-      ])
+      const [memFile, instFile] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')])
       const parts = []
       if (memFile.content) parts.push('【不能丢的时刻】\n' + memFile.content.slice(0, 800))
       if (instFile.content) {
@@ -158,8 +133,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const mcpPrompt = mcpEnabled ? '\n\n' + MCP_SYSTEM_PROMPT : ''
     const contextMessages = [
       { role: 'system', content: systemPrompt + (memoryContext ? '\n\n' + memoryContext : '') + (projectContext ? '\n\n' + projectContext : '') + mcpPrompt },
-      ...baseMsgs.filter(m => !m.loading).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
-      { role: 'user', content: userText },
+      ...messagesForContext.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
     ]
 
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
@@ -187,77 +161,63 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       }
     }
 
-    // ★ 检查 MCP 工具调用
+    // MCP 工具调用检测
     const toolMatch = fullText.match(/```tool\n([\s\S]*?)\n```/)
     if (toolMatch && mcpEnabled) {
       try {
         const toolCall = JSON.parse(toolMatch[1])
-        setMcpBusy(true)
-        // 清除 tool 块，显示工具调用状态
-        const cleanText = fullText.replace(/```tool\n[\s\S]*?\n```/, `🔧 调用工具: ${toolCall.name}...`)
+        const cleanText = fullText.replace(/```tool\n[\s\S]*?\n```/, `\n🔧 调用工具: ${toolCall.name}...`)
         setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: cleanText } : m))
 
-        const toolResult = await executeMcpTool(toolCall)
-        setMcpBusy(false)
-        if (toolResult) {
-          const resultMsg = `[工具结果]\n${toolResult.slice(0, 3000)}`
-          // 自动触发继续对话
-          const updatedMsgs = [
-            ...baseMsgs.filter(m => !m.loading),
-            { id: Date.now(), text: cleanText, isSelf: false },
-            { id: Date.now() + 0.5, text: `✅ 工具结果已返回`, isSelf: false, isToolResult: true },
-          ]
-          setMsgList(updatedMsgs)
-          autoTriggerRef.current = { userText, resultMsg, updatedMsgs }
+        // 执行 MCP
+        const { name, ...args } = toolCall
+        const mcpRes = await fetch(MCP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name, arguments: args }, id: 1 }),
+        })
+        const mcpData = await mcpRes.json()
+        const toolResult = mcpData.result?.content?.[0]?.text || JSON.stringify(mcpData)
+
+        // 注入结果，自动继续
+        const newAiMsgId = uid()
+        setMsgList(prev => [...prev, { id: newAiMsgId, text: '', isSelf: false, loading: true }])
+
+        const followContext = [
+          ...messagesForContext.filter(m => !m.loading),
+          { id: uid(), text: cleanText, isSelf: false },
+        ]
+        const followMessages = [
+          { role: 'system', content: systemPrompt + MCP_SYSTEM_PROMPT },
+          ...followContext.slice(-30).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
+          { role: 'system', content: `[工具结果]\n${toolResult.slice(0, 3000)}\n\n请根据工具结果继续回答。` },
+        ]
+
+        const followRes = await fetch(`${API_BASE}/api/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: followMessages, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }),
+        })
+        const fReader = followRes.body.getReader()
+        let fText = ''
+        while (true) {
+          const { done, value } = await fReader.read()
+          if (done) break
+          const text = new TextDecoder().decode(value, { stream: true })
+          for (const line of text.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const d = JSON.parse(line.slice(6))
+              if (d.content) {
+                fText += d.content
+                setMsgList(prev => prev.map(m => m.id === newAiMsgId ? { ...m, text: fText, loading: false } : m))
+              }
+            } catch (_) {}
+          }
         }
       } catch (_) {}
     }
-
-    return fullText
-  }, [msgList, chatInfo, mcpEnabled])
-
-  // ★ 自动触发：工具结果注入后继续对话
-  useEffect(() => {
-    if (!autoTriggerRef.current || loading || mcpBusy) return
-    const { userText, resultMsg, updatedMsgs } = autoTriggerRef.current
-    autoTriggerRef.current = null
-    setLoading(true)
-    const aiMsgId = Date.now()
-    setMsgList(prev => [...prev, { id: aiMsgId, text: '', isSelf: false, loading: true }])
-
-    const contextMessages = [
-      { role: 'system', content: systemPrompt + MCP_SYSTEM_PROMPT },
-      ...updatedMsgs.filter(m => !m.loading && !m.isToolResult).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text })),
-      { role: 'system', content: `[工具结果]\n${resultMsg}\n\n请根据以上工具结果继续回答用户的问题。"${userText}"` },
-    ]
-
-    fetch(`${API_BASE}/api/chat/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: contextMessages, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }),
-    }).then(async (res) => {
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const text = decoder.decode(value, { stream: true })
-        for (const line of text.split('\n')) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const d = JSON.parse(line.slice(6))
-            if (d.content) {
-              fullText += d.content
-              setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: fullText, loading: false } : m))
-            }
-          } catch (_) {}
-        }
-      }
-    }).catch(() => {
-      setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: '出错啦', loading: false } : m))
-    }).finally(() => setLoading(false))
-  }, [msgList])
+  }
 
   const handleSend = async () => {
     if (!inputText.trim() || loading) return
@@ -265,12 +225,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     setInputText('')
     setLoading(true)
 
-    const userMsg = { id: Date.now(), text: userText, isSelf: true }
-    const aiMsgId = Date.now() + 1
-    setMsgList(prev => [...prev, userMsg, { id: aiMsgId, text: '', isSelf: false, loading: true }])
+    const userMsgId = uid()
+    const aiMsgId = uid()
+    const newUserMsg = { id: userMsgId, text: userText, isSelf: true }
+    setMsgList(prev => [...prev, newUserMsg, { id: aiMsgId, text: '', isSelf: false, loading: true }])
 
     try {
-      await doSend(userText, [...msgList, userMsg])
+      await runChatTurn([...msgList, newUserMsg], aiMsgId)
     } catch (e) {
       setMsgList(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: '出错啦，请重试', loading: false } : m))
     } finally {
@@ -285,17 +246,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>
         <span className="chat-detail-title">{chatInfo?.title || '新对话'}</span>
-        <span onClick={toggleMcp}
-          style={{
-            cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8,
-            background: mcpEnabled ? 'var(--color-primary)' : 'transparent',
-            color: mcpEnabled ? '#fff' : 'var(--color-text-gray)',
-            transition: 'all 0.2s',
-            userSelect: 'none',
-          }}
-          title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>
-          🔧
-        </span>
+        <span onClick={toggleMcp} style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
       </div>
       <div className="chat-message-list">
         {msgList.map(msg => (
