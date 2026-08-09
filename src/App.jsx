@@ -1,116 +1,104 @@
-import { fetchConversations, createConversation, deleteConversation } from './utils/api'
-import { useState, useEffect } from 'react'
-import SplashScreen from './components/SplashScreen'
-import ChatArea from './components/ChatArea'
-import { buildSystemPrompt } from './project/instructions'
-import './styles/theme.css'
+import React, { useState } from 'react';
+import './styles/theme.css';
 
-function App() {
-  const [showSplash, setShowSplash] = useState(true)
-  const [systemPrompt, setSystemPrompt] = useState(buildSystemPrompt())
-  const [conversations, setConversations] = useState([])
-  const [activeConversationId, setActiveConversationId] = useState(null)
-  const [showThinking, setShowThinking] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
+const tabList = [
+  { key: 'lair', label: 'LAIR', icon: '🏠' },
+  { key: 'chat', label: 'CHAT', icon: '💬' },
+  { key: 'life', label: 'LIFE', icon: '📋' },
+];
 
-  useEffect(() => {
-  const handler = (e) => setShowThinking(e.detail)
-  window.addEventListener('toggle-thinking', handler)
-  return () => window.removeEventListener('toggle-thinking', handler)
-}, [])
-  
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 3500)
-    return () => clearTimeout(timer)
-  }, [])
+const mockChatList = [
+  { id: 1, name: '专属双人对话', lastMsg: '今天也要好好生活呀✨', time: '刚刚', unread: 1, avatar: '❤️' },
+  { id: 2, name: '日常碎碎念', lastMsg: '待会儿一起看看计划吗', time: '10:20', unread: 0, avatar: '📝' },
+  { id: 3, name: '纪念日提醒', lastMsg: '距离下一个纪念日还有 7 天', time: '昨天', unread: 0, avatar: '🎀' }
+];
 
-  useEffect(() => {
-    fetchConversations().then(setConversations).catch(console.error)
-  }, [])
-
-  const handleNewConversation = async () => {
-    const { id } = await createConversation('新对话')
-    const updatedList = await fetchConversations()
-    setConversations(updatedList)
-    setActiveConversationId(id)
-    if (window.innerWidth <= 768) setSidebarOpen(false)
-  }
-
-  const handleSelectConversation = (id) => {
-    setActiveConversationId(id)
-    fetchConversations().then(setConversations).catch(console.error)
-    if (window.innerWidth <= 768) setSidebarOpen(false)
-  }
-
-  if (showSplash) return <SplashScreen />
-
-  return (
-    <div style={{ display: 'flex', height: '100vh', position: 'relative' }}>
-      {/* 移动端遮罩 */}
-      {sidebarOpen && window.innerWidth <= 768 && (
-        <div onClick={() => setSidebarOpen(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 9
-        }} />
-      )}
-
-      {/* 侧边栏 */}
-      <aside style={{
-  width: '260px', minWidth: '260px', maxWidth: '260px', flexShrink: 0,
-  backgroundColor: 'var(--bg-sidebar)', padding: '20px',
-  display: 'flex', flexDirection: 'column', gap: '10px',
-  borderRight: '1px solid var(--bubble-yours-border)',
-  position: window.innerWidth <= 768 ? 'fixed' : 'relative',
-  left: window.innerWidth <= 768 ? (sidebarOpen ? '0' : '-280px') : 'auto',
-  top: 0, bottom: 0, zIndex: 10,
-  transition: 'left 0.3s ease',
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  boxSizing: 'border-box',
-}}>
-  <h3 style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-primary)', margin: 0, flexShrink: 0 }}>🤖 对话</h3>
-
-  <button onClick={handleNewConversation}
-    style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid var(--bubble-yours-border)', backgroundColor: 'var(--bg-warm)', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}
-    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--accent-soft)'}
-    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-warm)'}
-  >＋ 新建对话</button>
-
-  <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-    {conversations.length === 0 && (
-      <p style={{ color: 'var(--timestamp)', fontSize: '0.8rem', textAlign: 'center', marginTop: '20px' }}>暂无对话</p>
-    )}
-    {conversations.map(conv => (
-      <div key={conv.id} onClick={() => handleSelectConversation(conv.id)}
-        style={{ padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', backgroundColor: activeConversationId === conv.id ? 'var(--accent-soft)' : 'transparent', fontSize: '0.85rem', color: activeConversationId === conv.id ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-sans)', marginBottom: '4px', transition: 'background-color 0.2s', wordBreak: 'break-word', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        onMouseEnter={(e) => { if (activeConversationId !== conv.id) e.target.style.backgroundColor = 'var(--bubble-yours)' }}
-        onMouseLeave={(e) => { if (activeConversationId !== conv.id) e.target.style.backgroundColor = 'transparent' }}
-      >
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.title || '新对话'}</span>
-        <button onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id).then(() => { if (activeConversationId === conv.id) setActiveConversationId(null); fetchConversations().then(setConversations) }) }}
-          style={{ background: 'none', border: 'none', color: 'var(--timestamp)', fontSize: '0.7rem', cursor: 'pointer', padding: '2px 4px', opacity: 0.5, flexShrink: 0 }} title="删除会话">✕</button>
+const TabNav = ({ activeTab, onChangeTab }) => (
+  <div className="tab-nav">
+    {tabList.map((item) => (
+      <div key={item.key} className={`tab-item ${activeTab === item.key ? 'active' : ''}`} onClick={() => onChangeTab(item.key)}>
+        <span className="tab-icon">{item.icon}</span>
+        <span className="tab-text">{item.label}</span>
       </div>
     ))}
   </div>
+);
 
-  <div style={{ flexShrink: 0, maxHeight: '30%' }}>
-    <label style={{ fontSize: '0.75rem', color: 'var(--timestamp)', fontFamily: 'var(--font-sans)' }}>系统提示词</label>
-    <textarea
-      style={{ width: '100%', marginTop: '4px', borderRadius: '12px', border: '1px solid var(--bubble-yours-border)', padding: '8px 12px', fontSize: '0.8rem', fontFamily: 'var(--font-sans)', resize: 'vertical', backgroundColor: 'var(--bg-warm)', color: 'var(--text-primary)', boxSizing: 'border-box', maxHeight: '120px' }}
-      rows={3} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
-    />
+const LairPage = () => (
+  <div style={{ padding: 20 }}>
+    <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR 首页</h3>
+    <p>在一起天数、纪念日、生理周期、日记入口</p>
   </div>
-</aside>
+);
 
-      {/* 主对话区 */}
-      <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-        {/* 移动端汉堡按钮 */}
-        
-        <div style={{ flex: 1, width: '100%' }}>
-    <ChatArea systemPrompt={systemPrompt} conversationId={activeConversationId} showThinking={showThinking} />
+const LifePage = () => (
+  <div style={{ padding: 20 }}>
+    <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE 更多</h3>
+    <p>日记、设置、个人拓展功能</p>
   </div>
-</main>
+);
+
+const ChatListPage = ({ onOpenChat }) => (
+  <div className="chat-page">
+    <div className="chat-header"><div className="chat-header-title">CHAT 对话列表</div><div>⋮</div></div>
+    <div className="chat-list">
+      {mockChatList.length > 0 ? mockChatList.map((item) => (
+        <div key={item.id} className="chat-item" onClick={() => onOpenChat(item)}>
+          <div className="chat-avatar">{item.avatar}</div>
+          <div className="chat-info"><div className="chat-name">{item.name}</div><div className="chat-last-msg">{item.lastMsg}</div></div>
+          <div className="chat-right"><div className="chat-time">{item.time}</div>{item.unread > 0 && <div className="chat-badge">{item.unread}</div>}</div>
+        </div>
+      )) : <div className="chat-empty">💬 暂无聊天会话<br/>快去开启第一条对话吧</div>}
     </div>
-  )
-}
+  </div>
+);
 
-export default App
+const ChatDetailPage = ({ chatInfo, onBack }) => {
+  const [msgList, setMsgList] = useState([
+    { id: 1, text: '哈喽呀😊', isSelf: false },
+    { id: 2, text: '今天的计划准备好了吗', isSelf: false },
+    { id: 3, text: '已经整理好啦✨', isSelf: true },
+  ]);
+  const [inputText, setInputText] = useState('');
+
+  const handleSend = () => {
+    if (!inputText.trim()) return;
+    setMsgList([...msgList, { id: Date.now(), text: inputText, isSelf: true }]);
+    setInputText('');
+  };
+
+  return (
+    <div className="chat-detail-page">
+      <div className="chat-detail-header">
+        <span className="chat-back" onClick={onBack}>←</span>
+        <span className="chat-detail-title">{chatInfo.name}</span>
+      </div>
+      <div className="chat-message-list">
+        {msgList.map((msg) => (
+          <div key={msg.id} className={msg.isSelf ? 'msg-right' : 'msg-left'}>
+            <div className="msg-bubble">{msg.text}</div>
+          </div>
+        ))}
+      </div>
+      <div className="chat-input-bar">
+        <input className="input" placeholder="输入消息..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} />
+        <button className="btn" onClick={handleSend}>发送</button>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('lair');
+  const [currentChat, setCurrentChat] = useState(null);
+
+  return (
+    <div className="page-wrap">
+      {activeTab === 'lair' && <LairPage />}
+      {activeTab === 'chat' && (currentChat ? <ChatDetailPage chatInfo={currentChat} onBack={() => setCurrentChat(null)} /> : <ChatListPage onOpenChat={setCurrentChat} />)}
+      {activeTab === 'life' && <LifePage />}
+      <div className="float-note-btn">+</div>
+      <TabNav activeTab={activeTab} onChangeTab={setActiveTab} />
+    </div>
+  );
+}
