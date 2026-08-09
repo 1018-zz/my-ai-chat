@@ -20,19 +20,30 @@ export async function onRequestPost(context) {
 
   try {
     const enc = encodeURIComponent
-    // PostgreSQL ILIKE 用 % 做通配符，不是 *
-    const like = `%${query.replace(/[%*]/g, '')}%`
+    // 中文/英文/符号分词，取前4个词，每个词单独 ilike，用 or 组合提升召回
+    const words = String(query)
+      .trim()
+      .split(/[\s,，。.、;；!！?？:：'"]+/)
+      .map(w => w.trim())
+      .filter(w => w && w.length > 0)
+      .slice(0, 4)
+
+    if (words.length === 0) return json(400, { error: 'query required' })
+
+    const likeWords = words.map(w => `%${w.replace(/[%*]/g, '')}%`)
+    const memOr = likeWords.map(w => `summary.ilike.${enc(w)}`).join(',')
+    const msgOr = likeWords.map(w => `content.ilike.${enc(w)}`).join(',')
 
     // 搜索 memories
     const memRes = await fetch(
-      `${SUPABASE}/memories?select=summary&summary=ilike.${enc(like)}&limit=${limit}`,
+      `${SUPABASE}/memories?select=summary&or=${enc(`(${memOr})`)}&limit=${limit}`,
       { headers: sbHeaders(env) }
     )
     const memData = await memRes.json()
 
     // 搜索 messages（相关历史消息）
     const msgRes = await fetch(
-      `${SUPABASE}/messages?select=role,content&or=(content.ilike.${enc(like)})&order=created_at.desc&limit=5`,
+      `${SUPABASE}/messages?select=role,content&or=${enc(`(${msgOr})`)}&order=created_at.desc&limit=5`,
       { headers: sbHeaders(env) }
     )
     const msgData = await msgRes.json()
