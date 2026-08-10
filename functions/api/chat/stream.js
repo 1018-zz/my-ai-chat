@@ -1,4 +1,4 @@
-// stream.js — 入口骨架：校验 → 建会话 → 存用户消息 → 调 DeepSeek → runStream
+// stream.js — 入口骨架：校验 → 建会话 → 存用户消息 → 注入会话摘要 → 调 DeepSeek → runStream
 import { runStream } from './stream-run.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
@@ -20,7 +20,8 @@ export async function onRequestPost(context) {
     { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '文件的新内容' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名。默认 my-ai-chat，可省略。只有修改后端仓库时才填 my-ai-chat-server' } }, required: ['path', 'content', 'message'] } } }
   ]
 
-  const { messages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools } = body
+  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools } = body
+  let messages = rawMessages
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
   try {
@@ -36,6 +37,19 @@ export async function onRequestPost(context) {
     const userMsg = messages[messages.length - 1]
     const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
     if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
+
+    // 注入会话摘要（压缩后的早期对话记录），拼到 system 消息末尾
+    try {
+      const sr = await fetch(`${SUPABASE}/conversation_summaries?conversation_id=eq.${convId}&select=summary`, { headers: sbHeaders(env) })
+      const srows = await sr.json()
+      const summary = (Array.isArray(srows) ? srows[0]?.summary : '') || ''
+      if (summary) {
+        const sysIdx = messages.findIndex(m => m.role === 'system')
+        if (sysIdx >= 0) {
+          messages = messages.map((m, i) => i === sysIdx ? { ...m, content: `${m.content}\n\n【会话摘要（更早对话的压缩记录，作为背景参考）】\n${summary.slice(0, 3000)}` } : m)
+        }
+      }
+    } catch (_) {}
 
     const dsBody = { messages, model, temperature: 0.7, stream: true }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
