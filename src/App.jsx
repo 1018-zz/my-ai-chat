@@ -8,6 +8,8 @@ import './styles/theme.css'
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 const MCP_URL = `${API_BASE}/api/mcp`
 const systemPrompt = buildSystemPrompt()
+const MAX_TOOL_ROUNDS = 16 // 工具调用循环上限（参考 RikkaHub 的 maxSteps=256，前端轮询取适中值）
+const TOOL_OUTPUT_LIMIT = 3000 // 单条工具结果注入上下文的上限（截断时加标记）
 
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
@@ -356,11 +358,11 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
     // 在消息末尾追加工具调用提醒，压过"指路者"人设，确保模型直接调用工具而不是只说"我去看看"
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
-    // 工具调用循环：最多 4 轮，每轮执行完把结果注入下一轮
+    // 工具调用循环：最多 MAX_TOOL_ROUNDS 轮，每轮执行完把结果注入下一轮
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0
     const first = await streamChat(curMsgs, curAiId, (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)))
     curFt = first.ft; curTcs = first.tcs
-    while (curTcs.length > 0 && rounds < 4) {
+    while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
       rounds++
       const results = []
       setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: curFt || '🔧 调用工具…', loading: false, toolCalls: curTcs.map(tc => ({ ...tc, result: '' })) } : m))
@@ -371,7 +373,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         setMsgList(p => p.map(m => m.id === curAiId ? { ...m, toolCalls: curTcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
       }
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
-      const toolText = results.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
+      // 工具结果：超长时截断并加标记，让模型知道内容不完整（参考 RikkaHub 的截断提示）
+      const toolText = results.map((r, i) => {
+        const out = r.result
+        const truncated = out.length > TOOL_OUTPUT_LIMIT
+        return `[工具: ${r.tool}]\n${truncated ? out.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${out.length} 字符，仅显示前 ${TOOL_OUTPUT_LIMIT} 字符。如需要完整内容，请用 read_file 读取相关文件]` : out}`
+      }).join('\n\n')
       const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
       // 工具轮次：skipSave=true，不入库，不污染对话历史
       const nxt = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)), true)
