@@ -21,20 +21,23 @@
   --font-base: 15px;
   --font-title: 17px;
   --font-bold: 600;
+  /* 毛玻璃：模糊 + 饱和度增强，让玻璃背后透出的暖色更浓郁通透 */
+  --glass-blur: blur(20px) saturate(1.6);
+  --glass-blur-strong: blur(28px) saturate(1.8);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, "PingFang SC", sans-serif; }
 body { background-color: var(--color-bg); color: var(--color-text-dark); font-size: var(--font-base); line-height: 1.5; }
 
-.glass-card { background: var(--color-card-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); padding: var(--padding-lg); box-shadow: var(--shadow-soft); }
+.glass-card { background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); padding: var(--padding-lg); box-shadow: var(--shadow-soft); }
 .btn { background-color: var(--color-primary); color: #fff; border: none; border-radius: var(--radius-md); padding: 10px 16px; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
 .btn:active { opacity: 0.85; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.input { background: var(--color-card-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--color-border-glass); border-radius: var(--radius-md); padding: 10px 14px; outline: none; color: var(--color-text-dark); }
+.input { background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-md); padding: 10px 14px; outline: none; color: var(--color-text-dark); }
 .input:focus { border-color: var(--color-primary-light); }
 
 .page-wrap { padding-bottom: 70px; min-height: 100vh; }
-.tab-nav { position: fixed; left: 0; right: 0; bottom: 0; height: 60px; background: var(--color-card-glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--color-border-glass); display: flex; align-items: center; justify-content: space-around; box-shadow: 0 -2px 10px rgba(145, 107, 78, 0.06); border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl); z-index: 99; }
+.tab-nav { position: fixed; left: 0; right: 0; bottom: 0; height: 60px; background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-top: 1px solid var(--color-border-glass); display: flex; align-items: center; justify-content: space-around; box-shadow: 0 -2px 10px rgba(145, 107, 78, 0.06); border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl); z-index: 99; }
 .tab-item { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-gray); cursor: pointer; transition: all 0.2s; }
 .tab-item.active { color: var(--color-primary); }
 .tab-icon { font-size: 18px; margin-bottom: 4px; }
@@ -44,7 +47,7 @@ body { background-color: var(--color-bg); color: var(--color-text-dark); font-si
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: var(--padding-md) 0; margin-bottom: var(--padding-md); }
 .chat-header-title { font-size: var(--font-title); font-weight: var(--font-bold); color: var(--color-primary); }
 .chat-list { display: flex; flex-direction: column; gap: var(--padding-sm); }
-.chat-item { display: flex; align-items: center; background: var(--color-card-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--color-border-glass); padding: var(--padding-md); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); cursor: pointer; transition: 0.2s ease; }
+.chat-item { display: flex; align-items: center; background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); padding: var(--padding-md); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); cursor: pointer; transition: 0.2s ease; }
 .chat-item:active, .chat-item:hover { background: rgba(255,255,255,0.85); }
 .chat-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--color-primary-light); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-right: var(--padding-md); flex-shrink: 0; }
 .chat-info { flex: 1; overflow: hidden; }
@@ -57,24 +60,24 @@ body { background-color: var(--color-bg); color: var(--color-text-dark); font-si
 .chat-empty { text-align: center; padding: 80px 20px; color: var(--color-text-gray); }
 
 .chat-detail-page { display: flex; flex-direction: column; height: calc(100vh - 60px); }
-.chat-detail-header { display: flex; align-items: center; gap: var(--padding-md); padding: var(--padding-md) var(--padding-lg); background: var(--color-card-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--color-border-glass); flex-shrink: 0; }
+.chat-detail-header { display: flex; align-items: center; gap: var(--padding-md); padding: var(--padding-md) var(--padding-lg); background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-bottom: 1px solid var(--color-border-glass); flex-shrink: 0; }
 .chat-back { cursor: pointer; font-size: 18px; color: var(--color-primary); padding: 4px; }
 .chat-detail-title { font-size: var(--font-title); font-weight: var(--font-bold); color: var(--color-primary); }
 
 .chat-message-list { flex: 1; overflow-y: auto; padding: var(--padding-lg); display: flex; flex-direction: column; gap: 2px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 60px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 60px), transparent 100%); }
 
 .msg-left { display: flex; margin-bottom: 12px; }
-.msg-left .msg-bubble { background: var(--color-card-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); border-top-left-radius: 4px; padding: 10px 14px; max-width: 75%; color: var(--color-text-dark); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.msg-left .msg-bubble { background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); border-top-left-radius: 4px; padding: 10px 14px; max-width: 75%; color: var(--color-text-dark); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .msg-right { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .msg-right .msg-bubble { background: var(--color-primary); border-radius: var(--radius-lg); border-top-right-radius: 4px; padding: 10px 14px; max-width: 75%; color: #fff; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-.msg-typing { display: flex; gap: 5px; padding: 12px 14px; background: var(--color-card-glass); backdrop-filter: blur(10px); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); border-top-left-radius: 4px; }
+.msg-typing { display: flex; gap: 5px; padding: 12px 14px; background: var(--color-card-glass); backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-lg); border-top-left-radius: 4px; }
 .msg-typing .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary-light); animation: breathe 1.4s infinite; }
 .msg-typing .dot:nth-child(1) { animation-delay: 0s; }
 .msg-typing .dot:nth-child(2) { animation-delay: 0.2s; }
 .msg-typing .dot:nth-child(3) { animation-delay: 0.4s; }
 @keyframes breathe { 0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1.2); } }
 
-.chat-input-bar { display: flex; gap: 10px; padding: var(--padding-md) var(--padding-lg); background: var(--color-card-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--color-border-glass); flex-shrink: 0; }
+.chat-input-bar { display: flex; gap: 10px; padding: var(--padding-md) var(--padding-lg); background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-top: 1px solid var(--color-border-glass); flex-shrink: 0; }
 .chat-input-bar .input { flex: 1; }
 
 /* ===== Tool Card ===== */
@@ -82,8 +85,8 @@ body { background-color: var(--color-bg); color: var(--color-text-dark); font-si
   max-width: 75%;
   margin: 6px 0;
   background: var(--color-card-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--color-border-glass);
   border-radius: var(--radius-md);
   overflow: hidden;
