@@ -1,5 +1,6 @@
-// stream-run.js — SSE 流解析 + tool_calls 收集 + 消息存储
+// stream-run.js — SSE 流解析 + tool_calls 收集 + 消息存储 + 摘要/压缩触发
 import { trySummarize } from './stream-summarize.js'
+import { tryCompressConversation } from './stream-compress.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -58,7 +59,9 @@ export async function runStream(dsRes, env, convId) {
           await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
           const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
           if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
+          // 记忆摘要（长期原子记忆）+ 会话压缩（短期上下文摘要），都异步触发
           trySummarize(env, convId)
+          tryCompressConversation(env, convId)
         } catch (e) { console.error('Post:', e.message) }
 
         const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
