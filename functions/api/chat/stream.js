@@ -84,7 +84,7 @@ export async function onRequestPost(context) {
       }
     } catch (_) {}
 
-    const dsBody = { messages, model, temperature: 0.7, stream: true }
+    const dsBody = { messages, model, temperature: 0.7, stream: true, max_tokens: 8192 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
 
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
