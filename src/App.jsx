@@ -276,15 +276,19 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
 const ToolCard = ({ tool, result, collapsed }) => {
   const [open, setOpen] = useState(!collapsed)
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : '⚙️'
+  const isError = !!result && String(result).startsWith('执行失败')
+  const isRunning = !result
   return (
     <details className="tool-card" open={open} onToggle={(e) => setOpen(e.target.open)}>
       <summary className="tool-summary">
         <span className="tool-icon">{icon}</span>
         <span className="tool-name">{tool.name}</span>
         <span className="tool-path">{tool.arguments?.path || ''}</span>
-        {result && <span className="tool-status">✅</span>}
+        {isRunning && <span className="tool-status" style={{ color: '#e5c07b' }}>⏳</span>}
+        {isError && <span className="tool-status" style={{ color: '#e06c75' }}>❌</span>}
+        {result && !isError && <span className="tool-status">✅</span>}
       </summary>
-      <div className="tool-detail">{result || '执行中…'}</div>
+      <div className="tool-detail" style={isError ? { color: '#e06c75' } : {}}>{result || '执行中…'}</div>
     </details>
   )
 }
@@ -340,12 +344,27 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const d = await r.json(); return d.result?.content?.[0]?.text || JSON.stringify(d)
   }
 
-  const streamChat = async (msgs, aiId, onText, skipSave = false) => {
+  const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false) => {
     const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }) })
     const reader = res.body.getReader(); const decoder = new TextDecoder()
-    let ft = '', buf = '', tcs = []
-    while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() || ''; for (const l of lines) { if (!l.startsWith('data: ')) continue; try { const d = JSON.parse(l.slice(6)); if (d.content) { ft += d.content; onText(ft) } if (d.tool_calls) tcs = d.tool_calls; if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId } } catch (_) {} } }
-    return { ft, tcs }
+    let ft = '', buf = '', tcs = [], th = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n'); buf = lines.pop() || ''
+      for (const l of lines) {
+        if (!l.startsWith('data: ')) continue
+        try {
+          const d = JSON.parse(l.slice(6))
+          if (d.content) { ft += d.content; onText(ft) }
+          if (d.thinking) { th += d.thinking; onThinking?.(th) }
+          if (d.tool_calls) tcs = d.tool_calls
+          if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
+        } catch (_) {}
+      }
+    }
+    return { ft, tcs, th }
   }
 
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
@@ -360,7 +379,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
     // 工具调用循环：最多 MAX_TOOL_ROUNDS 轮，每轮执行完把结果注入下一轮
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0
-    const first = await streamChat(curMsgs, curAiId, (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)))
+    const first = await streamChat(curMsgs, curAiId,
+      (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
+      (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th } : m)))
     curFt = first.ft; curTcs = first.tcs
     while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
       rounds++
@@ -381,7 +402,10 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       }).join('\n\n')
       const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
       // 工具轮次：skipSave=true，不入库，不污染对话历史
-      const nxt = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)), true)
+      const nxt = await streamChat(fms, nid,
+        (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)),
+        (th) => setMsgList(p => p.map(m => m.id === nid ? { ...m, thinking: th } : m)),
+        true)
       curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curAiId = nid
     }
   }
@@ -404,6 +428,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         {msgList.map(msg => (
           <div key={msg.id}>
             <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
+              {!msg.isSelf && msg.thinking && (
+                <details style={{ marginBottom: 6, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 10px', maxWidth: '85%' }}>
+                  <summary style={{ fontSize: 12, color: 'var(--color-text-gray)', cursor: 'pointer', userSelect: 'none' }}>🔍 思考过程</summary>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 6, whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 200, overflowY: 'auto' }}>{msg.thinking}</div>
+                </details>
+              )}
               {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
             </div>
             {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} collapsed={!!tc.result}/></div>)}
