@@ -2,7 +2,7 @@
 // GET /api/memories/project — 项目记忆列表
 // POST /api/memories/project — 新增项目记忆 {title, content}
 // 项目记忆以 家· 前缀存入 memories 表，与摘要记忆区分
-// 注意：前缀不能用 [ 开头——PostgreSQL ILIKE 里 [ 是字符类语法，会匹配不到
+// 注意：memories 表没有 created_at 列，查询只能 select id,summary
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const PREFIX = '家·'
@@ -25,9 +25,10 @@ export async function onRequestGet(context) {
   try {
     const like = encodeURIComponent(`${PREFIX}%`)
     const res = await fetch(
-      `${SUPABASE}/memories?select=id,summary,created_at&summary=ilike.${like}&order=created_at.asc&limit=500`,
+      `${SUPABASE}/memories?select=id,summary&summary=ilike.${like}&order=id.asc&limit=500`,
       { headers: sbHeaders(env) }
     )
+    if (!res.ok) return json(500, { error: `supabase [${res.status}]: ${(await res.text()).slice(0, 200)}` })
     const data = await res.json()
     const rows = Array.isArray(data) ? data : []
     return json(200, { memories: rows.map(parseEntry) })
@@ -43,6 +44,7 @@ export async function onRequestPost(context) {
     if (!content) return json(400, { error: 'content required' })
     const summary = `${PREFIX}${title}] ${content}`
     const res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary }) })
+    if (!res.ok) return json(500, { error: `supabase [${res.status}]: ${(await res.text()).slice(0, 200)}` })
     const rows = await res.json()
     const row = Array.isArray(rows) ? rows[0] : null
     return json(200, { memory: row ? parseEntry(row) : null })
