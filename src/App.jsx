@@ -1,6 +1,7 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { buildSystemPrompt } from './project/instructions'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
+import Markdown from './components/Markdown'
 import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
@@ -73,11 +74,9 @@ const MemPanel = () => {
 }
 
 const DiaryPanel = () => {
-  // —— 打卡部分 ——
   const [form, setForm] = useState({ date: '', breakfast: '', lunch: '', dinner: '', wake_time: '', sleep_time: '', note: '' })
   const [records, setRecords] = useState([])
   const [saving, setSaving] = useState(false)
-  // —— 双人日记部分 ——
   const [diaries, setDiaries] = useState([])
   const [myDiary, setMyDiary] = useState('')
   const [aiDiary, setAiDiary] = useState('')
@@ -154,7 +153,6 @@ const DiaryPanel = () => {
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* 打卡 */}
       <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>每日打卡 · 吃了什么、几点睡，钟泽都会知道</p>
       <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -179,7 +177,6 @@ const DiaryPanel = () => {
         </div>
       )}
 
-      {/* 双人日记 */}
       <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--color-border, #333)' }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)' }}>📖 双人日记 · {todayStr}</div>
 
@@ -188,7 +185,7 @@ const DiaryPanel = () => {
           {aiWriting
             ? <div style={{ marginTop: 8, color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽正在写今天的日记…</div>
             : aiDiary
-              ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{aiDiary}</div>
+              ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}><Markdown>{aiDiary}</Markdown></div>
               : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}</div>}
         </div>
 
@@ -207,7 +204,7 @@ const DiaryPanel = () => {
                 {g.entries.map((e, i) => (
                   <div key={i} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-gray)' }}>
                     <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
-                    <span style={{ whiteSpace: 'pre-wrap' }}>{e.content.slice(0, 200)}{e.content.length > 200 ? '…' : ''}</span>
+                    <Markdown>{e.content.slice(0, 300)}{e.content.length > 300 ? '…' : ''}</Markdown>
                   </div>
                 ))}
               </div>
@@ -400,7 +397,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         {msgList.map(msg => (
           <div key={msg.id}>
             <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
-              {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble">{msg.text}</div>}
+              {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
             </div>
             {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} collapsed={!!tc.result}/></div>)}
           </div>
