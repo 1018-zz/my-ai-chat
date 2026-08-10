@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
     { type: 'function', function: { name: 'write_file', description: '修改代码并提交。仅限自家仓库。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '文件的新内容' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名。默认 my-ai-chat，可省略。只有修改后端仓库时才填 my-ai-chat-server' } }, required: ['path', 'content', 'message'] } } }
   ]
 
-  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools } = body
+  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools, skipSave = false } = body
   let messages = rawMessages
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
@@ -34,9 +34,13 @@ export async function onRequestPost(context) {
       if (!convId) return json(500, { error: 'conv insert: no id' })
     }
 
+    // 存用户消息：工具内部消息（[工具结果] 开头）不入库，真实用户消息才存
     const userMsg = messages[messages.length - 1]
-    const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
-    if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
+    const isToolRound = skipSave || String(userMsg.content || '').startsWith('[工具结果]')
+    if (!isToolRound) {
+      const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
+      if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
+    }
 
     // 注入会话摘要（压缩后的早期对话记录），拼到 system 消息末尾
     try {
@@ -64,7 +68,7 @@ export async function onRequestPost(context) {
       return json(dsRes.status, { error: `DS [${dsRes.status}]: ${t.slice(0, 200)}` })
     }
 
-    return runStream(dsRes, env, convId)
+    return runStream(dsRes, env, convId, isToolRound)
   } catch (error) { return json(500, { error: `catch: ${error.message}`.slice(0, 300) }) }
 }
 
