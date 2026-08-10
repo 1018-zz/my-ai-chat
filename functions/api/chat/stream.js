@@ -1,10 +1,27 @@
-// stream.js — 入口骨架：校验 → 建会话 → 存用户消息 → 注入会话摘要 → 调 DeepSeek → runStream
+// stream.js — 入口骨架：校验 → 建会话 → 存用户消息 → 注入时间/会话摘要 → 调 DeepSeek → runStream
 import { runStream } from './stream-run.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
 function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
 function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
+
+// 北京时间（UTC+8）的当前时间描述
+function beijingTimeStr() {
+  const now = new Date(Date.now() + 8 * 3600 * 1000)
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const h = now.getUTCHours()
+  let period = '凌晨'
+  if (h >= 6 && h < 9) period = '早上'
+  else if (h >= 9 && h < 12) period = '上午'
+  else if (h >= 12 && h < 14) period = '中午'
+  else if (h >= 14 && h < 17) period = '下午'
+  else if (h >= 17 && h < 19) period = '傍晚'
+  else if (h >= 19 && h < 22) period = '晚上'
+  else period = '深夜'
+  const mm = String(now.getUTCMinutes()).padStart(2, '0')
+  return `${now.getUTCFullYear()}年${now.getUTCMonth() + 1}月${now.getUTCDate()}日 ${weekdays[now.getUTCDay()]} ${period} ${h}:${mm}`
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context
@@ -50,16 +67,20 @@ export async function onRequestPost(context) {
       if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
     }
 
-    // 注入会话摘要（压缩后的早期对话记录），拼到 system 消息末尾
+    // 注入当前时间 + 会话摘要，拼到 system 消息末尾
     try {
-      const sr = await fetch(`${SUPABASE}/conversation_summaries?conversation_id=eq.${convId}&select=summary`, { headers: sbHeaders(env) })
-      const srows = await sr.json()
-      const summary = (Array.isArray(srows) ? srows[0]?.summary : '') || ''
-      if (summary) {
-        const sysIdx = messages.findIndex(m => m.role === 'system')
-        if (sysIdx >= 0) {
-          messages = messages.map((m, i) => i === sysIdx ? { ...m, content: `${m.content}\n\n【会话摘要（更早对话的压缩记录，作为背景参考）】\n${summary.slice(0, 3000)}` } : m)
-        }
+      const sysIdx = messages.findIndex(m => m.role === 'system')
+      if (sysIdx >= 0) {
+        let extra = `\n\n【当前时间】${beijingTimeStr()}`
+        // 会话摘要（压缩后的早期对话记录）
+        try {
+          const sr = await fetch(`${SUPABASE}/conversation_summaries?conversation_id=eq.${convId}&select=summary`, { headers: sbHeaders(env) })
+          const srows = await sr.json()
+          const summary = (Array.isArray(srows) ? srows[0]?.summary : '') || ''
+          if (summary) extra += `\n\n【会话摘要（更早对话的压缩记录，作为背景参考）】\n${summary.slice(0, 3000)}`
+        } catch (_) {}
+        const orig = messages[sysIdx].content
+        messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
       }
     } catch (_) {}
 
