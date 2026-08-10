@@ -1,4 +1,4 @@
-// stream-run.js — SSE 流解析 + tool_calls 收集 + 消息存储 + 摘要/压缩触发
+// stream-run.js — SSE 流解析 + tool_calls 收集 + thinking 收集 + 消息存储 + 摘要/压缩触发
 import { trySummarize } from './stream-summarize.js'
 import { tryCompressConversation } from './stream-compress.js'
 
@@ -9,7 +9,7 @@ function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=represent
 
 export async function runStream(dsRes, env, convId, isToolRound = false) {
   const encoder = new TextEncoder()
-  let fullContent = '', buffer = '', toolCalls = []
+  let fullContent = '', buffer = '', toolCalls = [], reasoning = ''
 
   const sseStream = new ReadableStream({
     async start(controller) {
@@ -28,6 +28,10 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
               if (delta?.content) {
                 fullContent += delta.content
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`))
+              }
+              if (delta?.reasoning_content) {
+                reasoning += delta.reasoning_content
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: delta.reasoning_content })}\n\n`))
               }
               if (delta?.tool_calls) {
                 for (const tc of delta.tool_calls) {
@@ -52,6 +56,10 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         if (complete.length > 0) {
           for (const tc of complete) { try { tc.arguments = JSON.parse(tc.arguments || '{}') } catch { tc.arguments = {} } }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`))
+        }
+        // 思考链完整文本（如模型支持 reasoning_content），一次性补发
+        if (reasoning.trim()) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking_done: true, thinking: reasoning })}\n\n`))
         }
 
         try {
