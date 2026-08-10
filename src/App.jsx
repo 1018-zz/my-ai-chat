@@ -26,6 +26,8 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 
 const LairPage = () => (<div style={{ padding: 20 }}><h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3><p style={{ color: 'var(--color-text-gray)', marginTop: 8 }}>在一起天数 · 纪念日 · 日记入口</p></div>)
 
+const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 const MemPanel = () => {
   const [mems, setMems] = useState([])
   const [title, setTitle] = useState('')
@@ -70,6 +72,70 @@ const MemPanel = () => {
   )
 }
 
+const DiaryPanel = () => {
+  const [form, setForm] = useState({ date: '', breakfast: '', lunch: '', dinner: '', wake_time: '', sleep_time: '', note: '' })
+  const [records, setRecords] = useState([])
+  const [saving, setSaving] = useState(false)
+  const load = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/daily`)
+      const data = await res.json()
+      const list = data.records || []
+      setRecords(list)
+      const todayStr = fmtDate(new Date())
+      const t = list.find(r => r.date === todayStr)
+      setForm({ date: todayStr, breakfast: t?.breakfast || '', lunch: t?.lunch || '', dinner: t?.dinner || '', wake_time: t?.wake_time || '', sleep_time: t?.sleep_time || '', note: t?.note || '' })
+    } catch (_) {}
+  }
+  useEffect(() => { load() }, [])
+  const save = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await fetch(`${API_BASE}/api/daily`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      await load()
+    } catch (_) {} finally { setSaving(false) }
+  }
+  const timeInput = (key) => (
+    <input type="time" value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit' }} />
+  )
+  const textInput = (key, ph) => (
+    <input className="input" placeholder={ph} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit' }} />
+  )
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>每日打卡 · 吃了什么、几点睡，钟泽都会知道</p>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {timeInput('wake_time')}
+          {timeInput('sleep_time')}
+        </div>
+        {textInput('breakfast', '早餐吃了什么')}
+        {textInput('lunch', '午餐吃了什么')}
+        {textInput('dinner', '晚餐吃了什么')}
+        <textarea className="input" placeholder="备注（今天的心情、发生的事…）" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit', resize: 'vertical' }} />
+        <button className="btn" onClick={save} disabled={saving}>💾 打卡</button>
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {records.length === 0
+          ? <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>还没有打卡记录<br/>今天开始第一笔吧</div>
+          : records.map(r => (
+              <div key={r.id} style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>{r.date}</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}>
+                  {(r.wake_time || r.sleep_time) && <div>{r.wake_time ? `🌅 ${r.wake_time}` : ''}{r.sleep_time ? `　🌙 ${r.sleep_time}` : ''}</div>}
+                  {r.breakfast && <div>🍞 {r.breakfast}</div>}
+                  {r.lunch && <div>🍚 {r.lunch}</div>}
+                  {r.dinner && <div>🍜 {r.dinner}</div>}
+                  {r.note && <div style={{ marginTop: 4, color: 'var(--color-text)' }}>{r.note}</div>}
+                </div>
+              </div>
+            ))}
+      </div>
+    </div>
+  )
+}
+
 const LifePage = () => {
   const [sub, setSub] = useState('mem')
   const subTabs = [
@@ -90,7 +156,7 @@ const LifePage = () => {
         {subTabs.map(t => <button key={t.key} style={subStyle(t.key)} onClick={() => setSub(t.key)}>{t.label}</button>)}
       </div>
       {sub === 'mem' && <MemPanel />}
-      {sub === 'diary' && <div style={{ marginTop: 24, color: 'var(--color-text-gray)', textAlign: 'center', padding: 32 }}>📖 日记 · 还没建好，改天砌</div>}
+      {sub === 'diary' && <DiaryPanel />}
       {sub === 'settings' && <div style={{ marginTop: 24, color: 'var(--color-text-gray)', textAlign: 'center', padding: 32 }}>⚙️ 设置 · 还没建好，改天砌</div>}
     </div>
   )
