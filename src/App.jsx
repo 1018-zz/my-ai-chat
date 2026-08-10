@@ -299,14 +299,14 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// —— 思考卡片：思考中渐变预览，完成后彻底收起成一行（💡 深度思考 · Xs），点击展开全文 ——
+// —— 思考卡片：思考中渐变预览，完成后彻底收起成一行，点击展开全文 ——
 const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
   const showBody = open || !done
   const isPreview = !done
   return (
-    <div style={{ marginBottom: 6, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '85%' }}>
+    <div style={{ marginBottom: 8, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '78%' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>💡</span>
         <span>{done ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '思考中…'}</span>
@@ -332,7 +332,7 @@ const ToolCard = ({ tool, result }) => {
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
   const showBody = open || isRunning
   return (
-    <div style={{ marginBottom: 5, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '85%' }}>
+    <div style={{ marginBottom: 5, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '78%' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>{icon}</span>
         <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{tool.name}</span>
@@ -487,13 +487,16 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       <div className="chat-message-list">
         {msgList.map(msg => (
           <div key={msg.id}>
+            {/* 思考独立成行（RikkaHub 风格：思考/工具/文本各自独立块） */}
+            {!msg.isSelf && msg.thinking && showThinking && (
+              <div className="msg-left"><ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} /></div>
+            )}
+            {msg.toolCalls && msg.toolCalls.map((tc, i) => (
+              <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} /></div>
+            ))}
             <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
-              {!msg.isSelf && msg.thinking && showThinking && (
-                <ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} />
-              )}
               {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
             </div>
-            {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result}/></div>)}
           </div>
         ))}
         <div ref={messagesEndRef}/>
