@@ -1,7 +1,7 @@
 // functions/api/daily.js
 // GET /api/daily — 最近打卡记录（最近 14 天）
 // POST /api/daily — 保存/更新当天打卡 {date, breakfast, lunch, dinner, wake_time, sleep_time, note}
-// date 格式 YYYY-MM-DD（前端传本地日期），date 唯一，重复提交自动更新
+// date 格式 YYYY-MM-DD，date 唯一：先查该日期，存在则 PATCH，不存在则 POST（不依赖 upsert 行为）
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -36,14 +36,18 @@ export async function onRequestPost(context) {
       sleep_time: String(body.sleep_time || ''),
       note: String(body.note || ''),
     }
-    const res = await fetch(`${SUPABASE}/daily_checkin`, {
-      method: 'POST',
-      headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify(record),
-    })
-    if (!res.ok) return json(500, { error: `supabase [${res.status}]: ${(await res.text()).slice(0, 200)}` })
-    const rows = await res.json()
-    return json(200, { record: Array.isArray(rows) ? rows[0] : null })
+
+    // 查该日期是否已有记录
+    const qr = await fetch(`${SUPABASE}/daily_checkin?date=eq.${encodeURIComponent(date)}&select=id`, { headers: sbHeaders(env) })
+    const qrows = await qr.json()
+    const existing = Array.isArray(qrows) ? qrows[0] : null
+
+    if (existing) {
+      await fetch(`${SUPABASE}/daily_checkin?id=eq.${existing.id}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify(record) })
+    } else {
+      await fetch(`${SUPABASE}/daily_checkin`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+    }
+    return json(200, { ok: true })
   } catch (e) { return json(500, { error: e.message }) }
 }
 
