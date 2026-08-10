@@ -1,16 +1,17 @@
 // functions/api/memories/project.js
 // GET /api/memories/project — 项目记忆列表
 // POST /api/memories/project — 新增项目记忆 {title, content}
-// 项目记忆以 [家· 前缀存入 memories 表，与摘要记忆区分
+// 项目记忆以 家· 前缀存入 memories 表，与摘要记忆区分
+// 注意：前缀不能用 [ 开头——PostgreSQL ILIKE 里 [ 是字符类语法，会匹配不到
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
-const PREFIX = '[家·'
+const PREFIX = '家·'
 
 function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
 function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
 
 function parseEntry(row) {
-  const m = (row.summary || '').match(/^\[家·(.+?)\] ([\s\S]*)$/)
+  const m = (row.summary || '').match(/^家·(.+?)\] ([\s\S]*)$/)
   return {
     id: row.id,
     title: m ? m[1] : '未命名',
