@@ -7,7 +7,7 @@ const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
 function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
 
-export async function runStream(dsRes, env, convId) {
+export async function runStream(dsRes, env, convId, isToolRound = false) {
   const encoder = new TextEncoder()
   let fullContent = '', buffer = '', toolCalls = []
 
@@ -55,13 +55,15 @@ export async function runStream(dsRes, env, convId) {
         }
 
         try {
-          await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }) })
-          await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
-          const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
-          if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
-          // 记忆摘要（长期原子记忆）+ 会话压缩（短期上下文摘要），都异步触发
-          trySummarize(env, convId)
-          tryCompressConversation(env, convId)
+          // 工具内部轮次：不存 assistant 消息、不触发摘要/压缩（避免污染对话历史）
+          if (!isToolRound) {
+            await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }) })
+            await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
+            const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
+            if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
+            trySummarize(env, convId)
+            tryCompressConversation(env, convId)
+          }
         } catch (e) { console.error('Post:', e.message) }
 
         const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
