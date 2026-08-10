@@ -11,14 +11,14 @@ const systemPrompt = buildSystemPrompt()
 const MAX_TOOL_ROUNDS = 16
 const TOOL_OUTPUT_LIMIT = 3000
 
-// 卡片统一玻璃样式（匹配主题：暖白毛玻璃、16px 圆角、暖棕边框）
+// 卡片统一玻璃样式（饱和毛玻璃：模糊 + 饱和度增强，通透浓郁）
 const glassCard = {
   borderRadius: 'var(--radius-lg)',
   overflow: 'hidden',
   border: '1px solid var(--color-border-glass)',
   background: 'var(--color-card-glass)',
-  backdropFilter: 'blur(10px)',
-  WebkitBackdropFilter: 'blur(10px)',
+  backdropFilter: 'blur(20px) saturate(1.6)',
+  WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
   boxShadow: 'var(--shadow-soft)',
   maxWidth: '75%',
 }
@@ -50,7 +50,7 @@ const LairPage = () => {
   return (
     <div style={{ padding: 20 }}>
       <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
-      <div style={{ marginTop: 16, background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 'var(--padding-lg)', textAlign: 'center' }}>
+      <div style={{ marginTop: 16, background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 'var(--padding-lg)', textAlign: 'center' }}>
         <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>我们在一起</div>
         <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--color-primary)', margin: '6px 0' }}>{days}</div>
         <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>天</div>
@@ -93,7 +93,7 @@ const MemPanel = () => {
         {mems.length === 0
           ? <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>还没有记忆<br/>记下第一条吧</div>
           : mems.map(m => (
-              <div key={m.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', padding: 12 }}>
+              <div key={m.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', padding: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong style={{ fontSize: 14 }}>{m.title}</strong>
                   <button style={{ background: 'none', border: 'none', color: 'var(--color-text-gray)', cursor: 'pointer', fontSize: 15, padding: '2px 6px' }} onClick={() => handleDelete(m.id)} title="删除这条记忆">✕</button>
@@ -182,7 +182,7 @@ const DiaryPanel = () => {
     if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
   })
 
-  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -201,7 +201,7 @@ const DiaryPanel = () => {
       {records.length > 0 && (
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {records.filter(r => r.date !== todayStr).slice(0, 4).map(r => (
-            <div key={r.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: 10, fontSize: 12, color: 'var(--color-text-gray)' }}>
+            <div key={r.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: 10, fontSize: 12, color: 'var(--color-text-gray)' }}>
               <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{r.date}</span>
               {(r.wake_time || r.sleep_time) && ` · ${r.wake_time || ''}${r.sleep_time ? ` → ${r.sleep_time}` : ''}`}
               {(r.breakfast || r.lunch || r.dinner) && ` · ${[r.breakfast, r.lunch, r.dinner].filter(Boolean).join(' / ')}`}
@@ -258,7 +258,7 @@ const SettingsPanel = () => {
   }
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
+      <div style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <div style={{ fontSize: 14 }}>💡 深度思考</div>
@@ -330,7 +330,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// —— 思考卡片（暖白玻璃风格）：思考中渐变预览，完成后收起成一行，点击展开 ——
+// —— 思考卡片（暖白饱和玻璃）：思考中渐变预览，完成后收起成一行，点击展开 ——
 const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
@@ -356,7 +356,7 @@ const ThinkingCard = ({ text, done, dur }) => {
   )
 }
 
-// —— 工具卡片（暖白玻璃风格）：执行中展开，完成后自动折叠，点击展开详情 ——
+// —— 工具卡片（暖白饱和玻璃）：执行中展开，完成后自动折叠，点击展开详情 ——
 const ToolCard = ({ tool, result }) => {
   const [open, setOpen] = useState(false)
   const isError = !!result && String(result).startsWith('执行失败')
