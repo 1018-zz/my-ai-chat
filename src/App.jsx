@@ -26,7 +26,7 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 
 const LairPage = () => (<div style={{ padding: 20 }}><h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3><p style={{ color: 'var(--color-text-gray)', marginTop: 8 }}>在一起天数 · 纪念日 · 日记入口</p></div>)
 
-const LifePage = () => {
+const MemPanel = () => {
   const [mems, setMems] = useState([])
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -46,17 +46,16 @@ const LifePage = () => {
     setMems(mems.filter(m => m.id !== id))
   }
   return (
-    <div style={{ padding: 20 }}>
-      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
-      <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 4 }}>记忆管理 · 不能丢的时刻（存云端，换设备也在）</p>
-      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ marginTop: 16 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>不能丢的时刻 · 存云端，换设备也在</p>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input className="input" placeholder="标题（可选，默认「未命名」）" value={title} onChange={e => setTitle(e.target.value)} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit' }} />
         <textarea className="input" placeholder="写下这一刻……" value={content} onChange={e => setContent(e.target.value)} rows={3} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit', resize: 'vertical' }} />
         <button className="btn" onClick={handleAdd} disabled={loading || !content.trim()}>＋ 记住这一刻</button>
       </div>
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {mems.length === 0
-          ? <div className="chat-empty" style={{ textAlign: 'center', padding: '28px 0' }}>还没有记忆<br/>记下第一条吧</div>
+          ? <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>还没有记忆<br/>记下第一条吧</div>
           : mems.map(m => (
               <div key={m.id} style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -67,6 +66,32 @@ const LifePage = () => {
               </div>
             ))}
       </div>
+    </div>
+  )
+}
+
+const LifePage = () => {
+  const [sub, setSub] = useState('mem')
+  const subTabs = [
+    { key: 'mem', label: '🧠 记忆' },
+    { key: 'diary', label: '📖 日记' },
+    { key: 'settings', label: '⚙️ 设置' },
+  ]
+  const subStyle = (k) => ({
+    padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+    background: sub === k ? 'var(--color-primary)' : 'transparent',
+    color: sub === k ? '#fff' : 'var(--color-text-gray)',
+    border: 'none', transition: 'all 0.2s',
+  })
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        {subTabs.map(t => <button key={t.key} style={subStyle(t.key)} onClick={() => setSub(t.key)}>{t.label}</button>)}
+      </div>
+      {sub === 'mem' && <MemPanel />}
+      {sub === 'diary' && <div style={{ marginTop: 24, color: 'var(--color-text-gray)', textAlign: 'center', padding: 32 }}>📖 日记 · 还没建好，改天砌</div>}
+      {sub === 'settings' && <div style={{ marginTop: 24, color: 'var(--color-text-gray)', textAlign: 'center', padding: 32 }}>⚙️ 设置 · 还没建好，改天砌</div>}
     </div>
   )
 }
