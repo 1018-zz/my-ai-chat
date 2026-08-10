@@ -11,6 +11,18 @@ const systemPrompt = buildSystemPrompt()
 const MAX_TOOL_ROUNDS = 16
 const TOOL_OUTPUT_LIMIT = 3000
 
+// 卡片统一玻璃样式（匹配主题：暖白毛玻璃、16px 圆角、暖棕边框）
+const glassCard = {
+  borderRadius: 'var(--radius-lg)',
+  overflow: 'hidden',
+  border: '1px solid var(--color-border-glass)',
+  background: 'var(--color-card-glass)',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+  boxShadow: 'var(--shadow-soft)',
+  maxWidth: '75%',
+}
+
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
   { key: 'chat', label: 'CHAT', icon: '💬' },
@@ -151,7 +163,7 @@ const DiaryPanel = () => {
     if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
   })
 
-  const cardStyle = { background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 12, marginTop: 10 }
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -170,7 +182,7 @@ const DiaryPanel = () => {
       {records.length > 0 && (
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {records.filter(r => r.date !== todayStr).slice(0, 4).map(r => (
-            <div key={r.id} style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 10, fontSize: 12, color: 'var(--color-text-gray)' }}>
+            <div key={r.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: 10, fontSize: 12, color: 'var(--color-text-gray)' }}>
               <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{r.date}</span>
               {(r.wake_time || r.sleep_time) && ` · ${r.wake_time || ''}${r.sleep_time ? ` → ${r.sleep_time}` : ''}`}
               {(r.breakfast || r.lunch || r.dinner) && ` · ${[r.breakfast, r.lunch, r.dinner].filter(Boolean).join(' / ')}`}
@@ -179,7 +191,7 @@ const DiaryPanel = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--color-border, #333)' }}>
+      <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--color-border-glass)' }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)' }}>📖 双人日记 · {todayStr}</div>
 
         <div style={cardStyle}>
@@ -193,7 +205,7 @@ const DiaryPanel = () => {
 
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>泠泠 ✍️</div>
-          <textarea className="input" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }} />
+          <textarea className="input" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }} />
           <button className="btn" onClick={saveMyDiary} disabled={saving || !myDiary.trim()} style={{ marginTop: 8 }}>💾 保存日记</button>
         </div>
 
@@ -205,7 +217,7 @@ const DiaryPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>{g.date}</div>
                 {g.entries.map((e, i) => (
                   <div key={i} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-gray)' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-dark)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
                     <Markdown>{e.content.slice(0, 300)}{e.content.length > 300 ? '…' : ''}</Markdown>
                   </div>
                 ))}
@@ -227,7 +239,7 @@ const SettingsPanel = () => {
   }
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 14 }}>
+      <div style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(10px)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <div style={{ fontSize: 14 }}>💡 深度思考</div>
@@ -235,7 +247,7 @@ const SettingsPanel = () => {
           </div>
           <button onClick={toggle} style={{
             minWidth: 48, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13,
-            background: showThinking ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
+            background: showThinking ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
             color: showThinking ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
           }}>{showThinking ? '开' : '关'}</button>
         </div>
@@ -299,23 +311,24 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// —— 思考卡片：思考中渐变预览，完成后彻底收起成一行，点击展开全文 ——
+// —— 思考卡片（暖白玻璃风格）：思考中渐变预览，完成后收起成一行，点击展开 ——
 const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
   const showBody = open || !done
   const isPreview = !done
   return (
-    <div style={{ marginBottom: 8, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '78%' }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
+    <div style={glassCard}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>💡</span>
         <span>{done ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '思考中…'}</span>
         <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>{done ? (open ? '▲' : '▼') : ''}</span>
       </div>
       {showBody && (
         <div style={{
-          padding: '0 12px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
+          padding: '0 14px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
           color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+          borderTop: '1px solid var(--color-border-glass)',
           maskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
           WebkitMaskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
         }}>{text}</div>
@@ -324,28 +337,28 @@ const ThinkingCard = ({ text, done, dur }) => {
   )
 }
 
-// —— 工具卡片：执行中展开，完成后自动折叠成一行，点击展开详情 ——
+// —— 工具卡片（暖白玻璃风格）：执行中展开，完成后自动折叠，点击展开详情 ——
 const ToolCard = ({ tool, result }) => {
   const [open, setOpen] = useState(false)
   const isError = !!result && String(result).startsWith('执行失败')
-  const isRunning = !result
+  const isRunning = result === undefined
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
   const showBody = open || isRunning
   return (
-    <div style={{ marginBottom: 5, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '78%' }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
+    <div style={{ ...glassCard, marginBottom: 6 }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>{icon}</span>
-        <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{tool.name}</span>
+        <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>{tool.name}</span>
         {tool.arguments?.path && <span style={{ color: 'var(--color-text-gray)', fontSize: 11 }}>{tool.arguments.path}</span>}
         <span style={{ marginLeft: 'auto', fontSize: 12 }}>
-          {isRunning ? <span style={{ color: '#e5c07b' }}>⏳</span> : isError ? <span style={{ color: '#e06c75' }}>❌</span> : <span style={{ color: '#98c379' }}>✅</span>}
+          {isRunning ? <span style={{ color: '#C08B5E' }}>⏳</span> : isError ? <span style={{ color: '#D97777' }}>❌</span> : <span style={{ color: '#7D9B76' }}>✅</span>}
         </span>
       </div>
       {showBody && (
         <div style={{
-          padding: '0 12px 10px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
-          color: isError ? '#e06c75' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
-          borderTop: '1px solid var(--color-border, #333)', opacity: isRunning ? 0.7 : 1,
+          padding: '0 14px 10px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
+          color: isError ? 'var(--color-danger)' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+          borderTop: '1px solid var(--color-border-glass)', opacity: isRunning ? 0.7 : 1,
         }}>{result || '执行中…'}</div>
       )}
     </div>
