@@ -1,6 +1,6 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { buildSystemPrompt } from './project/instructions'
-import { getProjectMemories } from './project/memories'
+import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
@@ -25,7 +25,51 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 )
 
 const LairPage = () => (<div style={{ padding: 20 }}><h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3><p style={{ color: 'var(--color-text-gray)', marginTop: 8 }}>在一起天数 · 纪念日 · 日记入口</p></div>)
-const LifePage = () => (<div style={{ padding: 20 }}><h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3><p style={{ color: 'var(--color-text-gray)', marginTop: 8 }}>日记 · 设置 · 记忆管理</p></div>)
+
+const LifePage = () => {
+  const [mems, setMems] = useState([])
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(false)
+  useEffect(() => { getProjectMemories().then(setMems).catch(() => {}) }, [])
+  const handleAdd = async () => {
+    if (!content.trim() || loading) return
+    setLoading(true)
+    try {
+      await addProjectMemory(title.trim() || '未命名', content.trim())
+      setTitle(''); setContent('')
+      setMems(await getProjectMemories())
+    } catch (e) { console.error(e) } finally { setLoading(false) }
+  }
+  const handleDelete = async (id) => {
+    await deleteProjectMemory(id)
+    setMems(mems.filter(m => m.id !== id))
+  }
+  return (
+    <div style={{ padding: 20 }}>
+      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 4 }}>记忆管理 · 不能丢的时刻（存云端，换设备也在）</p>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <input className="input" placeholder="标题（可选，默认「未命名」）" value={title} onChange={e => setTitle(e.target.value)} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit' }} />
+        <textarea className="input" placeholder="写下这一刻……" value={content} onChange={e => setContent(e.target.value)} rows={3} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit', resize: 'vertical' }} />
+        <button className="btn" onClick={handleAdd} disabled={loading || !content.trim()}>＋ 记住这一刻</button>
+      </div>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {mems.length === 0
+          ? <div className="chat-empty" style={{ textAlign: 'center', padding: '28px 0' }}>还没有记忆<br/>记下第一条吧</div>
+          : mems.map(m => (
+              <div key={m.id} style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: 14 }}>{m.title}</strong>
+                  <button style={{ background: 'none', border: 'none', color: 'var(--color-text-gray)', cursor: 'pointer', fontSize: 15, padding: '2px 6px' }} onClick={() => handleDelete(m.id)} title="删除这条记忆">✕</button>
+                </div>
+                <div style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 6, whiteSpace: 'pre-wrap' }}>{m.content}</div>
+              </div>
+            ))}
+      </div>
+    </div>
+  )
+}
 
 const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   const [conversations, setConversations] = useState([])
