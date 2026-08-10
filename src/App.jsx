@@ -144,7 +144,6 @@ const DiaryPanel = () => {
     <input className="input" placeholder={ph} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border, #333)', background: 'transparent', color: 'inherit' }} />
   )
 
-  // 历史日记按日期分组
   const groups = []
   diaries.forEach(d => {
     const g = groups.find(x => x.date === d.date)
@@ -342,8 +341,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const d = await r.json(); return d.result?.content?.[0]?.text || JSON.stringify(d)
   }
 
-  const streamChat = async (msgs, aiId, onText) => {
-    const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null }) })
+  const streamChat = async (msgs, aiId, onText, skipSave = false) => {
+    const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }) })
     const reader = res.body.getReader(); const decoder = new TextDecoder()
     let ft = '', buf = '', tcs = []
     while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() || ''; for (const l of lines) { if (!l.startsWith('data: ')) continue; try { const d = JSON.parse(l.slice(6)); if (d.content) { ft += d.content; onText(ft) } if (d.tool_calls) tcs = d.tool_calls; if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId } } catch (_) {} } }
@@ -377,7 +376,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
       const toolText = results.map((r, i) => `[工具: ${r.tool}]\n${r.result.slice(0, 3000)}`).join('\n\n')
       const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
-      const nxt = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)))
+      // 工具轮次：skipSave=true，不入库，不污染对话历史
+      const nxt = await streamChat(fms, nid, (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)), true)
       curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curAiId = nid
     }
   }
