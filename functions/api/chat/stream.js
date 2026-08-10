@@ -24,10 +24,17 @@ export async function onRequestPost(context) {
   let messages = rawMessages
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
+  // 查找最后一条真正的 user 消息（消息数组末尾可能是系统提醒或工具结果，不能按 length-1 取）
+  let userMsg = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'user' && typeof messages[i].content === 'string') { userMsg = messages[i]; break }
+  }
+  if (!userMsg || !userMsg.content.trim()) return json(400, { error: 'no user message found' })
+
   try {
     let convId = conversationId
     if (!convId) {
-      const lastMsg = messages[messages.length - 1]?.content || '新对话'
+      const lastMsg = userMsg.content || '新对话'
       const r = await fetch(`${SUPABASE}/conversations`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ title: lastMsg.slice(0, 30) }) })
       if (!r.ok) { const t = await r.text().catch(() => ''); return json(500, { error: `conv insert [${r.status}]: ${t.slice(0, 200)}` }) }
       const rows = await r.json(); convId = Array.isArray(rows) ? rows[0]?.id : null
@@ -35,7 +42,6 @@ export async function onRequestPost(context) {
     }
 
     // 存用户消息：工具内部消息（[工具结果] 开头）不入库，真实用户消息才存
-    const userMsg = messages[messages.length - 1]
     const isToolRound = skipSave || String(userMsg.content || '').startsWith('[工具结果]')
     if (!isToolRound) {
       const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
