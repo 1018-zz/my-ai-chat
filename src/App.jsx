@@ -8,8 +8,8 @@ import './styles/theme.css'
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 const MCP_URL = `${API_BASE}/api/mcp`
 const systemPrompt = buildSystemPrompt()
-const MAX_TOOL_ROUNDS = 16 // 工具调用循环上限（参考 RikkaHub 的 maxSteps=256，前端轮询取适中值）
-const TOOL_OUTPUT_LIMIT = 3000 // 单条工具结果注入上下文的上限（截断时加标记）
+const MAX_TOOL_ROUNDS = 16
+const TOOL_OUTPUT_LIMIT = 3000
 
 const tabList = [
   { key: 'lair', label: 'LAIR', icon: '🏠' },
@@ -218,6 +218,33 @@ const DiaryPanel = () => {
   )
 }
 
+// —— 设置面板：深度思考显示开关 ——
+const SettingsPanel = () => {
+  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
+  const toggle = () => {
+    const n = !showThinking
+    setShowThinking(n)
+    try { localStorage.setItem('show_thinking', String(n)) } catch (_) {}
+  }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ background: 'var(--color-bg-card, #1a1d21)', borderRadius: 10, padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14 }}>💡 深度思考</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>AI 思考时是否显示「思考过程」折叠块</div>
+          </div>
+          <button onClick={toggle} style={{
+            minWidth: 48, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13,
+            background: showThinking ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
+            color: showThinking ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
+          }}>{showThinking ? '开' : '关'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const LifePage = () => {
   const [sub, setSub] = useState('mem')
   const subTabs = [
@@ -239,7 +266,7 @@ const LifePage = () => {
       </div>
       {sub === 'mem' && <MemPanel />}
       {sub === 'diary' && <DiaryPanel />}
-      {sub === 'settings' && <div style={{ marginTop: 24, color: 'var(--color-text-gray)', textAlign: 'center', padding: 32 }}>⚙️ 设置 · 还没建好，改天砌</div>}
+      {sub === 'settings' && <SettingsPanel />}
     </div>
   )
 }
@@ -273,23 +300,53 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-const ToolCard = ({ tool, result, collapsed }) => {
-  const [open, setOpen] = useState(!collapsed)
-  const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : '⚙️'
+// —— 思考卡片：三态（收起/预览渐变/展开），完成后自动收起，带思考时长 ——
+const ThinkingCard = ({ text, done, dur }) => {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { if (done) setOpen(false) }, [done])
+  const isPreview = !done || !open
+  return (
+    <div style={{ marginBottom: 6, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '85%' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
+        <span style={{ fontSize: 13 }}>💡</span>
+        <span>{done ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '思考中…'}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>{done ? (open ? '▲' : '▼') : ''}</span>
+      </div>
+      <div style={{
+        padding: '0 12px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
+        color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+        maskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+        WebkitMaskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+      }}>{text}</div>
+    </div>
+  )
+}
+
+// —— 工具卡片：执行中展开，完成后自动折叠成一行，点击展开详情 ——
+const ToolCard = ({ tool, result }) => {
+  const [open, setOpen] = useState(false)
   const isError = !!result && String(result).startsWith('执行失败')
   const isRunning = !result
+  const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
+  const showBody = open || isRunning
   return (
-    <details className="tool-card" open={open} onToggle={(e) => setOpen(e.target.open)}>
-      <summary className="tool-summary">
-        <span className="tool-icon">{icon}</span>
-        <span className="tool-name">{tool.name}</span>
-        <span className="tool-path">{tool.arguments?.path || ''}</span>
-        {isRunning && <span className="tool-status" style={{ color: '#e5c07b' }}>⏳</span>}
-        {isError && <span className="tool-status" style={{ color: '#e06c75' }}>❌</span>}
-        {result && !isError && <span className="tool-status">✅</span>}
-      </summary>
-      <div className="tool-detail" style={isError ? { color: '#e06c75' } : {}}>{result || '执行中…'}</div>
-    </details>
+    <div style={{ marginBottom: 5, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '85%' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
+        <span style={{ fontSize: 13 }}>{icon}</span>
+        <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{tool.name}</span>
+        {tool.arguments?.path && <span style={{ color: 'var(--color-text-gray)', fontSize: 11 }}>{tool.arguments.path}</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12 }}>
+          {isRunning ? <span style={{ color: '#e5c07b' }}>⏳</span> : isError ? <span style={{ color: '#e06c75' }}>❌</span> : <span style={{ color: '#98c379' }}>✅</span>}
+        </span>
+      </div>
+      {showBody && (
+        <div style={{
+          padding: '0 12px 10px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
+          color: isError ? '#e06c75' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+          borderTop: isRunning ? 'none' : '1px solid var(--color-border, #333)', opacity: isRunning ? 0.7 : 1,
+        }}>{result || '执行中…'}</div>
+      )}
+    </div>
   )
 }
 
@@ -331,6 +388,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [loading, setLoading] = useState(false)
   const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
   const [termOpen, setTermOpen] = useState(false)
+  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
   const messagesEndRef = useRef(null)
   let nextId = useRef(Date.now())
 
@@ -348,6 +406,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }) })
     const reader = res.body.getReader(); const decoder = new TextDecoder()
     let ft = '', buf = '', tcs = [], th = ''
+    const thStart = Date.now(); let thDur = null
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -359,12 +418,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           const d = JSON.parse(l.slice(6))
           if (d.content) { ft += d.content; onText(ft) }
           if (d.thinking) { th += d.thinking; onThinking?.(th) }
+          if (d.thinking_done) { thDur = Date.now() - thStart }
           if (d.tool_calls) tcs = d.tool_calls
           if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
         } catch (_) {}
       }
     }
-    return { ft, tcs, th }
+    return { ft, tcs, th, thDur }
   }
 
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
@@ -375,14 +435,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     let pc = ''
     try { const [mems, inf] = await Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]); const parts = []; if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n')); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
-    // 在消息末尾追加工具调用提醒，压过"指路者"人设，确保模型直接调用工具而不是只说"我去看看"
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
-    // 工具调用循环：最多 MAX_TOOL_ROUNDS 轮，每轮执行完把结果注入下一轮
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0
     const first = await streamChat(curMsgs, curAiId,
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
-      (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th } : m)))
+      (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)))
     curFt = first.ft; curTcs = first.tcs
+    if (first.thDur) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinkingDone: true, thinkingDur: first.thDur } : m))
     while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
       rounds++
       const results = []
@@ -394,18 +453,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         setMsgList(p => p.map(m => m.id === curAiId ? { ...m, toolCalls: curTcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
       }
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
-      // 工具结果：超长时截断并加标记，让模型知道内容不完整（参考 RikkaHub 的截断提示）
       const toolText = results.map((r, i) => {
         const out = r.result
         const truncated = out.length > TOOL_OUTPUT_LIMIT
         return `[工具: ${r.tool}]\n${truncated ? out.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${out.length} 字符，仅显示前 ${TOOL_OUTPUT_LIMIT} 字符。如需要完整内容，请用 read_file 读取相关文件]` : out}`
       }).join('\n\n')
       const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
-      // 工具轮次：skipSave=true，不入库，不污染对话历史
       const nxt = await streamChat(fms, nid,
         (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)),
-        (th) => setMsgList(p => p.map(m => m.id === nid ? { ...m, thinking: th } : m)),
+        (th) => setMsgList(p => p.map(m => m.id === nid ? { ...m, thinking: th, thinkingDone: false } : m)),
         true)
+      if (nxt.thDur) setMsgList(p => p.map(m => m.id === nid ? { ...m, thinkingDone: true, thinkingDur: nxt.thDur } : m))
       curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curAiId = nid
     }
   }
@@ -428,15 +486,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         {msgList.map(msg => (
           <div key={msg.id}>
             <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
-              {!msg.isSelf && msg.thinking && (
-                <details style={{ marginBottom: 6, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 10px', maxWidth: '85%' }}>
-                  <summary style={{ fontSize: 12, color: 'var(--color-text-gray)', cursor: 'pointer', userSelect: 'none' }}>🔍 思考过程</summary>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 6, whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 200, overflowY: 'auto' }}>{msg.thinking}</div>
-                </details>
+              {!msg.isSelf && msg.thinking && showThinking && (
+                <ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} />
               )}
               {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
             </div>
-            {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} collapsed={!!tc.result}/></div>)}
+            {msg.toolCalls && msg.toolCalls.map((tc, i) => <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result}/></div>)}
           </div>
         ))}
         <div ref={messagesEndRef}/>
