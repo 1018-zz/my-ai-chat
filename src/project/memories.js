@@ -1,5 +1,9 @@
 // src/project/memories.js
 // 项目文件：不能丢的时刻
+// 数据存 Supabase（跨设备），localStorage 作为离线回退
+
+const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const STORAGE_KEY = 'project-memories'
 
 const builtInMemories = [
   {
@@ -54,41 +58,76 @@ const builtInMemories = [
   },
 ]
 
-const STORAGE_KEY = 'project-memories'
-
-// 获取所有项目文件
-export function getProjectMemories() {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (raw) return JSON.parse(raw)
-  // 首次使用，用内置的十条记忆初始化
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(builtInMemories))
-  return builtInMemories
+function readLocal() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+}
+function writeLocal(list) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)) } catch (_) {}
 }
 
-// 添加一条项目文件
-export function addProjectMemory(title, content) {
-  const memories = getProjectMemories()
-  const newMemory = {
-    id: 'mem-' + Date.now(),
-    title,
-    content,
-    createdAt: new Date().toISOString(),
+// 把本地旧数据（或内置记忆）迁移到云端
+async function migrateLocalToCloud() {
+  const local = readLocal()
+  const source = local.length > 0 ? local : builtInMemories
+  for (const m of source) {
+    try {
+      await fetch(`${API_BASE}/api/memories/project`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: m.title, content: m.content }),
+      })
+    } catch (_) {}
   }
-  memories.push(newMemory)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(memories))
-  return newMemory
+  writeLocal([])
 }
 
-// 删除一条
-export function deleteProjectMemory(id) {
-  const memories = getProjectMemories()
-  const filtered = memories.filter(m => m.id !== id)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+// 获取所有项目记忆（云端优先，本地回退）
+export async function getProjectMemories() {
+  try {
+    const res = await fetch(`${API_BASE}/api/memories/project`)
+    const data = await res.json()
+    const cloud = data.memories || []
+    if (cloud.length === 0) {
+      await migrateLocalToCloud()
+      const res2 = await fetch(`${API_BASE}/api/memories/project`)
+      return (await res2.json()).memories || []
+    }
+    return cloud
+  } catch (e) {
+    const local = readLocal()
+    return local.length > 0 ? local : builtInMemories
+  }
 }
 
-// 将项目文件注入对话上下文（需要时调用）
-export function injectMemoriesToPrompt() {
-  const memories = getProjectMemories()
+// 添加一条项目记忆
+export async function addProjectMemory(title, content) {
+  try {
+    const res = await fetch(`${API_BASE}/api/memories/project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content }),
+    })
+    const data = await res.json()
+    return data.memory || { id: 'local-' + Date.now(), title, content }
+  } catch (e) {
+    const m = { id: 'mem-' + Date.now(), title, content, createdAt: new Date().toISOString() }
+    const local = readLocal(); local.push(m); writeLocal(local)
+    return m
+  }
+}
+
+// 删除一条项目记忆
+export async function deleteProjectMemory(id) {
+  try {
+    await fetch(`${API_BASE}/api/memories/project/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  } catch (e) {
+    writeLocal(readLocal().filter(m => m.id !== id))
+  }
+}
+
+// 将项目记忆注入对话上下文（需要时调用）
+export async function injectMemoriesToPrompt() {
+  const memories = await getProjectMemories()
   if (memories.length === 0) return ''
   return [
     '【以下是泠泠和钟泽之间不能丢的时刻，如果有需要可以参考】',
