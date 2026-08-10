@@ -138,6 +138,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     let pc = ''
     try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
+    // 在消息末尾追加工具调用提醒，压过"指路者"人设，确保模型直接调用工具而不是只说"我去看看"
+    cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
     // 工具调用循环：最多 4 轮，每轮执行完把结果注入下一轮
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0
     const first = await streamChat(curMsgs, curAiId, (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)))
