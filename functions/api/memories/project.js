@@ -2,7 +2,7 @@
 // GET /api/memories/project — 项目记忆列表
 // POST /api/memories/project — 新增项目记忆 {title, content}
 // 项目记忆以 家· 前缀存入 memories 表，与摘要记忆区分
-// 注意：memories 表没有 created_at 列，查询只能 select id,summary
+// 读取：全量拉回后 JS 过滤前缀（不用 ILIKE，避免中文/特殊字符匹配坑）
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const PREFIX = '家·'
@@ -23,14 +23,13 @@ function parseEntry(row) {
 export async function onRequestGet(context) {
   const { env } = context
   try {
-    const like = encodeURIComponent(`${PREFIX}%`)
     const res = await fetch(
-      `${SUPABASE}/memories?select=id,summary&summary=ilike.${like}&order=id.asc&limit=500`,
+      `${SUPABASE}/memories?select=id,summary&order=id.asc&limit=1000`,
       { headers: sbHeaders(env) }
     )
     if (!res.ok) return json(500, { error: `supabase [${res.status}]: ${(await res.text()).slice(0, 200)}` })
     const data = await res.json()
-    const rows = Array.isArray(data) ? data : []
+    const rows = (Array.isArray(data) ? data : []).filter(r => (r.summary || '').startsWith(PREFIX))
     return json(200, { memories: rows.map(parseEntry) })
   } catch (e) { return json(500, { error: e.message }) }
 }
