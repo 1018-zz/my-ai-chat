@@ -1,5 +1,6 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { buildSystemPrompt } from './project/instructions'
+import { getProjectMemories } from './project/memories'
 import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
@@ -136,7 +137,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     let mc = ''
     if (userText.length > 2) { try { const { memories, relatedMessages } = await searchMemories(userText); const parts = []; if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n')); if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n')); mc = parts.join('\n\n') } catch (_) {} }
     let pc = ''
-    try { const [mf, inf] = await Promise.all([githubFile('src/project/memories.js'), githubFile('src/project/instructions.js')]); const parts = []; if (mf.content) parts.push('【不能丢的时刻】\n' + mf.content.slice(0, 800)); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
+    try { const [mems, inf] = await Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]); const parts = []; if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n')); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
     const cms = [{ role: 'system', content: systemPrompt + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') }, ...msgsForCtx.filter(m => !m.loading).slice(-40).map(m => ({ role: m.isSelf ? 'user' : 'assistant', content: m.text }))]
     // 在消息末尾追加工具调用提醒，压过"指路者"人设，确保模型直接调用工具而不是只说"我去看看"
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
