@@ -218,7 +218,6 @@ const DiaryPanel = () => {
   )
 }
 
-// —— 设置面板：深度思考显示开关 ——
 const SettingsPanel = () => {
   const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
   const toggle = () => {
@@ -300,11 +299,12 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   )
 }
 
-// —— 思考卡片：三态（收起/预览渐变/展开），完成后自动收起，带思考时长 ——
+// —— 思考卡片：思考中渐变预览，完成后彻底收起成一行（💡 深度思考 · Xs），点击展开全文 ——
 const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
-  const isPreview = !done || !open
+  const showBody = open || !done
+  const isPreview = !done
   return (
     <div style={{ marginBottom: 6, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border, #333)', background: 'rgba(255,255,255,0.03)', maxWidth: '85%' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
@@ -312,12 +312,14 @@ const ThinkingCard = ({ text, done, dur }) => {
         <span>{done ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '思考中…'}</span>
         <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>{done ? (open ? '▲' : '▼') : ''}</span>
       </div>
-      <div style={{
-        padding: '0 12px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
-        color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
-        maskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
-        WebkitMaskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
-      }}>{text}</div>
+      {showBody && (
+        <div style={{
+          padding: '0 12px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
+          color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+          maskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+          WebkitMaskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+        }}>{text}</div>
+      )}
     </div>
   )
 }
@@ -343,7 +345,7 @@ const ToolCard = ({ tool, result }) => {
         <div style={{
           padding: '0 12px 10px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
           color: isError ? '#e06c75' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
-          borderTop: isRunning ? 'none' : '1px solid var(--color-border, #333)', opacity: isRunning ? 0.7 : 1,
+          borderTop: '1px solid var(--color-border, #333)', opacity: isRunning ? 0.7 : 1,
         }}>{result || '执行中…'}</div>
       )}
     </div>
