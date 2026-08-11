@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
-const MCP_URL = `${API_BASE}/api/mcp`
+const MCP_URL = `${API_BASE}/api/mcp-proxy`
 const systemPrompt = buildSystemPrompt()
 const MAX_TOOL_ROUNDS = 16
 const TOOL_OUTPUT_LIMIT = 6000
