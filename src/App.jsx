@@ -337,7 +337,7 @@ const ThinkingCard = ({ text, done, dur }) => {
   const showBody = open || !done
   const isPreview = !done
   return (
-    <div style={glassCard}>
+    <div style={glassCard} className="tool-card status-thinking">
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>💡</span>
         <span>{done ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '思考中…'}</span>
