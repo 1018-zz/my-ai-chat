@@ -528,7 +528,26 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const stopRequestedRef = useRef(false)
 
   useEffect(() => {
-    if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(normalizeMessage))).catch(() => {})
+    if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => {
+      // P0.7c：工具结果回填——tool 消息按消息序列聚合回对应 assistant 的 toolCalls
+      // 数据库存原子消息（assistant→tool→assistant），Run 是前端聚合出来的
+      const restored = []
+      let pending = null, idx = 0
+      for (const m of msgs) {
+        if (m.role === 'tool') {
+          if (pending && idx < pending.toolCalls.length && typeof m.content === 'string') {
+            pending.toolCalls[idx] = { ...pending.toolCalls[idx], result: m.content }
+            idx++
+          }
+          continue
+        }
+        const nm = normalizeMessage(m)
+        restored.push(nm)
+        if (!nm.isSelf && Array.isArray(nm.toolCalls) && nm.toolCalls.length > 0) { pending = nm; idx = 0 }
+        else pending = null
+      }
+      setMsgList(restored)
+    }).catch(() => {})
   }, [chatInfo?.id])
   // 滚动跟随：用户在底部附近（120px 内）才自动滚到底；上翻历史时消息更新不打扰
   const [stickBottom, setStickBottom] = useState(true)
