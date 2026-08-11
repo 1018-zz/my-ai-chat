@@ -682,16 +682,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         })()}
         {msgList.map(msg => (
           <div key={msg.id} className="msg-enter">
-            {/* 思考独立成行（RikkaHub 风格：思考/工具/文本各自独立块） */}
-            {!msg.isSelf && msg.thinking && showThinking && (
-              <div className="msg-left"><ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} /></div>
-            )}
-            {msg.toolCalls && msg.toolCalls.map((tc, i) => (
-              <div key={i} className="msg-left"><ToolCard tool={tc} result={tc.result} /></div>
-            ))}
-            <div className={msg.isSelf ? 'msg-right' : 'msg-left'}>
-              {msg.loading ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div> : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
-            </div>
+            {msg.isSelf
+              ? <div className="msg-right"><div className="msg-bubble"><Markdown>{msg.text}</Markdown></div></div>
+              : <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />}
           </div>
         ))}
         <div ref={messagesEndRef}/>
