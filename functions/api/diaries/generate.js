@@ -35,6 +35,14 @@ export async function onRequestPost(context) {
     const msgs = await mr.json()
     const transcript = (Array.isArray(msgs) ? msgs : []).slice(-30).map(m => `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 150)}`).join('\n')
 
+    // 取泠泠当天手写的日记（若有），钟泽要回应/延续她的话，而不是无视
+    let userDiary = ''
+    try {
+      const dr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.user&select=content`, { headers: sbHeaders(env) })
+      const drows = await dr.json()
+      userDiary = (Array.isArray(drows) && drows[0]?.content) ? drows[0].content : ''
+    } catch (_) {}
+
     // 取最近记忆
     const memr = await fetch(`${SUPABASE}/memories?select=summary&order=id.desc&limit=3`, { headers: sbHeaders(env) })
     const mems = await memr.json()
