@@ -31,13 +31,19 @@ export async function trySummarize(env, convId) {
     let ins = 0
     for (const m of mems) {
       if (!m.content) continue
-      // 意义阈值：significance < 0.7 的普通流水不写入长期记忆（低分内容留在会话摘要，不删除）
+      // 意义阈值：significance < 0.7 的流水不写入长期记忆（低分内容留在会话摘要，不删除）
       const sig = Number(m.significance)
       if (!isNaN(sig) && sig < 0.7) continue
-      // 把 type / keywords 编码进 summary，避免信息丢失（表里目前只有 summary 列）
+      // 人格污染防护：情绪（emotion）永不写入长期记忆——"今天孤单"≠"长期孤单"
+      const kind = String(m.memory_kind || m.type || '')
+      if (kind === 'emotion') continue
+      // 事件（event）需要更高门槛（0.75），且更偏 Moment——等 Moment 系统落地后迁移
+      if (kind === 'event' && !isNaN(sig) && sig < 0.75) continue
+      // 把 type/memory_kind / keywords / reason 编码进 summary，避免信息丢失（表里目前只有 summary 列）
       const extra = []
-      if (m.type === 'important') extra.push('重要')
+      if (kind === 'important' || kind === 'promise') extra.push('重要')
       if (m.keywords) extra.push('关键词：' + String(m.keywords))
+      if (m.reason) extra.push('因为：' + String(m.reason).slice(0, 60))
       const summary = extra.length > 0 ? `${m.content}（${extra.join(' | ')}）` : m.content
       const r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary }) })
       if (r.ok) ins++
