@@ -575,16 +575,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const stopRequestedRef = useRef(false)
 
   useEffect(() => {
-    if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(m => {
-      let tc = null
-      if (m.tool_calls) { try { tc = JSON.parse(m.tool_calls) } catch { tc = null } }
-      const base = { id: m.id || m.created_at, text: m.content, isSelf: m.role === 'user' }
-      if (m.role === 'assistant') {
-        if (m.thinking) { base.thinking = m.thinking; base.thinkingDone = true; base.thinkingDur = 0 }
-        if (Array.isArray(tc) && tc.length > 0) base.toolCalls = tc.map(t => ({ ...t, result: '' }))
-      }
-      return base
-    }))).catch(() => {})
+    if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(normalizeMessage))).catch(() => {})
   }, [chatInfo?.id])
   // 滚动跟随：用户在底部附近（120px 内）才自动滚到底；上翻历史时消息更新不打扰
   const [stickBottom, setStickBottom] = useState(true)
