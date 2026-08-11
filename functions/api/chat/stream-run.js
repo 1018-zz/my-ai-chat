@@ -65,7 +65,10 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         try {
           // 工具内部轮次：不存 assistant 消息、不触发摘要/压缩（避免污染对话历史）
           if (!isToolRound) {
-            await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'assistant', content: fullContent }) })
+            const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
+            if (reasoning.trim()) saveBody.thinking = reasoning
+            if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
+            await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(saveBody) })
             await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
             const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
             if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
