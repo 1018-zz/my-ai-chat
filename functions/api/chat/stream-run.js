@@ -10,6 +10,7 @@ function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=represent
 export async function runStream(dsRes, env, convId, isToolRound = false) {
   const encoder = new TextEncoder()
   let fullContent = '', buffer = '', toolCalls = [], reasoning = ''
+  let aborted = false
 
   const sseStream = new ReadableStream({
     async start(controller) {
