@@ -24,6 +24,38 @@
   /* 毛玻璃：模糊 + 饱和度增强，让玻璃背后透出的暖色更浓郁通透 */
   --glass-blur: blur(20px) saturate(1.6);
   --glass-blur-strong: blur(28px) saturate(1.8);
+
+  /* ===== UI 规范 v1.0（2026-08-11 钟泽设计）=====
+     情绪色：用于状态卡、心情标签、趋势图
+     开心 粉 / 平静 蓝 / 焦虑 黄 / 疲惫 灰 / 期待 绿 */
+  --mood-happy: #F2A6B5;
+  --mood-happy-soft: rgba(242, 166, 181, 0.16);
+  --mood-calm: #8FB8DE;
+  --mood-calm-soft: rgba(143, 184, 222, 0.16);
+  --mood-anxious: #E8C87A;
+  --mood-anxious-soft: rgba(232, 200, 122, 0.16);
+  --mood-tired: #B9B4AC;
+  --mood-tired-soft: rgba(185, 180, 172, 0.16);
+  --mood-expect: #9DBB8C;
+  --mood-expect-soft: rgba(157, 187, 140, 0.16);
+
+  /* 状态语义色（思考中 / 成功 / 出错） */
+  --status-thinking: #8FB8DE;
+  --status-ok: #9DBB8C;
+  --status-err: #E89B8A;
+
+  /* 圆角层级（大卡 24 / 气泡 18 / 按钮 16 / 小件 12 / 最小 8） */
+  --radius-2xl: 24px;
+  --radius-bubble: 18px;
+
+  /* 纸张浮起阴影：柔和、低对比，营造"纸浮起来" */
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --shadow-lift-strong: 0 12px 40px rgba(0, 0, 0, 0.07);
+
+  /* 动画节奏 */
+  --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-in: 0.25s;
+  --dur-pop: 0.24s;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, "PingFang SC", sans-serif; }
