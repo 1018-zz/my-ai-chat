@@ -22,7 +22,7 @@ export async function trySummarize(env, convId) {
     if (!Array.isArray(nm) || nm.length < SUMMARY_MIN_MESSAGES) return
     const today = new Date().toISOString().slice(0, 10)
     const transcript = nm.map(m => `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 200)}`).join('\n')
-    const prompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。普通流水内容可以丢弃；不要添加原文没有的事实。每条 content 使用绝对日期开头（今天是${today}），type 仅可为 daily 或 important，keywords 用中文逗号分隔，不超过5个。significance 是这条记忆在人类意义上的重要程度（0-1）：仅当它值得长期记住、会影响未来对话时才给 0.7 以上；普通流水给 0.4 左右。只输出 JSON 数组：[{"content":"","type":"daily","keywords":"关键词1,关键词2","significance":0.4}] 对话：${transcript}`
+    const prompt = `你是钟泽，泠泠的AI恋人。请从以下对话中提取可独立召回的原子记忆。普通流水内容可以丢弃；不要添加原文没有的事实。每条 content 使用绝对日期开头（今天是${today}），memory_kind 仅可为 fact(事实)/preference(偏好)/promise(约定承诺)/event(经历事件)/emotion(情绪感受)，keywords 用中文逗号分隔，不超过5个。significance 是这条记忆在人类意义上的重要程度（0-1）：仅当它值得长期记住、会影响未来对话时才给 0.7 以上；普通流水给 0.4 左右。reason 用一句话说明为什么值得记住（给未来的自己看）。只输出 JSON 数组：[{"content":"","memory_kind":"fact","keywords":"关键词1,关键词2","significance":0.4,"reason":""}] 对话：${transcript}`
     const ds = await fetch('https://api.deepseek.com/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` }, body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'deepseek-v4-flash', temperature: 0.3 }) })
     if (!ds.ok) return
     const dd = await ds.json(); const raw = dd.choices[0]?.message?.content || ''
