@@ -502,6 +502,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
   const messagesEndRef = useRef(null)
   let nextId = useRef(Date.now())
+  const abortRef = useRef(null)
+  const stopRequestedRef = useRef(false)
 
   useEffect(() => {
     if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(m => {
