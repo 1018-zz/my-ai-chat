@@ -42,9 +42,14 @@ export async function onRequestPost(context) {
       const repoRaw = args.repo || 'my-ai-chat'
       const [owner, repoName] = repoRaw.includes('/') ? repoRaw.split('/') : ['1018-zz', repoRaw]
       if (name === 'read_file') {
+        const offset = Math.max(Number(args.offset) || 0, 0)
+        const limit = Math.max(Number(args.limit) || 80000, 1)
         const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${args.path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.raw', 'User-Agent': 'my-ai-chat' } });
         const content = await res.text();
-        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: content.slice(0, 80000) }] } }), { headers });
+        const total = content.length
+        const sliced = content.slice(offset, offset + limit)
+        const rangeNote = total > limit ? `（文件共 ${total} 字符，当前显示 ${offset}-${offset + sliced.length}。续读：offset=${offset + sliced.length}, limit=${limit}）\n` : ''
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: rangeNote + sliced }] } }), { headers });
       }
       if (name === 'list_files') {
         const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${args.path || ''}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } });
