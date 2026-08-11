@@ -54,8 +54,9 @@ export function migrateLegacyMessage(raw) {
         type: 'tool',
         name: tc.name,
         arguments: tc.arguments || {},
-        status: tc.result ? 'done' : 'running',
-        result: tc.result || '',
+        // 历史消息：过程已完成，结果未存——不是"执行中"（避免 RunCard 误判 running）
+        status: 'done',
+        result: tc.result || '（历史工具结果未保存）',
       })
     }
   }
@@ -72,7 +73,7 @@ export function migrateLegacyMessage(raw) {
     thinking,
     thinkingDone: !!thinking,
     thinkingDur: thinkingDur || 0,
-    toolCalls: tcs,
+    toolCalls: extractToolCalls(blocks),
     loading,
     interrupted,
   }
