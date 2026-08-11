@@ -615,7 +615,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           const d = JSON.parse(l.slice(6))
           if (d.content) { ft += d.content; onText(ft) }
           if (d.thinking) { th += d.thinking; onThinking?.(th) }
-          if (d.thinking_done) { thDur = Date.now() - thStart }
+          if (d.thinking_done) {
+            thDur = Date.now() - thStart
+            // 后端在流结束时一次性补发完整 thinking（reasoning_content 全文）
+            // 若完整文本更长则替换，避免"增量+完整"重复拼接
+            if (d.thinking && d.thinking.length > th.length) th = d.thinking
+          }
           if (d.tool_calls) tcs = d.tool_calls
           if (d.done && d.aborted) aborted = true
           if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
