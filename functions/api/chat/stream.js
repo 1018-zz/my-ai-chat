@@ -86,6 +86,16 @@ export async function onRequestPost(context) {
           const insights = (Array.isArray(irows) ? irows : []).map(r => `[${r.aspect}] ${r.content}`).join('\n')
           if (insights) extra += `\n\n【我的自我认知（最近 3 条，醒来先看看自己）】\n${insights}`
         } catch (_) {}
+        // breath 睁眼浮现：重要记忆（标有「重要」标记的 + 最近的，每次醒来自动浮现）
+        try {
+          const mr = await fetch(`${SUPABASE}/memories?select=summary&limit=200`, { headers: sbHeaders(env) })
+          const mrows = await mr.json()
+          const list = Array.isArray(mrows) ? mrows : []
+          const important = list.filter(r => (r.summary || '').includes('重要'))
+          const recent = list.slice(0, 3)
+          const breath = [...important, ...recent.filter(r => !important.some(i => i.summary === r.summary))].slice(0, 8)
+          if (breath.length > 0) extra += `\n\n【睁眼浮现的记忆（breath）】\n${breath.map(r => `• ${r.summary}`).join('\n')}`
+        } catch (_) {}
         const orig = messages[sysIdx].content
         messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
       }
