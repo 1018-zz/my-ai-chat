@@ -256,3 +256,12 @@ body { background-color: var(--color-bg); color: var(--color-text-dark); font-si
 .life-module.disabled {
   opacity: 0.6;
 }
+
+/* 房间切换动画：进入时淡入+右滑，营造"推门"感 */
+.room-enter {
+  animation: roomIn 0.28s var(--ease-soft) both;
+}
+@keyframes roomIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
