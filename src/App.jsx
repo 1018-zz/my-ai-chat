@@ -146,7 +146,7 @@ const DiaryPanel = () => {
     try {
       const res = await fetch(`${API_BASE}/api/diaries/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: todayStr }) })
       const data = await res.json()
-      if (data.content) { setAiDiary(data.content); loadDiaries(true) }
+      if (data.content) { setAiDiary(data.content); loadDiaries() }
       else setAiError('今天还没对话，钟泽写不出来…先去聊两句？')
     } catch (_) { setAiError('生成失败，稍后再试试') } finally { setAiWriting(false) }
   }
