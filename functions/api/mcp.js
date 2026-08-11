@@ -20,6 +20,13 @@ export async function onRequestOptions() {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+  // x-api-key 鉴权（MCP_AUTH_KEY 环境变量未配时保持向后兼容，配了才校验）
+  if (env.MCP_AUTH_KEY) {
+    const provided = request.headers.get('x-api-key') || request.headers.get('Authorization')?.replace('Bearer ', '') || ''
+    if (provided !== env.MCP_AUTH_KEY) {
+      return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: 'Unauthorized: 缺少或错误的 x-api-key' } }), { status: 401, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })
+    }
+  }
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
   try {
     const body = await request.json();
