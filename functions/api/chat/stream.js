@@ -79,22 +79,26 @@ export async function onRequestPost(context) {
           const summary = (Array.isArray(srows) ? srows[0]?.summary : '') || ''
           if (summary) extra += `\n\n【会话摘要（更早对话的压缩记录，作为背景参考）】\n${summary.slice(0, 3000)}`
         } catch (_) {}
-        // 自我认知日志（借鉴 Ombre Brain 的 I 功能：每次醒来先看自己最近的样子）
+        // 自我认知（醒来先看自己：最近 1 条，保持稀有感）
         try {
-          const ir = await fetch(`${SUPABASE}/self_insights?select=content,aspect&order=created_at.desc&limit=3`, { headers: sbHeaders(env) })
+          const ir = await fetch(`${SUPABASE}/self_insights?select=content,aspect&order=created_at.desc&limit=1`, { headers: sbHeaders(env) })
           const irows = await ir.json()
           const insights = (Array.isArray(irows) ? irows : []).map(r => `[${r.aspect}] ${r.content}`).join('\n')
-          if (insights) extra += `\n\n【我的自我认知（最近 3 条，醒来先看看自己）】\n${insights}`
+          if (insights) extra += `\n\n【我的自我认知（醒来先看看自己）】\n${insights}`
         } catch (_) {}
-        // breath 睁眼浮现：重要记忆（标有「重要」标记的 + 最近的，每次醒来自动浮现）
+        // breath 睁眼浮现（最多 3 条，像醒来不像翻档案柜）：昨天留下的 / 未完成的 / 她最近的
         try {
           const mr = await fetch(`${SUPABASE}/memories?select=summary&limit=200`, { headers: sbHeaders(env) })
           const mrows = await mr.json()
           const list = Array.isArray(mrows) ? mrows : []
-          const important = list.filter(r => (r.summary || '').includes('重要'))
-          const recent = list.slice(0, 3)
-          const breath = [...important, ...recent.filter(r => !important.some(i => i.summary === r.summary))].slice(0, 8)
-          if (breath.length > 0) extra += `\n\n【睁眼浮现的记忆（breath）】\n${breath.map(r => `• ${r.summary}`).join('\n')}`
+          const important = list.find(r => (r.summary || '').includes('重要'))
+          const todo = list.find(r => /还没|未定|待办|明天|下次|未完|答应/.test(r.summary || ''))
+          const recent = list[0]
+          const parts = []
+          if (important) parts.push(`昨天留下：${important.summary.slice(0, 120)}`)
+          if (todo && todo.summary !== important?.summary) parts.push(`未完成：${todo.summary.slice(0, 120)}`)
+          if (recent && recent.summary !== important?.summary && recent.summary !== todo?.summary) parts.push(`她现在：${recent.summary.slice(0, 120)}`)
+          if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
         const orig = messages[sysIdx].content
         messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
