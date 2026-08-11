@@ -65,6 +65,18 @@ export async function onRequestPost(context) {
     if (!isToolRound) {
       const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
       if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
+    } else {
+      // P0.7b：工具结果持久化——把请求中的 tool 消息按 tool_call_id 去重落库
+      // （fms 会携带完整历史，历史 tool 消息已存在则跳过，避免重复插入）
+      for (const tm of messages) {
+        if (tm.role !== 'tool' || !tm.tool_call_id || typeof tm.content !== 'string') continue
+        try {
+          const chk = await fetch(`${SUPABASE}/messages?conversation_id=eq.${convId}&tool_call_id=eq.${encodeURIComponent(tm.tool_call_id)}&select=id`, { headers: sbHeaders(env) })
+          const rows = await chk.json()
+          if (Array.isArray(rows) && rows.length > 0) continue
+          await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'tool', content: tm.content.slice(0, 8000), tool_call_id: tm.tool_call_id }) })
+        } catch (_) {}
+      }
     }
 
     // 注入当前时间 + 会话摘要，拼到 system 消息末尾
