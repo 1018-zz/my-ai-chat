@@ -664,7 +664,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       </div>
       <div className="chat-input-bar">
         <input className="input" placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."} value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}/>
-        <button className="btn" onClick={handleSend} disabled={loading || !inputText.trim()}>发送</button>
+        {loading
+          ? <button className="btn" onClick={stopGen} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
+          : <button className="btn" onClick={handleSend} disabled={loading || !inputText.trim()}>发送</button>}
       </div>
     </div>
   )
