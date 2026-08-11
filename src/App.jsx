@@ -364,9 +364,9 @@ const ToolCard = ({ tool, result }) => {
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
   const showBody = open || isRunning
   return (
-    <div style={{ ...glassCard, marginBottom: 6 }}>
+    <div style={{ ...glassCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isError ? 'status-err' : 'status-ok'}`}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
-        <span style={{ fontSize: 13 }}>{icon}</span>
+        <span className="tool-icon" style={{ fontSize: 13 }}>{icon}</span>
         <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>{tool.name}</span>
         {tool.arguments?.path && <span style={{ color: 'var(--color-text-gray)', fontSize: 11 }}>{tool.arguments.path}</span>}
         <span style={{ marginLeft: 'auto', fontSize: 12 }}>
