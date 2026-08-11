@@ -31,6 +31,9 @@ export async function trySummarize(env, convId) {
     let ins = 0
     for (const m of mems) {
       if (!m.content) continue
+      // 意义阈值：significance < 0.7 的普通流水不写入长期记忆（低分内容留在会话摘要，不删除）
+      const sig = Number(m.significance)
+      if (!isNaN(sig) && sig < 0.7) continue
       // 把 type / keywords 编码进 summary，避免信息丢失（表里目前只有 summary 列）
       const extra = []
       if (m.type === 'important') extra.push('重要')
