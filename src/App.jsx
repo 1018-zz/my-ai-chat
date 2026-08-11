@@ -537,21 +537,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }
 
   const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false) => {
-    const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }) })
-    if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
-    const reader = res.body.getReader(); const decoder = new TextDecoder()
-    let ft = '', buf = '', tcs = [], th = ''
-    let aborted = false
-    const thStart = Date.now(); let thDur = null
-    while (true) {
-      let chunk
-      try { chunk = await reader.read() } catch (e) { try { await reader.cancel() } catch (_) {}; throw new Error(`流中断: ${e.message}`) }
-      const { done, value } = chunk
-      if (done) break
-      buf += decoder.decode(value, { stream: true })
-      const lines = buf.split('\n'); buf = lines.pop() || ''
-      for (const l of lines) {
-        if (!l.startsWith('data: ')) continue
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 90000)
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }), signal: controller.signal })
+      if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
+      const reader = res.body.getReader(); const decoder = new TextDecoder()
+      let ft = '', buf = '', tcs = [], th = ''
+      let aborted = false
+      const thStart = Date.now(); let thDur = null
+      const parseLine = (l) => {
+        if (!l.startsWith('data: ')) return
         try {
           const d = JSON.parse(l.slice(6))
           if (d.content) { ft += d.content; onText(ft) }
@@ -562,8 +558,22 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
         } catch (_) {}
       }
-    }
-    return { ft, tcs, th, thDur, aborted }
+      while (true) {
+        let chunk
+        try { chunk = await reader.read() } catch (e) {
+          if (e.name === 'AbortError') throw new Error('连接超时，已停止等待（90秒）')
+          throw new Error(`流中断: ${e.message}`)
+        }
+        const { done, value } = chunk
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n'); buf = lines.pop() || ''
+        for (const l of lines) parseLine(l)
+      }
+      // 补解析残留 buffer：最后一次 chunk 可能没有换行，防止最后一字丢失
+      if (buf.trim()) { const lastLines = buf.split('\n'); for (const l of lastLines) parseLine(l) }
+      return { ft, tcs, th, thDur, aborted }
+    } finally { clearTimeout(timer) }
   }
 
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
