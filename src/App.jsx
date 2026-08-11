@@ -535,7 +535,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       let pending = null, idx = 0
       for (const m of msgs) {
         if (m.role === 'tool') {
-          if (pending && idx < pending.toolCalls.length && typeof m.content === 'string') {
+          if (pending && idx < pending.toolCalls.length && typeof m.content === 'string' && m.content) {
             pending.toolCalls[idx] = { ...pending.toolCalls[idx], result: m.content }
             idx++
           }
