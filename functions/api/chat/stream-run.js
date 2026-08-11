@@ -66,7 +66,8 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
 
         try {
           // 工具内部轮次：不存 assistant 消息、不触发摘要/压缩（避免污染对话历史）
-          if (!isToolRound) {
+          // 空消息保护：完全无内容、无工具调用、无思考时不落库
+          if (!isToolRound && (fullContent.trim() || complete.length > 0 || reasoning.trim())) {
             const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
             if (reasoning.trim()) saveBody.thinking = reasoning
             if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
@@ -79,7 +80,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           }
         } catch (e) { console.error('Post:', e.message) }
 
-        const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`
+        const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId, aborted })}\n\n`
         try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
         try { controller.close() } catch (_) {}
       }
