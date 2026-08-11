@@ -64,10 +64,10 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking_done: true, thinking: reasoning })}\n\n`)) } catch (_) {}
         }
 
-        try {
-          // 工具内部轮次：不存 assistant 消息、不触发摘要/压缩（避免污染对话历史）
-          // 空消息保护：完全无内容、无工具调用、无思考时不落库
-          if (!isToolRound && (fullContent.trim() || complete.length > 0 || reasoning.trim())) {
+        // 消息存储：原子消息全部落库（含工具轮次的 assistant 续写），
+        // 形成 assistant(tool_calls) → tool(result) → assistant(续写) 标准链，
+        // 前端恢复时按序列聚合回 Run。空消息保护：完全无内容、无工具调用、无思考时不落库
+        if (fullContent.trim() || complete.length > 0 || reasoning.trim()) {
             const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
             if (reasoning.trim()) saveBody.thinking = reasoning
             if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
