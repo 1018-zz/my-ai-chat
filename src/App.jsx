@@ -540,6 +540,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
   const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false) => {
     const controller = new AbortController()
+    abortRef.current = controller
     const timer = setTimeout(() => controller.abort(), 90000)
     try {
       const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }), signal: controller.signal })
@@ -563,7 +564,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       while (true) {
         let chunk
         try { chunk = await reader.read() } catch (e) {
-          if (e.name === 'AbortError') throw new Error('连接超时，已停止等待（90秒）')
+          if (e.name === 'AbortError') throw new Error(stopRequestedRef.current ? '已停止生成' : '连接超时，已停止等待（90秒）')
           throw new Error(`流中断: ${e.message}`)
         }
         const { done, value } = chunk
@@ -575,7 +576,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       // 补解析残留 buffer：最后一次 chunk 可能没有换行，防止最后一字丢失
       if (buf.trim()) { const lastLines = buf.split('\n'); for (const l of lastLines) parseLine(l) }
       return { ft, tcs, th, thDur, aborted }
-    } finally { clearTimeout(timer) }
+    } finally { clearTimeout(timer); abortRef.current = null }
   }
 
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
