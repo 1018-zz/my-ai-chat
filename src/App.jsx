@@ -528,9 +528,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           <span onClick={toggleMcp} style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
         </div>
       </div>
-      <div className="chat-message-list">
+      <div className="chat-message-list" onScroll={handleMsgScroll}>
         {msgList.map(msg => (
-          <div key={msg.id}>
+          <div key={msg.id} className="msg-enter">
             {/* 思考独立成行（RikkaHub 风格：思考/工具/文本各自独立块） */}
             {!msg.isSelf && msg.thinking && showThinking && (
               <div className="msg-left"><ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} /></div>
