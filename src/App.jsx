@@ -150,7 +150,7 @@ const DiaryPanel = () => {
       else setAiError('今天还没对话，钟泽写不出来…先去聊两句？')
     } catch (_) { setAiError('生成失败，稍后再试试') } finally { setAiWriting(false) }
   }
-  useEffect(() => { loadCheckin(); loadDiaries() }, [])
+  useEffect(() => { loadCheckin(); loadDiaries(true) }, [])
 
   const saveCheckin = async () => {
     if (saving) return
