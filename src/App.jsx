@@ -515,7 +515,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       const toolText = results.map((r, i) => {
         const out = r.result
         const truncated = out.length > TOOL_OUTPUT_LIMIT
-        return `[工具: ${r.tool}]\n${truncated ? out.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${out.length} 字符，仅显示前 ${TOOL_OUTPUT_LIMIT} 字符。如需要完整内容，请用 read_file 读取相关文件]` : out}`
+        return `[工具: ${r.tool}]\n${truncated ? out.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${out.length} 字符，仅显示前 ${TOOL_OUTPUT_LIMIT}。如需要剩余内容，请用 read_file 分段续读：read_file(path="${r.path || ''}", offset=${TOOL_OUTPUT_LIMIT}, limit=3000)]` : out}`
       }).join('\n\n')
       const fms = [...curMsgs, { role: 'assistant', content: curFt || '' }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
       const nxt = await streamChat(fms, nid,
