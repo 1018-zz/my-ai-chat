@@ -464,6 +464,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
     const reader = res.body.getReader(); const decoder = new TextDecoder()
     let ft = '', buf = '', tcs = [], th = ''
+    let aborted = false
     const thStart = Date.now(); let thDur = null
     while (true) {
       let chunk
@@ -480,11 +481,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           if (d.thinking) { th += d.thinking; onThinking?.(th) }
           if (d.thinking_done) { thDur = Date.now() - thStart }
           if (d.tool_calls) tcs = d.tool_calls
+          if (d.done && d.aborted) aborted = true
           if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
         } catch (_) {}
       }
     }
-    return { ft, tcs, th, thDur }
+    return { ft, tcs, th, thDur, aborted }
   }
 
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
