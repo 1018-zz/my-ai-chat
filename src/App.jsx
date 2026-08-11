@@ -505,6 +505,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
       (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)))
     curFt = first.ft; curTcs = first.tcs
+    if (first.aborted) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
     if (first.thDur) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinkingDone: true, thinkingDur: first.thDur } : m))
     while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
       rounds++
