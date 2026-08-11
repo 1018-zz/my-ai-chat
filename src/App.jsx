@@ -672,16 +672,30 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       for (const tc of curTcs) {
         let r
         try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` }
-        results.push({ tool: tc.name, path: tc.arguments?.path || '', result: r })
+        const truncated = r.length > TOOL_OUTPUT_LIMIT
+        const content = truncated ? r.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${r.length} 字符。续读：read_file(path="${tc.arguments?.path || ''}", offset=${TOOL_OUTPUT_LIMIT}, limit=3000)]` : r
+        results.push({ tool: tc.name, path: tc.arguments?.path || '', result: content })
         setMsgList(p => p.map(m => m.id === curAiId ? { ...m, toolCalls: curTcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
       }
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
-      const toolText = results.map((r, i) => {
-        const out = r.result
-        const truncated = out.length > TOOL_OUTPUT_LIMIT
-        return `[工具: ${r.tool}]\n${truncated ? out.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${out.length} 字符，仅显示前 ${TOOL_OUTPUT_LIMIT}。如需要剩余内容，请用 read_file 分段续读：read_file(path="${r.path || ''}", offset=${TOOL_OUTPUT_LIMIT}, limit=3000)]` : out}`
-      }).join('\n\n')
-      const fms = [...curMsgs, { role: 'assistant', content: curFt || '', tool_calls: curTcs.map((tc, ti) => ({ id: `call_${rounds}_${ti}`, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.arguments || {}) } })) }, { role: 'user', content: `[工具结果]\n${toolText}\n\n请根据以上工具结果继续回答。` }]
+      // 标准 tool calling 协议：assistant(tool_calls) → tool(tool_call_id) → assistant 继续
+      const fms = [
+        ...curMsgs,
+        {
+          role: 'assistant',
+          content: curFt || '',
+          tool_calls: curTcs.map((tc, ti) => ({
+            id: `call_${rounds}_${ti}`,
+            type: 'function',
+            function: { name: tc.name, arguments: JSON.stringify(tc.arguments || {}) },
+          })),
+        },
+        ...results.map((r, ri) => ({
+          role: 'tool',
+          tool_call_id: `call_${rounds}_${ri}`,
+          content: r.result,
+        })),
+      ]
       const nxt = await streamChat(fms, nid,
         (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)),
         (th) => setMsgList(p => p.map(m => m.id === nid ? { ...m, thinking: th, thinkingDone: false } : m)),
