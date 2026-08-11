@@ -55,11 +55,11 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         const complete = toolCalls.filter(tc => tc && tc.name)
         if (complete.length > 0) {
           for (const tc of complete) { try { tc.arguments = JSON.parse(tc.arguments || '{}') } catch { tc.arguments = {} } }
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`))
+          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`)) } catch (_) {}
         }
         // 思考链完整文本（如模型支持 reasoning_content），一次性补发
         if (reasoning.trim()) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking_done: true, thinking: reasoning })}\n\n`))
+          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking_done: true, thinking: reasoning })}\n\n`)) } catch (_) {}
         }
 
         try {
