@@ -1,0 +1,94 @@
+// src/utils/normalize.js
+// —— 消息双轨迁移（Phase 0）——
+//
+// 三个来源统一入口：
+//   数据库旧消息   { id, content, role, thinking, tool_calls }
+//   localStorage / 内存旧消息 { id, text, isSelf, thinking, toolCalls }
+//   新格式消息     { id, role, status, blocks[] }
+// 全部经过 normalizeMessage() → 统一 ContentBlock 结构
+//
+// 过渡期策略：统一结构同时携带旧字段（text/isSelf/thinking/toolCalls），
+//             UI 渲染零改动；Phase 1 BlockRenderer 切换后删除兼容字段。
+//
+// ContentBlock 不叫 MessageBlock——日记、Moment、回忆都是"生活事件块"，
+// 未来小家的日记/Moment 也复用这个模型。
+
+// 统一入口：已统一 → 补兼容字段返回；旧格式 → 迁移
+export function normalizeMessage(raw) {
+  if (!raw) return null
+  if (Array.isArray(raw.blocks)) {
+    return {
+      ...raw,
+      isSelf: raw.role === 'user',
+      text: extractText(raw.blocks),
+      thinking: extractThinking(raw.blocks),
+      toolCalls: extractToolCalls(raw.blocks),
+    }
+  }
+  return migrateLegacyMessage(raw)
+}
+
+// 旧格式 → 统一 ContentBlock 结构
+export function migrateLegacyMessage(raw) {
+  const {
+    id, created_at, text, content, isSelf, role,
+    loading, thinking, thinkingDone, thinkingDur,
+    toolCalls, tool_calls, interrupted,
+  } = raw
+
+  const self = typeof isSelf === 'boolean' ? isSelf : role === 'user'
+  const body = text ?? content ?? ''
+
+  // 数据库格式 tool_calls 可能是 JSON 字符串
+  let tcs = toolCalls
+  if (!Array.isArray(tcs) && tool_calls) {
+    try { tcs = JSON.parse(tool_calls) } catch { tcs = null }
+  }
+
+  const blocks = []
+  // 历史消息的 thinking 必然是想完了的，一律 done（流式进行中的消息不经此函数）
+  if (thinking) blocks.push({ type: 'thinking', content: thinking, done: true, duration: thinkingDur || 0 })
+  if (Array.isArray(tcs) && tcs.length > 0) {
+    for (const tc of tcs) {
+      blocks.push({
+        type: 'tool',
+        name: tc.name,
+        arguments: tc.arguments || {},
+        status: tc.result ? 'done' : 'running',
+        result: tc.result || '',
+      })
+    }
+  }
+  if (body) blocks.push({ type: 'text', content: body })
+
+  return {
+    id: id ?? created_at ?? Date.now(),
+    role: self ? 'user' : 'assistant',
+    isSelf: self,
+    status: interrupted ? 'interrupted' : loading ? 'running' : 'done',
+    blocks,
+    // —— 过渡期兼容字段（Phase 1 渲染器切换后删）——
+    text: body,
+    thinking,
+    thinkingDone: !!thinking,
+    thinkingDur: thinkingDur || 0,
+    toolCalls: tcs,
+    loading,
+    interrupted,
+  }
+}
+
+// —— 工具函数：从 blocks 提取旧字段（新格式消息的兼容层）——
+export function extractText(blocks) {
+  const t = (blocks || []).find(b => b.type === 'text')
+  return t ? t.content : ''
+}
+export function extractThinking(blocks) {
+  const t = (blocks || []).find(b => b.type === 'thinking')
+  return t ? t.content : undefined
+}
+export function extractToolCalls(blocks) {
+  return (blocks || [])
+    .filter(b => b.type === 'tool')
+    .map(b => ({ name: b.name, arguments: b.arguments, result: b.result }))
+}
