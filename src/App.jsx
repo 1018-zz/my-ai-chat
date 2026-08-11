@@ -1,5 +1,6 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { normalizeMessage } from './utils/normalize'
+import RunCard from './components/RunCard'
 import { buildSystemPrompt } from './project/instructions'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import Markdown from './components/Markdown'
