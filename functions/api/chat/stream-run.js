@@ -47,6 +47,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         }
       } catch (e) {
         console.error('Stream:', e.message)
+        aborted = true
       } finally {
         for (const line of buffer.split('\n')) {
           if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
