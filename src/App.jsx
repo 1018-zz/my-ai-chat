@@ -295,28 +295,85 @@ const SettingsPanel = () => {
   )
 }
 
-const LifePage = () => {
-  const [sub, setSub] = useState('mem')
-  const subTabs = [
-    { key: 'mem', label: '🧠 记忆' },
-    { key: 'diary', label: '📖 日记' },
-    { key: 'settings', label: '⚙️ 设置' },
+const LifeBackBtn = ({ label, onBack }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+    <span onClick={onBack} style={{ cursor: 'pointer', fontSize: 18, color: 'var(--color-primary)', padding: 4 }}>←</span>
+    <span style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>{label}</span>
+  </div>
+)
+
+const MemoryRoom = ({ onBack }) => (
+  <div className="life-room">
+    <LifeBackBtn label="记忆室" onBack={onBack} />
+    <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
+    <MemPanel />
+  </div>
+)
+
+const DiaryRoom = ({ onBack }) => {
+  const [view, setView] = useState(null)
+  const items = [
+    { key: 'today', icon: '📖', title: '今日日记', desc: '钟泽 ✍️ + 泠泠 ✍️' },
+    { key: 'history', icon: '📚', title: '往日日记', desc: '按日期翻看我们写过的' },
+    { key: 'checkin', icon: '✅', title: '今日打卡', desc: '作息与状态' },
   ]
-  const subStyle = (k) => ({
-    padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-    background: sub === k ? 'var(--color-primary)' : 'transparent',
-    color: sub === k ? '#fff' : 'var(--color-text-gray)',
-    border: 'none', transition: 'all 0.2s',
-  })
+  if (view === 'today') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📖 今日日记</h3><TodayDiaryView /></div>
+  if (view === 'history') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📚 往日日记</h3><HistoryDiaryView /></div>
+  if (view === 'checkin') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>✅ 今日打卡</h3><CheckinView /></div>
   return (
-    <div style={{ padding: 20 }}>
-      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        {subTabs.map(t => <button key={t.key} style={subStyle(t.key)} onClick={() => setSub(t.key)}>{t.label}</button>)}
+    <div className="life-room">
+      <LifeBackBtn label="LIFE" onBack={onBack} />
+      <h3 style={{ color: 'var(--color-primary)' }}>📖 日记</h3>
+      <div className="life-grid">
+        {items.map(item => (
+          <div key={item.key} className="life-card" onClick={() => setView(item.key)}>
+            <span className="life-card-icon">{item.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div className="life-card-title">{item.title}</div>
+              <div className="life-card-desc">{item.desc}</div>
+            </div>
+            <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+          </div>
+        ))}
       </div>
-      {sub === 'mem' && <MemPanel />}
-      {sub === 'diary' && <DiaryPanel />}
-      {sub === 'settings' && <SettingsPanel />}
+    </div>
+  )
+}
+
+const SettingRoom = ({ onBack }) => (
+  <div className="life-room">
+    <LifeBackBtn label="设置" onBack={onBack} />
+    <h3 style={{ color: 'var(--color-primary)' }}>⚙️ 设置</h3>
+    <SettingsPanel />
+  </div>
+)
+
+const LifePage = () => {
+  const [room, setRoom] = useState(null)
+  const modules = [
+    { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
+    { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
+    { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
+  ]
+  if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
+  if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} />
+  if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
+  return (
+    <div className="life-page">
+      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 6 }}>记忆室 · 我们留下生活痕迹的地方</p>
+      <div className="life-grid" style={{ marginTop: 16 }}>
+        {modules.map(m => (
+          <div key={m.key} className="life-card" onClick={() => setRoom(m.key)}>
+            <span className="life-card-icon">{m.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div className="life-card-title">{m.title}</div>
+              <div className="life-card-desc">{m.desc}</div>
+            </div>
+            <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
