@@ -640,7 +640,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       }
       // 补解析残留 buffer：最后一次 chunk 可能没有换行，防止最后一字丢失
       if (buf.trim()) { const lastLines = buf.split('\n'); for (const l of lastLines) parseLine(l) }
-      return { ft, tcs, th, thDur, aborted }
+      return { ft, tcs, th, thDur, reasoningContent: th, aborted }
     } finally { clearTimeout(timer); abortRef.current = null }
   }
 
