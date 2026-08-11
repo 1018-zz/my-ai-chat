@@ -96,7 +96,7 @@ export async function onRequestPost(context) {
           const recent = list[0]
           const parts = []
           if (important) parts.push(`昨天留下：${important.summary.slice(0, 120)}`)
-          if (todo && todo.summary !== important?.summary) parts.push(`未完成：${todo.summary.slice(0, 120)}`)
+          if (todo && todo.summary !== important?.summary) parts.push(`牵挂：${todo.summary.slice(0, 120)}`)
           if (recent && recent.summary !== important?.summary && recent.summary !== todo?.summary) parts.push(`她现在：${recent.summary.slice(0, 120)}`)
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
