@@ -219,7 +219,9 @@ const DiaryPanel = () => {
             ? <div style={{ marginTop: 8, color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽正在写今天的日记…</div>
             : aiDiary
               ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}><Markdown>{aiDiary}</Markdown></div>
-              : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}</div>}
+              : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}
+                  <div style={{ marginTop: 8 }}><button className="btn" onClick={() => ensureAiDiary()} style={{ fontSize: 12, padding: '6px 14px' }}>✍️ 让钟泽写今天的日记</button></div>
+                </div>}
         </div>
 
         <div style={cardStyle}>
