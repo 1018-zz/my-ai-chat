@@ -302,13 +302,81 @@ const LifeBackBtn = ({ label, onBack }) => (
   </div>
 )
 
-const MemoryRoom = ({ onBack }) => (
-  <div className="life-room room-enter">
-    <LifeBackBtn label="记忆室" onBack={onBack} />
-    <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
-    <MemPanel />
-  </div>
-)
+const MomentWall = () => {
+  const [moments, setMoments] = useState([])
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [icon, setIcon] = useState('🌱')
+  const [loading, setLoading] = useState(false)
+  const load = async () => { try { const r = await fetch(`${API_BASE}/api/moments`); const d = await r.json(); setMoments(d.moments || []) } catch (_) {} }
+  useEffect(() => { load() }, [])
+  const add = async () => {
+    if (!content.trim() || loading) return
+    setLoading(true)
+    try { await fetch(`${API_BASE}/api/moments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content, icon }) }); setTitle(''); setContent(''); await load() } catch (_) {} finally { setLoading(false) }
+  }
+  const del = async (id) => { try { await fetch(`${API_BASE}/api/moments/${id}`, { method: 'DELETE' }); await load() } catch (_) {} }
+  const icons = ['🌱', '🌸', '⭐', '🔥', '🌙', '💧', '🍃', '🏔️']
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-lift)', padding: 14 }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>墙上 · 值得回头看一眼的瞬间</p>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <input className="input" placeholder="一句话标题（可选）" value={title} onChange={e => setTitle(e.target.value)} />
+        <textarea className="input" placeholder="这一刻是……" value={content} onChange={e => setContent(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          {icons.map(i => <span key={i} onClick={() => setIcon(i)} style={{ fontSize: 18, cursor: 'pointer', padding: 4, borderRadius: 8, background: icon === i ? 'var(--color-primary-light)' : 'transparent', transition: 'all .2s' }}>{i}</span>)}
+        </div>
+        <button className="btn" onClick={add} disabled={loading || !content.trim()}>🖼 挂上墙</button>
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {moments.map(m => (
+          <div key={m.id} style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 22 }}>{m.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-gray)' }}>📅 {m.date}{m.title ? ` · ${m.title}` : ''}</div>
+                <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-dark)' }}>{m.content}</div>
+              </div>
+              <span onClick={() => del(m.id)} style={{ cursor: 'pointer', fontSize: 14, color: 'var(--color-text-gray)', opacity: 0.5 }}>✕</span>
+            </div>
+          </div>
+        ))}
+        {moments.length === 0 && <p style={{ color: 'var(--color-text-gray)', fontSize: 13, textAlign: 'center', marginTop: 24 }}>墙上还是空的——等第一张照片</p>}
+      </div>
+    </div>
+  )
+}
+
+const MemoryRoom = ({ onBack }) => {
+  const [view, setView] = useState(null)
+  if (view === 'moments') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>🖼 Moment 墙</h3><MomentWall /></div>
+  if (view === 'notes') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📌 不能丢的时刻</h3><MemPanel /></div>
+  return (
+    <div className="life-room room-enter">
+      <LifeBackBtn label="LIFE" onBack={onBack} />
+      <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
+      <div className="life-grid">
+        <div className="life-card" onClick={() => setView('moments')}>
+          <span className="life-card-icon">🖼</span>
+          <div style={{ flex: 1 }}>
+            <div className="life-card-title">Moment 墙</div>
+            <div className="life-card-desc">值得回头看一眼的瞬间</div>
+          </div>
+          <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+        </div>
+        <div className="life-card" onClick={() => setView('notes')}>
+          <span className="life-card-icon">📌</span>
+          <div style={{ flex: 1 }}>
+            <div className="life-card-title">不能丢的时刻</div>
+            <div className="life-card-desc">存云端，换设备也在</div>
+          </div>
+          <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const DiaryRoom = ({ onBack }) => {
   const [view, setView] = useState(null)
