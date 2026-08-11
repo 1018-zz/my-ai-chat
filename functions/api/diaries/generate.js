@@ -40,7 +40,8 @@ export async function onRequestPost(context) {
     try {
       const dr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.user&select=content`, { headers: sbHeaders(env) })
       const drows = await dr.json()
-      userDiary = (Array.isArray(drows) && drows[0]?.content) ? drows[0].content : ''
+      const raw = (Array.isArray(drows) && drows[0]?.content) ? drows[0].content : ''
+      if (raw) userDiary = raw.length > 2000 ? raw.slice(0, 2000) + '\n（她今天的日记较长，以上为节选）' : raw
     } catch (_) {}
 
     // 取最近记忆
