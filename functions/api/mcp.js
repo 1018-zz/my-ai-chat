@@ -112,6 +112,22 @@ export async function onRequestPost(context) {
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已记住' }] } }), { headers });
       }
+      if (name === 'write_insight') {
+        const content = String(args.content || '').trim()
+        if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required' } }), { status: 400, headers });
+        const aspect = ['nature','values','patterns','limits','becoming','uncertainty','stance'].includes(String(args.aspect)) ? args.aspect : 'nature'
+        const res = await fetch(`${SUPABASE}/self_insights`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ content, aspect }) })
+        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已记下这条自我认知' }] } }), { headers });
+      }
+      if (name === 'read_insights') {
+        const limit = Math.min(Math.max(Number(args.limit) || 3, 1), 20)
+        const res = await fetch(`${SUPABASE}/self_insights?select=content,aspect,created_at&order=created_at.desc&limit=${limit}`, { headers: sbHeaders(env) })
+        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
+        const rows = await res.json()
+        const text = (Array.isArray(rows) ? rows : []).map(r => `• [${r.aspect}] ${r.content}`).join('\n')
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: text || '（还没有自我认知记录）' }] } }), { headers });
+      }
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
