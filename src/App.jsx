@@ -303,7 +303,7 @@ const LifeBackBtn = ({ label, onBack }) => (
 )
 
 const MemoryRoom = ({ onBack }) => (
-  <div className="life-room">
+  <div className="life-room room-enter">
     <LifeBackBtn label="记忆室" onBack={onBack} />
     <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
     <MemPanel />
