@@ -680,7 +680,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         ...curMsgs,
         {
           role: 'assistant',
-          content: curFt || '',
+          content: curFt || null,
+          // DeepSeek thinking 模式：assistant 的 reasoning_content 必须原样回传，否则 400
+          reasoning_content: curReasoning || undefined,
           tool_calls: curTcs.map((tc, ti) => ({
             id: `call_${rounds}_${ti}`,
             type: 'function',
