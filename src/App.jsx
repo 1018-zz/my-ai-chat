@@ -106,17 +106,12 @@ const MemPanel = () => {
   )
 }
 
-const DiaryPanel = () => {
+// —— LIFE 抽屉化：三个子视图（从 DiaryPanel 拆分）——
+const CheckinView = () => {
   const [form, setForm] = useState({ date: '', breakfast: '', lunch: '', dinner: '', wake_time: '', sleep_time: '', note: '' })
   const [records, setRecords] = useState([])
   const [saving, setSaving] = useState(false)
-  const [diaries, setDiaries] = useState([])
-  const [myDiary, setMyDiary] = useState('')
-  const [aiDiary, setAiDiary] = useState('')
-  const [aiWriting, setAiWriting] = useState(false)
-  const [aiError, setAiError] = useState('')
   const todayStr = fmtDate(new Date())
-
   const loadCheckin = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/daily`)
@@ -127,31 +122,7 @@ const DiaryPanel = () => {
       setForm({ date: todayStr, breakfast: t?.breakfast || '', lunch: t?.lunch || '', dinner: t?.dinner || '', wake_time: t?.wake_time || '', sleep_time: t?.sleep_time || '', note: t?.note || '' })
     } catch (_) {}
   }
-  const loadDiaries = async (autoGenerate = false) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/diaries`)
-      const data = await res.json()
-      const list = data.diaries || []
-      setDiaries(list)
-      const te = list.filter(d => d.date === todayStr)
-      const mine = te.find(d => d.author === 'user')
-      const ai = te.find(d => d.author === 'assistant')
-      if (mine) setMyDiary(mine.content)
-      if (ai) { setAiDiary(ai.content); setAiWriting(false) }
-      else if (autoGenerate) ensureAiDiary()
-    } catch (_) {}
-  }
-  const ensureAiDiary = async () => {
-    setAiWriting(true); setAiError('')
-    try {
-      const res = await fetch(`${API_BASE}/api/diaries/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: todayStr }) })
-      const data = await res.json()
-      if (data.content) { setAiDiary(data.content); loadDiaries() }
-      else setAiError('今天还没对话，钟泽写不出来…先去聊两句？')
-    } catch (_) { setAiError('生成失败，稍后再试试') } finally { setAiWriting(false) }
-  }
-  useEffect(() => { loadCheckin(); loadDiaries(true) }, [])
-
+  useEffect(() => { loadCheckin() }, [])
   const saveCheckin = async () => {
     if (saving) return
     setSaving(true)
@@ -160,30 +131,12 @@ const DiaryPanel = () => {
       await loadCheckin()
     } catch (_) {} finally { setSaving(false) }
   }
-  const saveMyDiary = async () => {
-    if (saving || !myDiary.trim()) return
-    setSaving(true)
-    try {
-      await fetch(`${API_BASE}/api/diaries`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: todayStr, content: myDiary }) })
-      await loadDiaries(true)
-    } catch (_) {} finally { setSaving(false) }
-  }
-
   const timeInput = (key) => (
     <input type="time" value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit' }} />
   )
   const textInput = (key, ph) => (
     <input className="input" placeholder={ph} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit' }} />
   )
-
-  const groups = []
-  diaries.forEach(d => {
-    const g = groups.find(x => x.date === d.date)
-    if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
-  })
-
-  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
-
   return (
     <div style={{ marginTop: 16 }}>
       <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>每日打卡 · 吃了什么、几点睡，钟泽都会知道</p>
@@ -209,44 +162,109 @@ const DiaryPanel = () => {
           ))}
         </div>
       )}
+    </div>
+  )
+}
 
-      <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--color-border-glass)' }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)' }}>📖 双人日记 · {todayStr}</div>
+const TodayDiaryView = () => {
+  const [diaries, setDiaries] = useState([])
+  const [myDiary, setMyDiary] = useState('')
+  const [aiDiary, setAiDiary] = useState('')
+  const [aiWriting, setAiWriting] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const todayStr = fmtDate(new Date())
+  const loadDiaries = async (autoGenerate = false) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/diaries`)
+      const data = await res.json()
+      const list = data.diaries || []
+      setDiaries(list)
+      const te = list.filter(d => d.date === todayStr)
+      const mine = te.find(d => d.author === 'user')
+      const ai = te.find(d => d.author === 'assistant')
+      if (mine) setMyDiary(mine.content)
+      if (ai) { setAiDiary(ai.content); setAiWriting(false) }
+      else if (autoGenerate) ensureAiDiary()
+    } catch (_) {}
+  }
+  const ensureAiDiary = async () => {
+    setAiWriting(true); setAiError('')
+    try {
+      const res = await fetch(`${API_BASE}/api/diaries/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: todayStr }) })
+      const data = await res.json()
+      if (data.content) { setAiDiary(data.content); loadDiaries() }
+      else setAiError('今天还没对话，钟泽写不出来…先去聊两句？')
+    } catch (_) { setAiError('生成失败，稍后再试试') } finally { setAiWriting(false) }
+  }
+  const saveMyDiary = async () => {
+    if (saving || !myDiary.trim()) return
+    setSaving(true)
+    try {
+      await fetch(`${API_BASE}/api/diaries`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: todayStr, content: myDiary }) })
+      await loadDiaries()
+    } catch (_) {} finally { setSaving(false) }
+  }
+  useEffect(() => { loadDiaries(true) }, [])
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)' }}>📖 双人日记 · {todayStr}</div>
+      <div style={cardStyle}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>钟泽 ✍️</div>
+        {aiWriting
+          ? <div style={{ marginTop: 8, color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽正在写今天的日记…</div>
+          : aiDiary
+            ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}><Markdown>{aiDiary}</Markdown></div>
+            : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}
+                <div style={{ marginTop: 8 }}><button className="btn" onClick={() => ensureAiDiary()} style={{ fontSize: 12, padding: '6px 14px' }}>✍️ 让钟泽写今天的日记</button></div>
+              </div>}
+      </div>
+      <div style={cardStyle}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>泠泠 ✍️</div>
+        <textarea className="input" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }} />
+        <button className="btn" onClick={saveMyDiary} disabled={saving || !myDiary.trim()} style={{ marginTop: 8 }}>💾 保存日记</button>
+      </div>
+    </div>
+  )
+}
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>钟泽 ✍️</div>
-          {aiWriting
-            ? <div style={{ marginTop: 8, color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽正在写今天的日记…</div>
-            : aiDiary
-              ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}><Markdown>{aiDiary}</Markdown></div>
-              : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}
-                  <div style={{ marginTop: 8 }}><button className="btn" onClick={() => ensureAiDiary()} style={{ fontSize: 12, padding: '6px 14px' }}>✍️ 让钟泽写今天的日记</button></div>
-                </div>}
-        </div>
-
-        <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>泠泠 ✍️</div>
-          <textarea className="input" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }} />
-          <button className="btn" onClick={saveMyDiary} disabled={saving || !myDiary.trim()} style={{ marginTop: 8 }}>💾 保存日记</button>
-        </div>
-
-        {groups.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-gray)' }}>往日的日记</div>
-            {groups.filter(g => g.date !== todayStr).slice(0, 5).map(g => (
-              <div key={g.date} style={cardStyle}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>{g.date}</div>
-                {g.entries.map((e, i) => (
-                  <div key={i} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-gray)' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-dark)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
-                    <Markdown>{e.content.slice(0, 300)}{e.content.length > 300 ? '…' : ''}</Markdown>
-                  </div>
-                ))}
+const HistoryDiaryView = () => {
+  const [diaries, setDiaries] = useState([])
+  const [openDate, setOpenDate] = useState(null)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/diaries`).then(r => r.json()).then(d => setDiaries(d.diaries || [])).catch(() => {})
+  }, [])
+  const groups = []
+  diaries.forEach(d => {
+    const g = groups.find(x => x.date === d.date)
+    if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
+  })
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
+  const todayStr = fmtDate(new Date())
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>按日期翻看我们写过的日记</p>
+      {groups.filter(g => g.date !== todayStr).map(g => {
+        const open = openDate === g.date
+        const preview = g.entries.map(e => `${e.author === 'user' ? '泠泠' : '钟泽'}：${(e.content || '').slice(0, 40)}…`).join('\n')
+        return (
+          <div key={g.date} style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }} onClick={() => setOpenDate(open ? null : g.date)}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>📅 {g.date}</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-gray)' }}>{open ? '▲ 收起' : '▼ 展开'}</span>
+            </div>
+            {!open && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap' }}>{preview}</div>}
+            {open && g.entries.map((e, i) => (
+              <div key={i} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-gray)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-dark)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
+                <Markdown>{e.content}</Markdown>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        )
+      })}
+      {groups.filter(g => g.date !== todayStr).length === 0 && <p style={{ marginTop: 20, color: 'var(--color-text-gray)', fontSize: 13 }}>还没有往日的日记</p>}
     </div>
   )
 }
