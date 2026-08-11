@@ -518,6 +518,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [loading, setLoading] = useState(false)
   const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
   const [termOpen, setTermOpen] = useState(false)
+  // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
+  const [expandedRuns, setExpandedRuns] = useState(() => new Set())
+  const toggleRun = (id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
   const messagesEndRef = useRef(null)
   let nextId = useRef(Date.now())
