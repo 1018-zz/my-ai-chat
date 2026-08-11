@@ -168,3 +168,36 @@ body { background-color: var(--color-bg); color: var(--color-text-dark); font-si
 .term-send:active { transform: scale(.92); }
 
 @media (max-width: 480px) { .msg-left .msg-bubble, .msg-right .msg-bubble { max-width: 85%; } .tool-card { max-width: 90%; } }
+
+/* ===== UI 规范 v1.0：体验层 ===== */
+
+/* 消息进入动画：新消息淡入上浮（前端给新消息加 .msg-enter 类） */
+.msg-enter { animation: messageIn var(--dur-in) var(--ease-soft) both; }
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 大卡片：24px 圆角 + 纸张浮起 */
+.card-2xl { border-radius: var(--radius-2xl); box-shadow: var(--shadow-lift); }
+
+/* 状态卡情绪配色：thinking 用平静蓝 / 成功用期待绿 / 出错用暖红 */
+.tool-card.status-thinking { border-color: rgba(143, 184, 222, 0.35); }
+.tool-card.status-thinking .tool-icon { color: var(--status-thinking); }
+.tool-card.status-ok { border-color: rgba(157, 187, 140, 0.35); }
+.tool-card.status-ok .tool-icon { color: var(--status-ok); }
+.tool-card.status-err { border-color: rgba(232, 155, 138, 0.4); }
+.tool-card.status-err .tool-icon { color: var(--status-err); }
+
+/* 情绪标签：给 LIFE 页打卡/心情用 */
+.mood-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 500;
+  border: 1px solid transparent; user-select: none;
+}
+.mood-tag.happy { background: var(--mood-happy-soft); color: var(--mood-happy); border-color: rgba(242,166,181,.4); }
+.mood-tag.calm { background: var(--mood-calm-soft); color: var(--mood-calm); border-color: rgba(143,184,222,.4); }
+.mood-tag.anxious { background: var(--mood-anxious-soft); color: #B89A4F; border-color: rgba(232,200,122,.45); }
+.mood-tag.tired { background: var(--mood-tired-soft); color: var(--mood-tired); border-color: rgba(185,180,172,.4); }
+.mood-tag.expect { background: var(--mood-expect-soft); color: var(--mood-expect); border-color: rgba(157,187,140,.4); }
