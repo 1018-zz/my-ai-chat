@@ -640,6 +640,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         </div>
       </div>
       <div className="chat-message-list" onScroll={handleMsgScroll}>
+        {loading && (() => {
+          const lastAi = [...msgList].reverse().find(m => !m.isSelf)
+          const runningTool = lastAi?.toolCalls?.some(t => t.result === undefined || t.result === '')
+          const phase = runningTool ? '🛠️ 正在整理资料' : (lastAi?.thinking && !lastAi?.thinkingDone ? '🧠 正在想' : (lastAi?.text ? '✍️ 正在写' : '⏳ 准备中'))
+          return <div style={{ alignSelf: 'center', margin: '0 0 10px', fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--color-card-glass)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--color-border-glass)', borderRadius: 999, padding: '5px 14px', animation: 'messageIn .25s var(--ease-soft) both' }}>{phase}</div>
+        })()}
         {msgList.map(msg => (
           <div key={msg.id} className="msg-enter">
             {/* 思考独立成行（RikkaHub 风格：思考/工具/文本各自独立块） */}
