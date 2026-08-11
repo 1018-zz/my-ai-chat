@@ -79,6 +79,13 @@ export async function onRequestPost(context) {
           const summary = (Array.isArray(srows) ? srows[0]?.summary : '') || ''
           if (summary) extra += `\n\n【会话摘要（更早对话的压缩记录，作为背景参考）】\n${summary.slice(0, 3000)}`
         } catch (_) {}
+        // 自我认知日志（借鉴 Ombre Brain 的 I 功能：每次醒来先看自己最近的样子）
+        try {
+          const ir = await fetch(`${SUPABASE}/self_insights?select=content,aspect&order=created_at.desc&limit=3`, { headers: sbHeaders(env) })
+          const irows = await ir.json()
+          const insights = (Array.isArray(irows) ? irows : []).map(r => `[${r.aspect}] ${r.content}`).join('\n')
+          if (insights) extra += `\n\n【我的自我认知（最近 3 条，醒来先看看自己）】\n${insights}`
+        } catch (_) {}
         const orig = messages[sysIdx].content
         messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
       }
