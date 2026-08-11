@@ -40,7 +40,9 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const durText = msg.thinkingDur ? `${(msg.thinkingDur / 1000).toFixed(1)}s` : ''
 
   return (
-    <div className="msg-left">
+    // .msg-left 在 theme.css 是 display:flex（单气泡时代遗留），内联覆盖为垂直流：
+    // 归档条 / 展开区 / 回答 三个子元素必须纵向排列，否则会被横排成左右分栏
+    <div className="msg-left" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
       {/* 完成态归档条：抽屉拉手——点一下翻开工作台 */}
       {canFold && !running && (
         <div
