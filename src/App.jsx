@@ -127,7 +127,7 @@ const DiaryPanel = () => {
       setForm({ date: todayStr, breakfast: t?.breakfast || '', lunch: t?.lunch || '', dinner: t?.dinner || '', wake_time: t?.wake_time || '', sleep_time: t?.sleep_time || '', note: t?.note || '' })
     } catch (_) {}
   }
-  const loadDiaries = async (skipAuto) => {
+  const loadDiaries = async (autoGenerate = false) => {
     try {
       const res = await fetch(`${API_BASE}/api/diaries`)
       const data = await res.json()
@@ -138,7 +138,7 @@ const DiaryPanel = () => {
       const ai = te.find(d => d.author === 'assistant')
       if (mine) setMyDiary(mine.content)
       if (ai) { setAiDiary(ai.content); setAiWriting(false) }
-      else if (!skipAuto) ensureAiDiary()
+      else if (autoGenerate) ensureAiDiary()
     } catch (_) {}
   }
   const ensureAiDiary = async () => {
