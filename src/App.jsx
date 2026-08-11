@@ -9,7 +9,7 @@ const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 const MCP_URL = `${API_BASE}/api/mcp`
 const systemPrompt = buildSystemPrompt()
 const MAX_TOOL_ROUNDS = 16
-const TOOL_OUTPUT_LIMIT = 3000
+const TOOL_OUTPUT_LIMIT = 6000
 
 // 卡片统一玻璃样式（饱和毛玻璃：模糊 + 饱和度增强，通透浓郁）
 const glassCard = {
