@@ -508,7 +508,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       for (const tc of curTcs) {
         let r
         try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` }
-        results.push({ tool: tc.name, result: r })
+        results.push({ tool: tc.name, path: tc.arguments?.path || '', result: r })
         setMsgList(p => p.map(m => m.id === curAiId ? { ...m, toolCalls: curTcs.map((t, i) => i <= results.length - 1 ? { ...t, result: results[i]?.result } : t) } : m))
       }
       const nid = uid(); setMsgList(p => [...p, { id: nid, text: '', isSelf: false, loading: true }])
