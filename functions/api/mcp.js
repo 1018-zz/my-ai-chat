@@ -60,13 +60,17 @@ export async function onRequestPost(context) {
       if (name === 'write_file') {
         const { path, content: newContent, old_text, new_text, message } = args;
         if (!message) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'message (commit message) required' } }), { status: 400, headers });
-        const getRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } });
-        const fileData = await getRes.json();
-        if (!fileData.sha) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `文件读取失败：${JSON.stringify(fileData).slice(0, 200)}` } }), { status: 500, headers });
+        // 读取现有文件（不存在时 fileData=null → 走创建模式，PUT 不带 sha）
+        let fileData = null
+        try {
+          const getRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } });
+          if (getRes.ok) fileData = await getRes.json();
+        } catch (_) {}
 
         let finalContent = newContent
         if (old_text) {
-          // patch 模式：读取当前文件内容，做局部替换
+          // patch 模式：需要文件已存在
+          if (!fileData) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '文件不存在，patch 模式不可用，请用全量模式（content）创建' } }), { status: 400, headers });
           const current = decodeBase64(fileData.content)
           const target = String(old_text)
           if (!current.includes(target)) {
@@ -78,7 +82,9 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content 或 new_text 不能为空（patch 模式需要 old_text + new_text）' } }), { status: 400, headers });
         }
 
-        const updateRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'User-Agent': 'my-ai-chat' }, body: JSON.stringify({ message: message, content: btoa(unescape(encodeURIComponent(finalContent))), sha: fileData.sha }) });
+        const putBody = { message: message, content: btoa(unescape(encodeURIComponent(finalContent))) }
+        if (fileData?.sha) putBody.sha = fileData.sha
+        const updateRes = await fetch(`https://api.github.com/repos/1018-zz/${repoRaw}/contents/${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'User-Agent': 'my-ai-chat' }, body: JSON.stringify(putBody) });
         const result = await updateRes.json();
         if (result.message) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `GitHub: ${result.message}` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 文件已更新：${result.content?.html_url || '成功'}` }] } }), { headers });
