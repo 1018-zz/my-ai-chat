@@ -427,7 +427,19 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   let nextId = useRef(Date.now())
 
   useEffect(() => { if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => setMsgList(msgs.map(m => ({ id: m.id || m.created_at, text: m.content, isSelf: m.role === 'user' })))).catch(() => {}) }, [chatInfo?.id])
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgList])
+  // 滚动跟随：用户在底部附近（120px 内）才自动滚到底；上翻历史时消息更新不打扰
+  const [stickBottom, setStickBottom] = useState(true)
+  const handleMsgScroll = (e) => {
+    const el = e.currentTarget
+    setStickBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120)
+  }
+  useEffect(() => {
+    const el = messagesEndRef.current?.parentElement
+    if (!el) return
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    setStickBottom(near)
+    if (near) el.scrollTop = el.scrollHeight
+  }, [msgList])
   const toggleMcp = () => { const n = !mcpEnabled; setMcpEnabled(n); try { localStorage.setItem('mcp_enabled', n) } catch (_) {} }
   const uid = () => { nextId.current += 1; return nextId.current }
 
