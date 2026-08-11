@@ -68,17 +68,16 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         // 形成 assistant(tool_calls) → tool(result) → assistant(续写) 标准链，
         // 前端恢复时按序列聚合回 Run。空消息保护：完全无内容、无工具调用、无思考时不落库
         if (fullContent.trim() || complete.length > 0 || reasoning.trim()) {
-            const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
-            if (reasoning.trim()) saveBody.thinking = reasoning
-            if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
-            await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(saveBody) })
-            await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
-            const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
-            if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
-            trySummarize(env, convId)
-            tryCompressConversation(env, convId)
-          }
-        } catch (e) { console.error('Post:', e.message) }
+          const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
+          if (reasoning.trim()) saveBody.thinking = reasoning
+          if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
+          await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(saveBody) })
+          await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
+          const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
+          if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
+          trySummarize(env, convId)
+          tryCompressConversation(env, convId)
+        }
 
         const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId, aborted })}\n\n`
         try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
