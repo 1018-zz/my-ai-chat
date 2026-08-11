@@ -461,11 +461,14 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
   const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false) => {
     const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }) })
+    if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
     const reader = res.body.getReader(); const decoder = new TextDecoder()
     let ft = '', buf = '', tcs = [], th = ''
     const thStart = Date.now(); let thDur = null
     while (true) {
-      const { done, value } = await reader.read()
+      let chunk
+      try { chunk = await reader.read() } catch (e) { try { await reader.cancel() } catch (_) {}; throw new Error(`流中断: ${e.message}`) }
+      const { done, value } = chunk
       if (done) break
       buf += decoder.decode(value, { stream: true })
       const lines = buf.split('\n'); buf = lines.pop() || ''
