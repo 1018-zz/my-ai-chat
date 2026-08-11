@@ -701,7 +701,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         true)
       if (nxt.aborted) setMsgList(p => p.map(m => m.id === nid ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
       if (nxt.thDur) setMsgList(p => p.map(m => m.id === nid ? { ...m, thinkingDone: true, thinkingDur: nxt.thDur } : m))
-      curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curAiId = nid
+      curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curReasoning = nxt.reasoningContent || ''; curAiId = nid
     }
   }
 
