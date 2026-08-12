@@ -183,18 +183,16 @@ body {
 
 /* ===== 心声层（inner voice）：钟泽有感而发的话，像便签，低存在感，不抢正文 ===== */
 .inner-thought {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 18px;
-  padding: 12px 16px;
-  color: #806d62;
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: 11px;
+  color: var(--color-text-gray);
+  opacity: 0.62;
   font-style: italic;
-  box-shadow: 0 8px 30px rgba(80, 60, 40, 0.06);
+  line-height: 1.5;
+  margin: -3px 0 8px;
+  padding: 0 14px 0 16px;
   max-width: 75%;
+  user-select: none;
+}
   margin-bottom: 6px;
 }
 /* ===== 晚安彩蛋：日记确认卡（🌙 我想收好今天这一页）===== */
