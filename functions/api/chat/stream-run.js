@@ -54,7 +54,17 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content } catch (_) {}
         }
 
+        const rawToolCount = toolCalls.filter(tc => tc).length
         const complete = toolCalls.filter(tc => tc && tc.name)
+        // 观测①：原始收集到工具调用但被过滤（name 不完整）→ 流截断证据
+        if (rawToolCount > 0 && complete.length === 0) {
+          console.warn(`[stream-run] 🔍 工具调用被过滤：raw=${rawToolCount} complete=0 | aborted=${aborted} | 疑似流截断（tool_calls 未传完）`)
+        }
+        // 观测②：说了没做（预告词命中但无工具调用）→ 模型层行为证据
+        const hasPromise = /(我去|我去看|我查|我看一下|现在就看|让我看看|先读|先看|直接做|这就去|马上做|我看一眼|让我看)/.test(fullContent)
+        if (hasPromise && complete.length === 0) {
+          console.warn(`[stream-run] ⚠️ 说了没做 | aborted=${aborted} | 开头=${fullContent.slice(0, 50).replace(/\n/g, ' ')}`)
+        }
         if (complete.length > 0) {
           let brokenArgs = 0
           for (const tc of complete) {
