@@ -78,6 +78,7 @@ const LairPage = () => {
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setNotePanel(true)} />
       {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
+      {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
     </div>
   )
 }
