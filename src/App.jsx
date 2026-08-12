@@ -696,8 +696,14 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       <Terminal open={termOpen} onClose={() => setTermOpen(false)} />
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>
-        <span className="chat-detail-title">{chatInfo?.title || '新对话'}</span>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="ai-presence">
+          <div className="ai-avatar">泽</div>
+          <div className="ai-meta">
+            <div className="ai-name">钟泽 <span className="ai-title">{chatInfo?.title || '新对话'}</span></div>
+            <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}</div>
+          </div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <span onClick={() => setTermOpen(true)} style={{ cursor: 'pointer', fontSize: 18, padding: '4px 8px', borderRadius: 8, background: termOpen ? '#050607' : 'transparent', color: termOpen ? '#9dffbc' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title="Terminal">💻</span>
           <span onClick={toggleMcp} style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
         </div>
