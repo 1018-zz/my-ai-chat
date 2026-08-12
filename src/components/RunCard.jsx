@@ -58,11 +58,33 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const isCollapsed = canFold && !running && !expanded
   const summary = buildToolSummary(tools)
   const durText = msg.thinkingDur ? `${(msg.thinkingDur / 1000).toFixed(1)}s` : ''
+  // 过程注脚：工具轮里的短过渡语（"继续翻页："）不当气泡，低存在感
+  const isTinyProcess = !!text && hasTools && !running && text.length <= 24 && !voice && !draft
 
   return (
     // .msg-left 在 theme.css 是 display:flex（单气泡时代遗留），内联覆盖为垂直流：
-    // 归档条 / 展开区 / 回答 三个子元素必须纵向排列，否则会被横排成左右分栏
+    // 状态行 / 归档条 / 展开区 / 回答 四个子元素必须纵向排列，否则会被横排成左右分栏
     <div className="msg-left" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+      {/* 运行中：轻量工作台状态行（一行，不堆卡片墙）——像翻开工作台，不是看服务器日志 */}
+      {running && (hasThinking || hasTools) && (
+        <div
+          style={{
+            ...glassCard,
+            maxWidth: '75%',
+            marginBottom: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', fontSize: 12,
+            color: 'var(--color-text-gray)', userSelect: 'none',
+          }}
+        >
+          <span style={{ lineHeight: 1.6 }}>
+            {hasThinking && <span>🌱 正在整理想法<span className="thinking-dot" /></span>}
+            {hasThinking && hasTools && <span style={{ opacity: 0.5 }}> · </span>}
+            {hasTools && <span>🛠 {summary}</span>}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.5 }}>…</span>
+        </div>
+      )}
       {/* 完成态归档条：抽屉拉手——点一下翻开工作台 */}
       {canFold && !running && (
         <div
@@ -84,8 +106,8 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
           <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.6 }}>{isCollapsed ? '▸' : '▾'}</span>
         </div>
       )}
-      {/* 展开区：思考卡 + 工具卡（运行中强制展开） */}
-      {!isCollapsed && (hasThinking || hasTools) && (
+      {/* 展开区：思考卡 + 工具卡（仅完成态、用户点击后展开；运行中只显示上面的状态行） */}
+      {!running && !isCollapsed && (hasThinking || hasTools) && (
         <div>
           {hasThinking && <ThinkingCard text={msg.thinking} done={!!msg.thinkingDone} dur={msg.thinkingDur || 0} />}
           {tools.map((tc, i) => <ToolCard key={i} tool={tc} result={tc.result} />)}
@@ -98,9 +120,11 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
       {/* 回答始终可见——折叠只收过程，不收结果；空内容（工具轮 assistant）不渲染空气泡 */}
       {msg.loading && !text
         ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div>
-        : text
-          ? <div className="msg-bubble"><Markdown>{text}</Markdown></div>
-          : null}
+        : isTinyProcess
+          ? <div className="chat-process-note">{text}</div>
+          : text
+            ? <div className="msg-bubble"><Markdown>{text}</Markdown></div>
+            : null}
     </div>
   )
 }
