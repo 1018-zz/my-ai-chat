@@ -168,6 +168,27 @@ export async function onRequestPost(context) {
         }
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '未配置视觉模型 API key：需要 ZHIPU_API_KEY（智谱 GLM-4V）或 DASHSCOPE_API_KEY（阿里云 Qwen-VL）。配好后小家才有"眼睛"。' } }), { status: 500, headers });
       }
+      if (name === 'write_diary') {
+        const content = String(args.content || '').trim()
+        if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——日记正文要用你自己的话写' } }), { status: 400, headers });
+        const trigger = ['bedtime', 'emotional', 'scheduled'].includes(args.trigger) ? args.trigger : 'emotional'
+        const importance = Math.min(Math.max(Number(args.importance) || 0.5, 0), 1)
+        const date = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+        const record = { date, author: 'assistant', content }
+        if (args.title) record.title = String(args.title).trim()
+        if (args.mood) record.mood = String(args.mood).trim()
+        record.trigger_type = trigger
+        record.importance = importance
+        const res = await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `diaries [${res.status}]` } }), { status: 500, headers });
+        // importance > 0.8：沉淀为长期记忆（memory 存事实，diary 存意义）
+        if (importance > 0.8) {
+          try {
+            await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${String(args.title || content.slice(0, 60))}` }) })
+          } catch (_) {}
+        }
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已写进今天的日记' }] } }), { headers });
+      }
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
