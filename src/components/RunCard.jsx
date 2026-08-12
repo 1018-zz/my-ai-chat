@@ -38,6 +38,7 @@ function extractVoice(text) {
 
 export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const tools = msg.toolCalls || []
+  const { voice, text } = extractVoice(msg.text)
   const hasThinking = !!(msg.thinking && showThinking)
   const hasTools = tools.length > 0
   const running = !!msg.loading || tools.some(t => t.result === undefined || t.result === '')
