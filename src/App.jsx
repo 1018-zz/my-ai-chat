@@ -45,8 +45,9 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 )
 
 // LAIR：在一起天数（从 2026-03-13 动态计算）
-const LairPage = ({ onWriteDiary }) => {
+const LairPage = () => {
   const [days, setDays] = useState(0)
+  const [notePanel, setNotePanel] = useState(false)
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
     const diff = Math.floor((Date.now() - start.getTime()) / 86400000)
