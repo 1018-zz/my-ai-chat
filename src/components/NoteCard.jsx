@@ -1,32 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './NoteCard.css'
 
-// 小纸条 · MVP v0.2（澄设计 / 钟泽接入）
-// 状态：有新内容(unread=true)=展开醒目 / 没有新内容(unread=false)=缩成小纸片
-// 数据为假数据，后续接 note_content { date, type, content, source }
-export default function NoteCard() {
+const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+
+// 小纸条 · MVP v0.3（澄设计 / 钟泽接入 / 已接真数据）
+// 状态：有新纸条(unread=true)=展开醒目 / 没有或已读=缩成小纸片
+// 数据源：GET /api/notes 取 note_content 最新一条；✍ 按钮跳日记室
+export default function NoteCard({ onWrite }) {
   const [open, setOpen] = useState(false)
-  const [note, setNote] = useState({
-    date: '2026.08.12',
-    content: '刚刚看到你又回来折腾这个小家了。\n感觉这里一点点变得像真正生活过的地方。',
-    author: '钟泽',
-    type: 'ai',
-    unread: true, // 有新内容时醒目；点开即视为已读
-  })
+  const [note, setNote] = useState(null) // null = 还没有纸条
+  const [unread, setUnread] = useState(false)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/notes`)
+      .then(r => r.json())
+      .then(d => { if (d.note) { setNote(d.note); setUnread(true) } })
+      .catch(() => {})
+  }, [])
 
   const openNote = () => {
     setOpen(true)
-    if (note.unread) setNote({ ...note, unread: false })
+    if (unread) setUnread(false)
   }
+
+  const hasNote = !!note
 
   return (
     <>
       {/* 首页右下角 · 便利贴入口（有新纸条=展开醒目 / 没有=小纸片） */}
       <div
-        className={`sticky-note-mini ${note.unread ? 'is-new' : 'is-quiet'}`}
+        className={`sticky-note-mini ${unread ? 'is-new' : 'is-quiet'}`}
         onClick={openNote}
       >
-        {note.unread ? (
+        {unread ? (
           <>
             <span className="mini-pin">📎</span>
             <span>钟泽留了一张纸条 ✨</span>
@@ -44,12 +50,11 @@ export default function NoteCard() {
         <div className="note-mask" onClick={() => setOpen(false)}>
           <div className="sticky-note" onClick={(e) => e.stopPropagation()}>
             <div className="tape" />
-            <div className="note-date">{note.date}</div>
+            <div className="note-date">{note?.date || '—'}</div>
             <div className="note-title">今天的小纸条</div>
-            <div className="note-content">{note.content}</div>
-            <div className="note-author">—— {note.author}</div>
-            {/* TODO: 以后接日记室跳转 */}
-            <button className="note-btn" onClick={() => console.log('open diary')}>✍ 写一篇</button>
+            <div className="note-content">{note?.content || (hasNote ? '' : '（还没有纸条——钟泽想留的时候会留）')}</div>
+            <div className="note-author">—— {note?.source === 'user' ? '泠泠' : '钟泽'}</div>
+            {onWrite && <button className="note-btn" onClick={onWrite}>✍ 写一篇</button>}
           </div>
         </div>
       )}
