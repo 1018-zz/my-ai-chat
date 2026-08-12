@@ -30,6 +30,7 @@ export async function onRequestPost(context) {
       date: String(body.date || new Date().toISOString().slice(0, 10)),
       emotion: String(body.emotion || 'calm'),
       icon: String(body.icon || '🌱'),
+      image_url: String(body.image_url || '').trim() || null,
       source: 'user',
     }
     const res = await fetch(`${SUPABASE}/moments`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
