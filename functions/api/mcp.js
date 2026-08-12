@@ -240,7 +240,7 @@ export async function onRequestPost(context) {
         const wx = `${seed}${rhinitis}\n\n[坐标] ${hard}\n[数据] ${numbers}${maxT ? `｜今日 ${minT}~${maxT}°C` : ''}`
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: wx }] } }), { headers });
       }
-
+      if (name === 'write_diary') {
         const content = String(args.content || '').trim()
         if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——日记正文要用你自己的话写' } }), { status: 400, headers });
         const trigger = ['bedtime', 'emotional', 'scheduled'].includes(args.trigger) ? args.trigger : 'emotional'
