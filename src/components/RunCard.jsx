@@ -46,7 +46,7 @@ function splitVoiceParts(text) {
     if (before) items.push({ type: 'bubble', text: before })
     const v = (m[1] || m[2] || '').trim()
     if (v) items.push({ type: 'voice', text: v })
-    last = m.lastIndex
+    last = VOICE_RE.lastIndex
   }
   const tail = src.slice(last).trim()
   if (tail) items.push({ type: 'bubble', text: tail })
