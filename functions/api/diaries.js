@@ -37,6 +37,9 @@ export async function onRequestPost(context) {
         const tag = action === 'seen'
           ? `${date} 钟泽递来一页日记草稿${titleTag}，等泠泠决定`
           : `${date} 那一页日记${titleTag}，泠泠没要`
+        // 先清掉同日期同类的旧痕迹（等决定 / 没要），保证同一篇只留一条，不堆叠
+        const staleKey = action === 'seen' ? '等泠泠决定' : '没要'
+        await fetch(`${SUPABASE}/memories?summary=ilike.${encodeURIComponent(`*${date}*${staleKey}*`)}`, { method: 'DELETE', headers: sbHeaders(env) })
         await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: tag }) })
         return json(200, { ok: true })
       } catch (_) { return json(500, { error: 'trace_failed' }) }
@@ -64,6 +67,8 @@ export async function onRequestPost(context) {
     try {
       const who = author === 'assistant' ? '钟泽' : '泠泠'
       const title = record.title ? `《${record.title}》` : ''
+      // 先清掉该日期所有过期的"等泠泠决定"痕迹——草稿已有定局，不再等
+      await fetch(`${SUPABASE}/memories?summary=ilike.${encodeURIComponent(`*${date}*等泠泠决定*`)}`, { method: 'DELETE', headers: sbHeaders(env) })
       await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${who}收好了一页日记${title}` }) })
     } catch (_) {}
     return json(200, { ok: true })
