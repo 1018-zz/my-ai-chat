@@ -578,6 +578,17 @@ const Terminal = ({ open, onClose }) => {
 
 const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [msgList, setMsgList] = useState([])
+  // 时间氛围色（小家跟着一天呼吸）：按当前小时设置 body[data-time]
+  useEffect(() => {
+    const applyTime = () => {
+      const h = new Date().getHours()
+      const t = h < 5 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : 'night'
+      document.body.setAttribute('data-time', t)
+    }
+    applyTime()
+    const iv = setInterval(applyTime, 5 * 60 * 1000)
+    return () => clearInterval(iv)
+  }, [])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
   const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
