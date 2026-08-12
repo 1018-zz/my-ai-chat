@@ -57,16 +57,19 @@ export default function ToolGroupCard({ msgs, showThinking }) {
 
   return (
     <div className="msg-left" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-      {/* 折叠条：小家语言——"钟泽整理完成"，无工具 emoji */}
+      {/* 折叠条：记录纸质感（不是玻璃——玻璃留给窗；纸上有细线，像桌面上的记录纸） */}
       <div
         onClick={() => setOpen(o => !o)}
         style={{
-          ...glassCard,
           maxWidth: '75%',
           marginBottom: 6,
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '8px 14px', cursor: 'pointer', fontSize: 12,
           color: 'var(--color-text-gray)', userSelect: 'none',
+          borderRadius: 10,
+          border: '1px solid rgba(201,184,166,0.4)',
+          background: 'linear-gradient(180deg, #FFF9EF 0%, #F6EDDA 100%)',
+          boxShadow: '0 4px 14px rgba(80,60,40,0.08)',
         }}
       >
         <span className="ze-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)', opacity: 0.6, flexShrink: 0 }} />
