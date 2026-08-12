@@ -126,7 +126,7 @@ export async function onRequestPost(context) {
             if (pend.length > 0) {
               const fromHer = pend.filter(n => n.source === 'user').length
               const fromMe = pend.filter(n => n.source !== 'user').length
-              const brief = pend.map(n => `${n.source === 'user' ? '她留' : '我留'}：「${String(n.content || '').slice(0, 40)}」`).join('；')
+              const brief = pend.map(n => `${n.source === 'user' ? '她留' : '我留'}「${String(n.content || '').slice(0, 40)}」(id=${n.id})`).join('；')
               parts.push(`📎 纸条：${fromHer} 张等你收、${fromMe} 张等她决定（${brief}）`)
             }
           } catch (_) {}
