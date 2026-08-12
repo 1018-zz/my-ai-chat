@@ -1,6 +1,6 @@
-/* 小纸条 · MVP v0.1 —— 澄设计 / 钟泽适配小家 token */
+/* 小纸条 · MVP v0.2 —— 澄设计 / 钟泽适配小家 token */
 
-/* —— 首页右下角入口 —— */
+/* —— 首页右下角入口（有新内容=醒目版） —— */
 .sticky-note-mini {
   position: fixed;
   right: 40px;
@@ -17,16 +17,43 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  transition: transform 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft);
+  transition: transform 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft), width 0.3s var(--ease-soft), height 0.3s var(--ease-soft), opacity 0.3s var(--ease-soft);
   z-index: 80;
   user-select: none;
+  text-align: center;
 }
 .sticky-note-mini:hover {
   transform: rotate(0deg) translateY(-5px);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
-.sticky-note-mini .mini-pin { font-size: 18px; }
+.sticky-note-mini .mini-pin { font-size: 18px; line-height: 1; }
 .sticky-note-mini span { font-size: 13px; margin-top: 6px; color: #6b5a1e; font-weight: 500; }
+
+/* 有新内容：暖色光晕呼吸，醒目但不吵 */
+.sticky-note-mini.is-new {
+  animation: note-glow 2.8s ease-in-out infinite;
+}
+
+/* 没有新内容：缩成小纸片，安静 */
+.sticky-note-mini.is-quiet {
+  width: 92px;
+  height: 64px;
+  padding: 8px;
+  transform: rotate(1.5deg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+  opacity: 0.88;
+}
+.sticky-note-mini.is-quiet .mini-pin { font-size: 16px; }
+.sticky-note-mini.is-quiet .mini-hint {
+  font-size: 11px;
+  margin-top: 3px;
+  opacity: 0.7;
+}
+.sticky-note-mini.is-quiet:hover {
+  transform: rotate(0deg) translateY(-3px);
+  opacity: 1;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+}
 
 /* —— 遮罩 —— */
 .note-mask {
@@ -88,6 +115,11 @@
 }
 .note-btn:hover { background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); }
 
+/* —— 动画 —— */
+@keyframes note-glow {
+  0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+  50% { box-shadow: 0 10px 34px rgba(190, 148, 66, 0.40); }
+}
 @keyframes note-pop {
   from { transform: scale(0.8) rotate(-8deg); opacity: 0; }
   to { transform: scale(1) rotate(-2deg); opacity: 1; }
