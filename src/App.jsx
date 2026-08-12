@@ -400,8 +400,11 @@ const MemoryRoom = ({ onBack }) => {
   )
 }
 
-const DiaryRoom = ({ onBack }) => {
+const DiaryRoom = ({ onBack, navReq, onNavConsumed }) => {
   const [view, setView] = useState(null)
+  useEffect(() => {
+    if (navReq === 'diary-today') { setView('today'); onNavConsumed?.() }
+  }, [navReq, onNavConsumed])
   const items = [
     { key: 'today', icon: '📖', title: '今日日记', desc: '钟泽 ✍️ + 泠泠 ✍️' },
     { key: 'history', icon: '📚', title: '往日日记', desc: '按日期翻看我们写过的' },
