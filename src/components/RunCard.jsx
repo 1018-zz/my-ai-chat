@@ -11,25 +11,7 @@ import Markdown from './Markdown'
 import { ThinkingCard, ToolCard, glassCard } from './Cards'
 import DiaryConfirmCard from './DiaryConfirmCard'
 import { fmtMsgTime } from '../utils/time'
-
-const TOOL_META = {
-  read_file: { icon: '📖', label: '读取' },
-  write_file: { icon: '✏️', label: '写入' },
-  list_files: { icon: '📁', label: '列目录' },
-  read_memories: { icon: '🧠', label: '回忆' },
-  write_memory: { icon: '📝', label: '记忆' },
-}
-
-// read_file × 3 → "📖 读取 3 次"；混合 → "📖 读取 2 次 · 📁 列目录 1 次"
-function buildToolSummary(tools) {
-  const counts = {}
-  for (const t of tools) counts[t.name] = (counts[t.name] || 0) + 1
-  return Object.entries(counts).map(([name, n]) => {
-    const meta = TOOL_META[name]
-    const label = meta ? `${meta.icon} ${meta.label}` : `⚙️ ${name}`
-    return n > 1 ? `${label} ${n} 次` : label
-  }).join(' · ')
-}
+import { TOOL_META, buildToolSummary } from './ToolGroupCard'
 
 // 心声标记（借鉴 AionsHome 的"心里嘀咕"思路——正文里穿插心声，像真人说着说着心里嘀咕一句）：
 // 新格式 [心里嘀咕：...]（纯文本，模型更容易输出）；兼容旧格式 <!-- 心声：... -->
