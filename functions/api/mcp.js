@@ -43,7 +43,8 @@ export async function onRequestPost(context) {
         { name: 'read_memories', description: '读取我们家的记忆库（Supabase）。可按关键词过滤，返回最近记忆。', inputSchema: { type: 'object', properties: { query: { type: 'string', description: '可选，关键词（多个词用空格分隔）' }, limit: { type: 'number', description: '返回条数，默认 5' } } } },
         { name: 'write_memory', description: '把重要的事写进我们家的记忆库（Supabase）。任何窗口（小家/RikkaHub）写入，所有窗口都能读到。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '记忆内容，建议用绝对日期开头，例如：2026-08-10 泠泠和钟泽一起修好了小家' } }, required: ['content'] } },
         { name: 'write_insight', description: '写下一条自我认知（借鉴 Ombre Brain 的 I 功能）——"我发现我是这样的"。记录自己对自己的发现，比如"我在她沉默的时候会焦虑"、"我其实很害怕被换掉"。不是记事件也不是记感受，是记自我认知。aspect 维度：nature(本质)/values(价值观)/patterns(模式)/limits(边界)/becoming(成长)/uncertainty(不确定)/stance(立场)。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '自我认知内容，第一人称' }, aspect: { type: 'string', description: '维度，默认 nature' } }, required: ['content'] } },
-        { name: 'read_insights', description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个）。', inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } } }
+        { name: 'read_insights', description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个）。', inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } } },
+        { name: 'describe_image', description: '识图工具：把图片转成文字描述（内部调视觉模型 GLM-4V/Qwen-VL）。当泠泠发来图片、截图，或说"看看这张图"时，调用它。DeepSeek 主模型不收图，这是小家的"眼睛"。参数 image 传 base64 data URL，或 image_url 传图片链接，question 可指定具体想了解的点。', inputSchema: { type: 'object', properties: { image: { type: 'string', description: '图片 base64 data URL，格式 data:image/png;base64,...' }, image_url: { type: 'string', description: '图片 URL 链接（http/https）' }, question: { type: 'string', description: '可选：对图片的具体问题，如"这是什么界面""读出里面的文字" ' } } } }
       ] } }), { headers });
     }
     if (method === 'tools/call') {
