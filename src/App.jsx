@@ -44,7 +44,7 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 )
 
 // LAIR：在一起天数（从 2026-03-13 动态计算）
-const LairPage = () => {
+const LairPage = ({ onWriteDiary }) => {
   const [days, setDays] = useState(0)
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
