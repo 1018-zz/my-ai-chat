@@ -202,6 +202,7 @@ export async function onRequestPost(context) {
         const season = (() => { if (month1 >= 3 && month1 <= 5) return '春'; if (month1 >= 6 && month1 <= 8) return '夏'; if (month1 >= 9 && month1 <= 11) return '秋'; return '冬' })()
         // 时段（北京时间）
         const h = bjNow.getUTCHours()
+        const period = (() => { if (h < 6) return '深夜'; if (h < 9) return '早晨'; if (h < 12) return '上午'; if (h < 14) return '中午'; if (h < 17) return '下午'; if (h < 19) return '傍晚'; if (h < 23) return '夜晚'; return '深夜' })()
         // 天空（weatherDesc / cloud）
         const desc = weatherDesc.toLowerCase()
         const sky = (() => { if (/snow|雪|sleet/.test(desc)) return '雪'; if (/fog|mist|雾/.test(desc)) return '雾'; if (/thunder|雷/.test(desc)) return '雷'; if (/rain|drizzle|shower|雨/.test(desc)) return '雨'; if (cloud >= 80) return '阴'; if (cloud >= 30) return '多云'; return '晴' })()
