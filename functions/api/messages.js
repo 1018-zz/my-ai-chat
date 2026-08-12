@@ -45,15 +45,35 @@ export async function onRequestDelete(context) {
   const { request, env } = context
   const url = new URL(request.url)
   const id = url.searchParams.get('id')
-  if (!id) return json(400, { error: 'id required' })
+  const cid = url.searchParams.get('conversationId')
+  const content = url.searchParams.get('content')
+  if (!id && !(cid && content)) return json(400, { error: 'id 或 conversationId+content 必填' })
   const by = url.searchParams.get('by') || 'user'
-  const res = await fetch(`${SUPABASE}/messages?id=eq.${id}`, {
-    method: 'PATCH',
-    headers: sbReturn(env),
-    body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: by }),
-  })
-  if (!res.ok) return json(500, { error: `supabase [${res.status}]` })
-  return json(200, { ok: true })
+  // 优先按 id 软删（历史消息有真实 DB id）
+  let deleted = 0
+  if (id) {
+    const res = await fetch(`${SUPABASE}/messages?id=eq.${id}&deleted_at=is.null`, {
+      method: 'PATCH',
+      headers: sbReturn(env),
+      body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: by }),
+    })
+    if (res.ok) deleted = (await res.json()).length || 0
+  }
+  // id 未命中（前端本地 uid 消息未回传 DB id）→ 按会话+内容匹配最近一条
+  if (!deleted && cid && content) {
+    const q = `${SUPABASE}/messages?conversation_id=eq.${encodeURIComponent(cid)}&role=eq.user&content=eq.${encodeURIComponent(content)}&deleted_at=is.null&select=id&order=id.desc&limit=1`
+    const look = await fetch(q, { headers: sbHeaders(env) })
+    const rows = await look.json()
+    if (Array.isArray(rows) && rows[0]?.id) {
+      const res = await fetch(`${SUPABASE}/messages?id=eq.${rows[0].id}`, {
+        method: 'PATCH',
+        headers: sbReturn(env),
+        body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: by }),
+      })
+      if (res.ok) deleted = (await res.json()).length || 0
+    }
+  }
+  return json(200, { ok: deleted > 0, deleted })
 }
 
 export async function onRequestPatch(context) {
