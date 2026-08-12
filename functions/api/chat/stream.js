@@ -65,7 +65,9 @@ export async function onRequestPost(context) {
     // 存用户消息：工具内部消息（[工具结果] 开头）不入库，真实用户消息才存
     const isToolRound = skipSave || String(userMsg.content || '').startsWith('[工具结果]')
     if (!isToolRound) {
-      const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: userMsg.content }) })
+      // 时间标注（【时间 泠泠】）只给模型看，入库前剥离——否则刷新后消息内容带前缀
+      const cleanContent = String(userMsg.content).replace(/^【[^】]*泠泠】/, '').trim() || String(userMsg.content).trim()
+      const mr = await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'user', content: cleanContent }) })
       if (!mr.ok) { const t = await mr.text().catch(() => ''); return json(500, { error: `msg insert [${mr.status}]: ${t.slice(0, 200)}` }) }
     } else {
       // P0.7b：工具结果持久化——把请求中的 tool 消息按 tool_call_id 去重落库
