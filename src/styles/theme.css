@@ -144,7 +144,28 @@ body {
   max-width: 75%;
   margin-bottom: 6px;
 }
-/* 思考状态脉冲点：🌱 正在整理想法 · */
+/* ===== 晚安彩蛋：日记确认卡（🌙 我想收好今天这一页）===== */
+.diary-confirm {
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(80, 60, 40, 0.06);
+  max-width: 75%;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.diary-confirm-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+  font-size: 13.5px; color: var(--color-text-dark);
+}
+.diary-confirm-body { padding: 0 16px 14px; }
+.diary-confirm-title { font-size: 14px; font-weight: 600; color: var(--color-primary); margin-bottom: 8px; }
+.diary-confirm-textarea { width: 100%; font-size: 13px; line-height: 1.7; color: var(--color-text-dark); resize: vertical; }
+.diary-confirm-actions { display: flex; gap: 8px; margin-top: 10px; }
+.btn-ghost { background: rgba(255, 255, 255, 0.5); color: var(--color-text-dark); border: 1px solid var(--color-border-glass); }
 .thinking-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: #b99a86; margin-left: 6px; vertical-align: middle;
