@@ -753,6 +753,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const stopGen = () => { stopRequestedRef.current = true; abortRef.current?.abort() }
   const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
+  // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
+  const recallMessage = async (msg) => {
+    if (!window.confirm('撤回这条消息？钟泽就看不到了。')) return
+    try { await fetch(`${API_BASE}/api/messages?id=${msg.id}&by=user`, { method: 'DELETE' }) } catch (_) {}
+    setMsgList(p => p.map(m => m.id === msg.id ? { ...m, deleted: true, deletedAt: Date.now() } : m))
+  }
   // 顶部 AI 在场状态（陪伴感：状态跟着我在做的事走，不是笼统的"翻资料"）
   const lastAiMsg = [...msgList].reverse().find(m => !m.isSelf)
   const activeTool = lastAiMsg?.toolCalls?.find(t => t.result === undefined || t.result === '')
