@@ -76,7 +76,21 @@ body {
 .input { background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-md); padding: 10px 14px; outline: none; color: var(--color-text-dark); }
 .input:focus { border-color: var(--color-primary-light); }
 
-.page-wrap { padding-bottom: 70px; min-height: 100vh; }
+/* 时间氛围色（小家跟着一天呼吸）：body[data-time] 切换环境光，不是换主题，是家自己在变 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  transition: background 2s var(--ease-soft);
+}
+body[data-time='dawn']::before { background: radial-gradient(circle at 30% 20%, rgba(184,195,209,0.28), transparent 60%); }
+body[data-time='morning']::before { background: radial-gradient(circle at 60% 10%, rgba(247,235,216,0.5), transparent 60%); }
+body[data-time='afternoon']::before { background: radial-gradient(circle at 70% 20%, rgba(235,201,165,0.42), transparent 60%); }
+body[data-time='night']::before { background: radial-gradient(circle at 75% 15%, rgba(142,117,101,0.32), transparent 60%); }
+.page-wrap { padding-bottom: 70px; min-height: 100vh; position: relative; z-index: 1; }
 .tab-nav { position: fixed; left: 0; right: 0; bottom: 0; height: 60px; background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-top: 1px solid var(--color-border-glass); display: flex; align-items: center; justify-content: space-around; box-shadow: 0 -2px 10px rgba(145, 107, 78, 0.06); border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl); z-index: 99; }
 .tab-item { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-gray); cursor: pointer; transition: all 0.2s; }
 .tab-item.active { color: var(--color-primary); }
