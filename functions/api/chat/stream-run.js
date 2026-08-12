@@ -130,6 +130,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
               const d = JSON.parse(line.slice(6))
               const delta = d.choices?.[0]?.delta
               if (delta?.content) {
+                // 同 chunk 两路思考并存（reasoning_content + content 内 <think>）时，
+                // 几乎必为同一份思考被 relay 双写 → <think> 提取的不再重复转发，防"思考重复出现"
+                const hasFieldReasoning = !!(delta?.reasoning_content)
                 // <think> 块剥离：思考进 thinking 链，正文只留可见部分
                 const visible = thinkFilter.feed(delta.content)
                 if (visible) {
@@ -137,7 +140,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: visible })}\n\n`))
                 }
                 const thinkDelta = thinkFilter.takeReasoning()
-                if (thinkDelta) {
+                if (thinkDelta && !hasFieldReasoning) {
                   reasoning += thinkDelta
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkDelta })}\n\n`))
                 }
