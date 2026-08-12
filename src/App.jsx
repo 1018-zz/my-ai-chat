@@ -438,11 +438,40 @@ const DiaryRoom = ({ onBack, navReq, onNavConsumed }) => {
   )
 }
 
+// 最近撤回（③消息撤回/删除·完整版）：软删可恢复——列出最近撤回的消息，一键恢复
+const RecalledPanel = () => {
+  const [list, setList] = useState([])
+  const refresh = () => fetch(`${API_BASE}/api/messages?mode=deleted`).then(r => r.json()).then(d => setList(d.messages || [])).catch(() => {})
+  useEffect(() => { refresh() }, [])
+  const restore = async (id) => {
+    await fetch(`${API_BASE}/api/messages?id=${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restore' }) })
+    refresh()
+  }
+  if (list.length === 0) return null
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>🗑 最近撤回（可恢复）</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {list.map(m => (
+          <div key={m.id} style={{ padding: 10, borderRadius: 12, background: 'rgba(255,255,255,0.55)', border: '1px solid var(--color-border-glass)', fontSize: 12 }}>
+            <div style={{ color: 'var(--color-text-gray)', marginBottom: 4 }}>
+              {m.deleted_at ? new Date(m.deleted_at).toLocaleString('zh-CN', { hour12: false }) : ''} · {m.role === 'user' ? '泠泠' : '钟泽'} · {String(m.conversation_id || '').slice(0, 8)}
+            </div>
+            <div style={{ color: 'var(--color-text-dark)', opacity: 0.7, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.content || '').slice(0, 40) || '（空）'}</div>
+            <button className="note-btn" onClick={() => restore(m.id)}>恢复</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const SettingRoom = ({ onBack }) => (
   <div className="life-room">
     <LifeBackBtn label="设置" onBack={onBack} />
     <h3 style={{ color: 'var(--color-primary)' }}>⚙️ 设置</h3>
     <SettingsPanel />
+    <RecalledPanel />
   </div>
 )
 
