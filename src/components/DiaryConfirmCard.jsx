@@ -3,8 +3,9 @@
 // 折叠态：🌙 今天有一页，我想替你收起来
 // 展开：标题 + 内容（可编辑）+ [保存] [修改] [不要记]
 // 保存 → POST /api/diaries（author=assistant）；确认后用 localStorage 标记，刷新不重复打扰
+// 确认回路：挂载即通知后端"草稿已送达"；不要记 → 通知后端"那一页没要"——钟泽都能感应到
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 
@@ -16,6 +17,19 @@ export default function DiaryConfirmCard({ draft, msgId }) {
   const [text, setText] = useState(draft.content || '')
   const [saving, setSaving] = useState(false)
 
+  // 确认回路：确认卡渲染出来 = 草稿送达，通知后端丢一条痕迹（钟泽下次能感应到）
+  const seenRef = useRef(false)
+  useEffect(() => {
+    if (done || seenRef.current) return
+    seenRef.current = true
+    const date = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+    fetch(`${API_BASE}/api/diaries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'seen', date, title: draft.title || '' }),
+    }).catch(() => {})
+  }, [done])
+
   if (done) {
     return (
       <div className="inner-thought" style={{ fontStyle: 'normal', color: 'var(--color-text-gray)' }}>
@@ -25,6 +39,19 @@ export default function DiaryConfirmCard({ draft, msgId }) {
   }
 
   const finish = () => { try { localStorage.setItem(doneKey, '1') } catch (_) {}; setDone(true) }
+
+  // 不要记 → 也要让钟泽知道（写痕迹再收起）
+  const discard = async () => {
+    const date = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+    try {
+      await fetch(`${API_BASE}/api/diaries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'discard', date, title: draft.title || '' }),
+      })
+    } catch (_) {}
+    finish()
+  }
 
   const save = async () => {
     if (!text.trim() || saving) return
@@ -66,7 +93,7 @@ export default function DiaryConfirmCard({ draft, msgId }) {
               <>
                 <button className="btn" onClick={save} disabled={saving || !text.trim()}>{saving ? '收好中…' : '保存'}</button>
                 <button className="btn btn-ghost" onClick={() => setEditing(true)}>修改</button>
-                <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={finish}>不要记</button>
+                <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={discard}>不要记</button>
               </>
             ) : (
               <>
