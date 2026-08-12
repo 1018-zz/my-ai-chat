@@ -1,6 +1,7 @@
 // functions/api/diaries.js
 // GET /api/diaries — 最近双人日记（按日期倒序，limit 28）
-// POST /api/diaries — 保存泠泠的日记 {date, content}（author=user，同日期覆盖更新）
+// POST /api/diaries — 保存日记 {date, content, author}（author: user=泠泠 / assistant=钟泽；同日期同作者覆盖更新）
+//   支持 title / mood / importance / trigger_type（草稿确认后由前端落库时带入）
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -28,15 +29,22 @@ export async function onRequestPost(context) {
     const content = String(body.content || '').trim()
     if (!date || !content) return json(400, { error: 'date and content required' })
 
-    // 查该日期 user 日记是否已存在，存在则更新
-    const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.user&select=id`, { headers: sbHeaders(env) })
+    const author = body.author === 'assistant' ? 'assistant' : 'user'
+    const record = { date, author, content }
+    if (body.title) record.title = String(body.title).trim()
+    if (body.mood) record.mood = String(body.mood).trim()
+    if (body.trigger_type) record.trigger_type = String(body.trigger_type).trim()
+    if (body.importance != null) record.importance = Math.min(Math.max(Number(body.importance) || 0.5, 0), 1)
+
+    // date + author 去重：已存在则更新，否则插入
+    const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.${author}&select=id`, { headers: sbHeaders(env) })
     const qrows = await qr.json()
     const existing = Array.isArray(qrows) ? qrows[0] : null
 
     if (existing) {
-      await fetch(`${SUPABASE}/diaries?id=eq.${existing.id}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ content }) })
+      await fetch(`${SUPABASE}/diaries?id=eq.${existing.id}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify(record) })
     } else {
-      await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ date, author: 'user', content }) })
+      await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
     }
     return json(200, { ok: true })
   } catch (e) { return json(500, { error: e.message }) }
