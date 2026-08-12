@@ -550,6 +550,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         else pending = null
       }
       setMsgList(restored)
+      // 进入会话强制定位到底部（DOM 渲染完成后；进来就该停在最近的消息处，不依赖 stickBottom 判断）
+      setTimeout(() => { const el = messagesEndRef.current?.parentElement; if (el) el.scrollTop = el.scrollHeight }, 80)
     }).catch(() => {})
   }, [chatInfo?.id])
   // 滚动跟随：用户在底部附近（120px 内）才自动滚到底；上翻历史时消息更新不打扰
