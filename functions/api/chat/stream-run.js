@@ -56,8 +56,18 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
 
         const complete = toolCalls.filter(tc => tc && tc.name)
         if (complete.length > 0) {
-          for (const tc of complete) { try { tc.arguments = JSON.parse(tc.arguments || '{}') } catch { tc.arguments = {} } }
-          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments })) })}\n\n`)) } catch (_) {}
+          let brokenArgs = 0
+          for (const tc of complete) {
+            try { tc.arguments = JSON.parse(tc.arguments || '{}') }
+            catch {
+              brokenArgs++
+              console.error('[stream-run] 工具调用参数解析失败:', tc.name, String(tc.arguments || '').slice(0, 200))
+              tc.arguments = {}
+              tc.arguments_incomplete = true
+            }
+          }
+          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool_calls: complete.map(tc => ({ name: tc.name, arguments: tc.arguments, arguments_incomplete: !!tc.arguments_incomplete })) })}\n\n`)) } catch (_) {}
+          if (brokenArgs > 0) console.warn(`[stream-run] ${brokenArgs} 个工具调用参数不完整，已标记（前端可识别，不会假装成功）`)
         }
         // 思考链完整文本（如模型支持 reasoning_content），一次性补发
         if (reasoning.trim()) {
