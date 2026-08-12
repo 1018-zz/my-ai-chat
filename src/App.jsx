@@ -73,10 +73,11 @@ const LairPage = () => {
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
-        <HomeWidgets items={widgets} />
+        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setNotePanel(true) }} />
       </div>
-      {/* —— 小纸条 · 钟泽的便利贴（澄设计 MVP，已接真数据） —— */}
-      <NoteCard onWrite={onWriteDiary} />
+      {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
+      <NoteCard onOpenPanel={() => setNotePanel(true)} />
+      {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
     </div>
   )
 }
