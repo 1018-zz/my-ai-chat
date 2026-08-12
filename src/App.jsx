@@ -833,7 +833,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const aiActive = !!loading
   const aiStatus = aiActive
     ? (activeTool ? (toolAction[activeTool.name] || '🛠 正在忙') : (lastAiMsg?.thinking && !lastAiMsg?.thinkingDone ? '🌱 正在整理想法' : (lastAiMsg?.text ? '✍️ 正在写…' : '⏳ 准备中')))
-    : '安静等待'
+    : '在窗边等你'
 
   return (
     <div className="chat-detail-page">
