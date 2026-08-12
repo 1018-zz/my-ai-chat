@@ -2,7 +2,8 @@
 // 纸条状态流转：pending（待处理）→ saved（收下）/ discarded（飘走，可捡回）
 // GET /api/notes?status=pending|saved|discarded → 纸条列表 + counts 统计
 // POST /api/notes { date, type, content, source } → 留一张纸条（默认 pending）
-// PATCH /api/notes { id, status, decided_by } → 决定纸条去向
+// PATCH /api/notes { id, status, decided_by } → 决定纸条去向（saved/discarded/pending）
+// DELETE /api/notes?id=xxx → 彻底删除（物理删除，不捡回）
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -61,10 +62,22 @@ export async function onRequestPatch(context) {
   } catch (e) { return json(500, { error: e.message }) }
 }
 
+export async function onRequestDelete(context) {
+  const { env, request } = context
+  try {
+    const url = new URL(request.url)
+    const id = Number(url.searchParams.get('id'))
+    if (!id) return json(400, { error: 'id required' })
+    const res = await fetch(`${SUPABASE}/note_content?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders(env) })
+    if (!res.ok) return json(500, { error: `supabase [${res.status}]` })
+    return json(200, { ok: true, deleted: id })
+  } catch (e) { return json(500, { error: e.message }) }
+}
+
 function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+  return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
 }
