@@ -31,11 +31,26 @@ function buildToolSummary(tools) {
   }).join(' · ')
 }
 
-// 抽出心声标记 <!-- 心声：... -->（钟泽有感而发的话，渲染成便签卡，不进入正文气泡）
-function extractVoice(text) {
-  const m = String(text || '').match(/<!--\s*心声[：:]\s*([\s\S]*?)\s*-->/)
-  if (!m) return { voice: null, text: text || '' }
-  return { voice: m[1].trim(), text: String(text).replace(m[0], '').trim() }
+// 心声标记（借鉴 AionsHome 的"心里嘀咕"思路——正文里穿插心声，像真人说着说着心里嘀咕一句）：
+// 新格式 [心里嘀咕：...]（纯文本，模型更容易输出）；兼容旧格式 <!-- 心声：... -->
+const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]/g
+
+// 把消息拆成多段：气泡 ↔ 心声便签交替（一条消息可穿插多个心声）
+function splitVoiceParts(text) {
+  const src = String(text || '')
+  const items = []
+  let last = 0, m
+  VOICE_RE.lastIndex = 0
+  while ((m = VOICE_RE.exec(src)) !== null) {
+    const before = src.slice(last, m.index).trim()
+    if (before) items.push({ type: 'bubble', text: before })
+    const v = (m[1] || m[2] || '').trim()
+    if (v) items.push({ type: 'voice', text: v })
+    last = m.lastIndex
+  }
+  const tail = src.slice(last).trim()
+  if (tail) items.push({ type: 'bubble', text: tail })
+  return items
 }
 
 // 抽出日记草稿标记 <!-- diary-draft: {...} -->（晚安彩蛋：待用户确认的日记，渲染成确认卡）
@@ -50,8 +65,9 @@ function extractDiaryDraft(text) {
 
 export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const tools = msg.toolCalls || []
-  const { voice, text: textNoVoice } = extractVoice(msg.text)
-  const { draft, text } = extractDiaryDraft(textNoVoice)
+  const { draft, text: textNoDraft } = extractDiaryDraft(msg.text)
+  const parts = splitVoiceParts(textNoDraft)
+  const fullText = parts.map(p => p.text).join('').trim()
   const hasThinking = !!(msg.thinking && showThinking)
   const hasTools = tools.length > 0
   const running = !!msg.loading || tools.some(t => t.result === undefined || t.result === '')
@@ -60,7 +76,7 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const summary = buildToolSummary(tools)
   const durText = msg.thinkingDur ? `${(msg.thinkingDur / 1000).toFixed(1)}s` : ''
   // 过程注脚：工具轮里的短过渡语（"继续翻页："）不当气泡，低存在感
-  const isTinyProcess = !!text && hasTools && !running && text.length <= 24 && !voice && !draft
+  const isTinyProcess = !!fullText && hasTools && !running && fullText.length <= 24 && !draft
 
   return (
     // .msg-left 在 theme.css 是 display:flex（单气泡时代遗留），内联覆盖为垂直流：
@@ -114,17 +130,17 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
           {tools.map((tc, i) => <ToolCard key={i} tool={tc} result={tc.result} />)}
         </div>
       )}
-      {/* 心声便签（💭 有感而发的话，低存在感，不抢正文） */}
-      {voice && <div className="inner-thought">💭 {voice}</div>}
       {/* 晚安彩蛋：待确认的日记草稿（用户有最终决定权） */}
       {draft && <DiaryConfirmCard draft={draft} msgId={msg.id} />}
-      {/* 回答始终可见——折叠只收过程，不收结果；空内容（工具轮 assistant）不渲染空气泡 */}
-      {msg.loading && !text
+      {/* 回答始终可见——心声穿插正文，多段交替渲染（像真人说着说着心里嘀咕一句） */}
+      {msg.loading && !fullText
         ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div>
         : isTinyProcess
-          ? <div className="chat-process-note">{text}</div>
-          : text
-            ? <div className="msg-bubble"><Markdown>{text}</Markdown></div>
+          ? <div className="chat-process-note">{fullText}</div>
+          : parts.length > 0
+            ? parts.map((p, i) => p.type === 'voice'
+              ? <div key={i} className="inner-thought">💭 {p.text}</div>
+              : <div key={i} className="msg-bubble"><Markdown>{p.text}</Markdown></div>)
             : null}
       {msg.ts && !msg.loading && <div className="msg-meta">{fmtMsgTime(msg.ts)}</div>}
     </div>
