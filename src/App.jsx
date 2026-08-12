@@ -921,6 +921,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
+  // 环境层初始化：读 localStorage 应用壁纸变量（壁纸设置组件也会写，这里是首屏就生效）
+  useEffect(() => {
+    try {
+      const root = document.documentElement
+      const wp = localStorage.getItem('home-wallpaper') || ''
+      const op = localStorage.getItem('wallpaper-opacity') || '0.34'
+      const dk = localStorage.getItem('wallpaper-darken') || '0.12'
+      root.style.setProperty('--wallpaper', wp ? `url("${wp}")` : 'none')
+      root.style.setProperty('--wallpaper-opacity', op)
+      root.style.setProperty('--wallpaper-darken', dk)
+    } catch (_) {}
+  }, [])
   const [currentChat, setCurrentChat] = useState(() => {
     try { return JSON.parse(localStorage.getItem('current_chat') || 'null') } catch { return null }
   })
