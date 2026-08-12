@@ -79,11 +79,13 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
           {tools.map((tc, i) => <ToolCard key={i} tool={tc} result={tc.result} />)}
         </div>
       )}
+      {/* 心声便签（💭 有感而发的话，低存在感，不抢正文） */}
+      {voice && <div className="inner-thought">💭 {voice}</div>}
       {/* 回答始终可见——折叠只收过程，不收结果；空内容（工具轮 assistant）不渲染空气泡 */}
-      {msg.loading && !msg.text
+      {msg.loading && !text
         ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div>
-        : msg.text
-          ? <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>
+        : text
+          ? <div className="msg-bubble"><Markdown>{text}</Markdown></div>
           : null}
     </div>
   )
