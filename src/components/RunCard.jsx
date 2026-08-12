@@ -37,6 +37,16 @@ function extractVoice(text) {
   return { voice: m[1].trim(), text: String(text).replace(m[0], '').trim() }
 }
 
+// 抽出日记草稿标记 <!-- diary-draft: {...} -->（晚安彩蛋：待用户确认的日记，渲染成确认卡）
+function extractDiaryDraft(text) {
+  const m = String(text || '').match(/<!--\s*diary-draft:\s*(\{[\s\S]*?\})\s*-->/)
+  if (!m) return { draft: null, text: text || '' }
+  try {
+    const draft = JSON.parse(m[1])
+    return { draft, text: String(text).replace(m[0], '').trim() }
+  } catch (_) { return { draft: null, text: text || '' } }
+}
+
 export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const tools = msg.toolCalls || []
   const { voice, text } = extractVoice(msg.text)
