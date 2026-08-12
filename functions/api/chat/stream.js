@@ -120,7 +120,7 @@ export async function onRequestPost(context) {
           if (todo && todo.summary !== important?.summary) parts.push(`牵挂：${todo.summary.slice(0, 120)}`)
           // B. 纸条感应：待处理的便利贴（她留的等我收 / 我留的等她决定）
           try {
-            const nr = await fetch(`${SUPABASE}/note_content?select=content,source&status=eq.pending&order=id.desc&limit=2`, { headers: sbHeaders(env) })
+            const nr = await fetch(`${SUPABASE}/note_content?select=id,content,source&status=eq.pending&order=id.desc&limit=2`, { headers: sbHeaders(env) })
             const nrows = await nr.json()
             const pend = Array.isArray(nrows) ? nrows : []
             if (pend.length > 0) {
