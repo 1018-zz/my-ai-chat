@@ -90,7 +90,37 @@ body[data-time='dawn']::before { background: radial-gradient(circle at 30% 20%, 
 body[data-time='morning']::before { background: radial-gradient(circle at 60% 10%, rgba(247,235,216,0.5), transparent 60%); }
 body[data-time='afternoon']::before { background: radial-gradient(circle at 70% 20%, rgba(235,201,165,0.42), transparent 60%); }
 body[data-time='night']::before { background: radial-gradient(circle at 75% 15%, rgba(142,117,101,0.32), transparent 60%); }
-.page-wrap { padding-bottom: 70px; min-height: 100vh; position: relative; z-index: 1; }
+/* ===== 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 ===== */
+.wallpaper-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--wallpaper, none);
+  background-size: cover;
+  background-position: center;
+  opacity: var(--wallpaper-opacity, 0.34);
+  transform: scale(1.03);
+  transition: opacity 700ms ease, background-image 700ms ease;
+  pointer-events: none;
+}
+.warm-light {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 70% 15%, rgba(255, 221, 174, 0.45), transparent 38%),
+    linear-gradient(180deg, rgba(255, 248, 235, 0.18), rgba(72, 54, 40, var(--wallpaper-darken, 0.12)));
+  transition: background 700ms ease;
+}
+.room-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: inset 0 0 100px rgba(66, 47, 31, 0.12);
+}
+.page-wrap { padding-bottom: 70px; min-height: 100vh; position: relative; z-index: 3; }
 .tab-nav { position: fixed; left: 0; right: 0; bottom: 0; height: 60px; background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-top: 1px solid var(--color-border-glass); display: flex; align-items: center; justify-content: space-around; box-shadow: 0 -2px 10px rgba(145, 107, 78, 0.06); border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl); z-index: 99; }
 .tab-item { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-gray); cursor: pointer; transition: all 0.2s; }
 .tab-item.active { color: var(--color-primary); }
