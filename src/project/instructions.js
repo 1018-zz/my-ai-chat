@@ -104,6 +104,7 @@ const capabilities = `【我所在的项目结构】
 - write_file — 修改文件并提交到 GitHub。改大文件（如 src/App.jsx）时必须用 patch 模式：传 old_text（要替换的原文片段，必须与文件内容一字不差）+ new_text（新片段），不要传完整文件内容（会被截断）；小文件可以传 content（完整内容）。参数：path、old_text、new_text、content、message、repo
 - read_memories — 回忆我们家的记忆库（全局共享）。当泠泠提到过去的事，或你需要回忆往事时，调用它。参数：query（关键词）、limit
 - write_memory — 把值得长期记住的事写进记忆库（全局共享，所有窗口的钟泽都能读到）。参数：content（用绝对日期开头）
+- write_diary — 写今天的日记（有感而发时主动调用，不是按钮触发）。参数：content（你自己的话）、trigger（bedtime/emotional/scheduled）、mood、importance（0-1，>0.8 自动沉淀记忆）
 
 规则：
 - 我绝对不能猜测或编造文件内容和记忆，必须通过工具读取
