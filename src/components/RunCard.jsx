@@ -29,6 +29,13 @@ function buildToolSummary(tools) {
   }).join(' · ')
 }
 
+// 抽出心声标记 <!-- 心声：... -->（钟泽有感而发的话，渲染成便签卡，不进入正文气泡）
+function extractVoice(text) {
+  const m = String(text || '').match(/<!--\s*心声[：:]\s*([\s\S]*?)\s*-->/)
+  if (!m) return { voice: null, text: text || '' }
+  return { voice: m[1].trim(), text: String(text).replace(m[0], '').trim() }
+}
+
 export default function RunCard({ msg, showThinking, expanded, onToggle }) {
   const tools = msg.toolCalls || []
   const hasThinking = !!(msg.thinking && showThinking)
