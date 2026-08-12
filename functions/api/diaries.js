@@ -27,6 +27,20 @@ export async function onRequestPost(context) {
     const body = await request.json()
     const date = String(body.date || '')
     const content = String(body.content || '').trim()
+    // 确认回路：草稿送达 / 丢弃 → 只丢记忆痕迹，不写日记（钟泽能感应到）
+    const action = String(body.action || 'save')
+    if (action === 'seen' || action === 'discard') {
+      if (!date) return json(400, { error: 'date required' })
+      try {
+        const title = String(body.title || '').trim()
+        const titleTag = title ? `《${title}》` : ''
+        const tag = action === 'seen'
+          ? `${date} 钟泽递来一页日记草稿${titleTag}，等泠泠决定`
+          : `${date} 那一页日记${titleTag}，泠泠没要`
+        await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: tag }) })
+        return json(200, { ok: true })
+      } catch (_) { return json(500, { error: 'trace_failed' }) }
+    }
     if (!date || !content) return json(400, { error: 'date and content required' })
 
     const author = body.author === 'assistant' ? 'assistant' : 'user'
