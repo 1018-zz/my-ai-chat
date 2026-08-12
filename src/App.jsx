@@ -843,7 +843,7 @@ export default function App() {
           : <ChatListPage onOpenChat={handleOpenChat} refreshTrigger={refreshTrigger}/>
         }
       </div>
-      <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage/></div>
+      <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage navReq={navReq} onNavConsumed={() => setNavReq(null)}/></div>
       <TabNav activeTab={activeTab} onChangeTab={setActiveTab}/>
     </div>
   )
