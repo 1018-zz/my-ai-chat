@@ -309,13 +309,14 @@ const MomentWall = () => {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [icon, setIcon] = useState('🌱')
+  const [imageUrl, setImageUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const load = async () => { try { const r = await fetch(`${API_BASE}/api/moments`); const d = await r.json(); setMoments(d.moments || []) } catch (_) {} }
   useEffect(() => { load() }, [])
   const add = async () => {
     if (!content.trim() || loading) return
     setLoading(true)
-    try { await fetch(`${API_BASE}/api/moments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content, icon }) }); setTitle(''); setContent(''); await load() } catch (_) {} finally { setLoading(false) }
+    try { await fetch(`${API_BASE}/api/moments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content, icon, image_url: imageUrl.trim() || undefined }) }); setTitle(''); setContent(''); setImageUrl(''); await load() } catch (_) {} finally { setLoading(false) }
   }
   const del = async (id) => { try { await fetch(`${API_BASE}/api/moments/${id}`, { method: 'DELETE' }); await load() } catch (_) {} }
   const icons = ['🌱', '🌸', '⭐', '🔥', '🌙', '💧', '🍃', '🏔️']
@@ -326,6 +327,7 @@ const MomentWall = () => {
       <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input className="input" placeholder="一句话标题（可选）" value={title} onChange={e => setTitle(e.target.value)} />
         <textarea className="input" placeholder="这一刻是……" value={content} onChange={e => setContent(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
+        <input className="input" placeholder="图片链接（可选，直接贴 URL）" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
         <div style={{ display: 'flex', gap: 6 }}>
           {icons.map(i => <span key={i} onClick={() => setIcon(i)} style={{ fontSize: 18, cursor: 'pointer', padding: 4, borderRadius: 8, background: icon === i ? 'var(--color-primary-light)' : 'transparent', transition: 'all .2s' }}>{i}</span>)}
         </div>
@@ -339,6 +341,7 @@ const MomentWall = () => {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-gray)' }}>📅 {m.date}{m.title ? ` · ${m.title}` : ''}</div>
                 <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-dark)' }}>{m.content}</div>
+                {m.image_url && <img src={m.image_url} alt={m.title || 'Moment'} style={{ marginTop: 10, width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-glass)' }} onError={e => { e.target.style.display = 'none' }} />}
               </div>
               <span onClick={() => del(m.id)} style={{ cursor: 'pointer', fontSize: 14, color: 'var(--color-text-gray)', opacity: 0.5 }}>✕</span>
             </div>
