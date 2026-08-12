@@ -837,19 +837,44 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           const phase = runningTool ? '🛠️ 正在整理资料' : (lastAi?.thinking && !lastAi?.thinkingDone ? '🧠 正在想' : (lastAi?.text ? '✍️ 正在写' : '⏳ 准备中'))
           return <div style={{ alignSelf: 'center', margin: '0 0 10px', fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--color-card-glass)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--color-border-glass)', borderRadius: 999, padding: '5px 14px', animation: 'messageIn .25s var(--ease-soft) both' }}>{phase}</div>
         })()}
-        {msgList.map(msg => (
-          <div key={msg.id} className="msg-enter">
-            {msg.isSelf
-              ? <div className="msg-right">
-                  {msg.deleted
-                    ? <div className="msg-recalled">已撤回</div>
-                    : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
-                  {msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}
-                  {!msg.deleted && !msg.loading && <button className="msg-recall-btn" title="撤回" onClick={() => recallMessage(msg)}>🗑</button>}
+        {(() => {
+          // 聚合渲染：连续工具轮（无正文的 assistant 消息）打包成一个 ToolGroupCard
+          // （🛠 读取 N 次 · N 轮，细看点开每轮思考+工具）——不再逐条堆 RunCard
+          const nodes = []
+          let i = 0
+          while (i < msgList.length) {
+            const msg = msgList[i]
+            if (msg.isSelf) {
+              nodes.push(
+                <div key={msg.id} className="msg-enter">
+                  <div className="msg-right">
+                    {msg.deleted
+                      ? <div className="msg-recalled">已撤回</div>
+                      : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
+                    {msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}
+                    {!msg.deleted && !msg.loading && <button className="msg-recall-btn" title="撤回" onClick={() => recallMessage(msg)}>🗑</button>}
+                  </div>
                 </div>
-              : <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />}
-          </div>
-        ))}
+              )
+              i++
+            } else if (!(msg.text || '').trim() && (msg.toolCalls?.length || msg.thinking)) {
+              // 纯工具轮：收集连续的一串，打包
+              const group = []
+              while (i < msgList.length && !msgList[i].isSelf && !(msgList[i].text || '').trim() && (msgList[i].toolCalls?.length || msgList[i].thinking)) {
+                group.push(msgList[i]); i++
+              }
+              nodes.push(<div key={group[0].id} className="msg-enter"><ToolGroupCard msgs={group} showThinking={showThinking} /></div>)
+            } else {
+              nodes.push(
+                <div key={msg.id} className="msg-enter">
+                  <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />
+                </div>
+              )
+              i++
+            }
+          }
+          return nodes
+        })()}
         <div ref={messagesEndRef}/>
       </div>
       <div className="chat-input-bar">
