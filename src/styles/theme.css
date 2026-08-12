@@ -166,6 +166,30 @@ body {
 .diary-confirm-textarea { width: 100%; font-size: 13px; line-height: 1.7; color: var(--color-text-dark); resize: vertical; }
 .diary-confirm-actions { display: flex; gap: 8px; margin-top: 10px; }
 .btn-ghost { background: rgba(255, 255, 255, 0.5); color: var(--color-text-dark); border: 1px solid var(--color-border-glass); }
+
+/* ===== 附件按钮（+ 菜单）===== */
+.btn-attach {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--color-border-glass);
+  background: var(--color-card-glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-primary); font-size: 18px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.btn-attach:active { transform: scale(0.92); }
+.btn-attach:disabled { opacity: 0.5; cursor: not-allowed; }
+.attach-menu {
+  position: absolute; bottom: 46px; left: 0; z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid var(--color-border-glass);
+  border-radius: 14px; padding: 6px; min-width: 130px;
+  box-shadow: var(--shadow-lift);
+  animation: pop .2s var(--ease-soft) both;
+}
+.attach-item { padding: 9px 12px; border-radius: 10px; font-size: 13.5px; color: var(--color-text-dark); cursor: pointer; transition: background 0.15s; }
+.attach-item:hover { background: rgba(145, 107, 78, 0.08); }
+.attach-disabled { opacity: 0.4; cursor: not-allowed; }
 .thinking-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: #b99a86; margin-left: 6px; vertical-align: middle;
