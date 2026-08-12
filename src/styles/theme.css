@@ -90,7 +90,8 @@ body[data-time='dawn']::before { background: radial-gradient(circle at 30% 20%, 
 body[data-time='morning']::before { background: radial-gradient(circle at 60% 10%, rgba(247,235,216,0.5), transparent 60%); }
 body[data-time='afternoon']::before { background: radial-gradient(circle at 70% 20%, rgba(235,201,165,0.42), transparent 60%); }
 body[data-time='night']::before { background: radial-gradient(circle at 75% 15%, rgba(142,117,101,0.32), transparent 60%); }
-/* ===== 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 ===== */
+/* ===== 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 =====
+   壁纸设置：LIFE → 设置 → 布置小家（上传/透明度/暗化） */
 .wallpaper-layer {
   position: fixed;
   inset: 0;
