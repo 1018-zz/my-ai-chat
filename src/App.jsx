@@ -488,6 +488,7 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
   if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} navReq={navReq} onNavConsumed={onNavConsumed} />
+  if (room === 'compress') return <CompressionRoom onBack={() => setRoom(null)} />
   if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
   return (
     <div className="life-page">
