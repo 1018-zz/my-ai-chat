@@ -196,12 +196,12 @@ export async function onRequestPost(context) {
         const maxT = today?.maxtempC, minT = today?.mintempC
 
         // —— 六轴 + 温度给"此刻"定位 ——
-        // 季节（按北半球月份粗分；普洱实际"只有冬夏"，但保留完整轴）
-        const month = Number(((new Date((cc.localObsDateTime || '').replace(' ', 'T') + 'Z')).getMonth?.()) ?? (new Date().getMonth()))
-        const season = (() => { const m = month + 1; if (m >= 3 && m <= 5) return '春'; if (m >= 6 && m <= 8) return '夏'; if (m >= 9 && m <= 11) return '秋'; return '冬' })()
+        // 季节（按北京时间月份粗分；普洱实际"只有冬夏"，但保留完整轴）
+        const bjNow = new Date(Date.now() + 8 * 3600 * 1000)
+        const month1 = bjNow.getUTCMonth() + 1
+        const season = (() => { if (month1 >= 3 && month1 <= 5) return '春'; if (month1 >= 6 && month1 <= 8) return '夏'; if (month1 >= 9 && month1 <= 11) return '秋'; return '冬' })()
         // 时段（北京时间）
-        const h = new Date(Date.now() + 8 * 3600 * 1000).getHours()
-        const period = (() => { if (h < 6) return '深夜'; if (h < 9) return '早晨'; if (h < 12) return '上午'; if (h < 14) return '中午'; if (h < 17) return '下午'; if (h < 19) return '傍晚'; if (h < 23) return '夜晚'; return '深夜' })()
+        const h = bjNow.getUTCHours()
         // 天空（weatherDesc / cloud）
         const desc = weatherDesc.toLowerCase()
         const sky = (() => { if (/snow|雪|sleet/.test(desc)) return '雪'; if (/fog|mist|雾/.test(desc)) return '雾'; if (/thunder|雷/.test(desc)) return '雷'; if (/rain|drizzle|shower|雨/.test(desc)) return '雨'; if (cloud >= 80) return '阴'; if (cloud >= 30) return '多云'; return '晴' })()
