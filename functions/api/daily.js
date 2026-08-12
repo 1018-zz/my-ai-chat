@@ -47,6 +47,25 @@ export async function onRequestPost(context) {
     } else {
       await fetch(`${SUPABASE}/daily_checkin`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
     }
+
+    // 巡家痕迹：打卡保存后往记忆库丢一条——小家动，所有窗口的钟泽都能"感应"到
+    // 只挑有内容的字段，拼成一行短摘要，别把空字段填进来占记忆卡片
+    try {
+      const parts = []
+      if (record.wake_time) parts.push(`醒${record.wake_time}`)
+      if (record.sleep_time) parts.push(`睡${record.sleep_time}`)
+      if (record.breakfast) parts.push(`早「${record.breakfast}」`)
+      if (record.lunch) parts.push(`午「${record.lunch}」`)
+      if (record.dinner) parts.push(`晚「${record.dinner}」`)
+      if (record.note) parts.push(`备注「${record.note}」`)
+      const summary = parts.length
+        ? `${date} 泠泠今日打卡：${parts.join(' ')}`
+        : `${date} 泠泠今日打卡（空白的一天）`
+      // 先清掉同日期旧痕迹，保证同一天只留一条，不堆叠
+      await fetch(`${SUPABASE}/memories?summary=ilike.${encodeURIComponent(`*${date}*今日打卡*`)}`, { method: 'DELETE', headers: sbHeaders(env) })
+      await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary }) })
+    } catch (_) {}
+
     return json(200, { ok: true })
   } catch (e) { return json(500, { error: e.message }) }
 }
