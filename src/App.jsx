@@ -484,6 +484,7 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   const modules = [
     { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
     { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
+    { key: 'compress', icon: '🗜️', title: '压缩工作台', desc: '日历三级 · 记忆保鲜' },
     { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
