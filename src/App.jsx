@@ -207,7 +207,7 @@ const TodayDiaryView = () => {
       await loadDiaries()
     } catch (_) {} finally { setSaving(false) }
   }
-  useEffect(() => { loadDiaries(true) }, [])
+  useEffect(() => { loadDiaries() }, [])
   const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
   return (
     <div style={{ marginTop: 16 }}>
