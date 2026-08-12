@@ -474,6 +474,7 @@ const SettingRoom = ({ onBack }) => (
     <LifeBackBtn label="设置" onBack={onBack} />
     <h3 style={{ color: 'var(--color-primary)' }}>⚙️ 设置</h3>
     <SettingsPanel />
+    <WallpaperSettings />
     <RecalledPanel />
   </div>
 )
