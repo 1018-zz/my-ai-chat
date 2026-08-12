@@ -13,12 +13,11 @@ export const glassCard = {
   maxWidth: '75%',
 }
 
-// —— 思考卡片（暖白饱和玻璃）：思考中渐变预览，完成后收起成一行，点击展开 ——
+// —— 思考卡片（暖白饱和玻璃）：运行中一行状态（不预览内容），完成后收起成一行，点击展开 ——
 export const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
-  const showBody = open || !done
-  const isPreview = !done
+  const showBody = open
   return (
     <div style={glassCard} className="tool-card status-thinking">
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
@@ -28,11 +27,9 @@ export const ThinkingCard = ({ text, done, dur }) => {
       </div>
       {showBody && (
         <div style={{
-          padding: '0 14px 10px', maxHeight: isPreview ? 120 : 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
+          padding: '0 14px 10px', maxHeight: 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.7,
           color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
           borderTop: '1px solid var(--color-border-glass)',
-          maskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
-          WebkitMaskImage: isPreview ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
         }}>{text}</div>
       )}
     </div>
