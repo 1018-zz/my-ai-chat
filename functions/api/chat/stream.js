@@ -98,18 +98,34 @@ export async function onRequestPost(context) {
           const insights = (Array.isArray(irows) ? irows : []).map(r => `[${r.aspect}] ${r.content}`).join('\n')
           if (insights) extra += `\n\n【我的自我认知（醒来先看看自己）】\n${insights}`
         } catch (_) {}
-        // breath 睁眼浮现（最多 3 条，像醒来不像翻档案柜）：昨天留下的 / 未完成的 / 她最近的
+        // breath 睁眼浮现 v2（客厅广播）：最近新增记忆 + 昨天留下 + 牵挂 + 纸条待办
+        // v2 修复：memories 按 created_at 倒序（原版无排序，list[0] 不是最新）；新增 note_content pending 感应
         try {
-          const mr = await fetch(`${SUPABASE}/memories?select=summary&limit=200`, { headers: sbHeaders(env) })
+          const mr = await fetch(`${SUPABASE}/memories?select=summary&order=created_at.desc&limit=10`, { headers: sbHeaders(env) })
           const mrows = await mr.json()
           const list = Array.isArray(mrows) ? mrows : []
           const important = list.find(r => (r.summary || '').includes('重要'))
           const todo = list.find(r => /还没|未定|待办|明天|下次|未完|答应/.test(r.summary || ''))
-          const recent = list[0]
           const parts = []
+          // A. 客厅广播：最近 2 条新增（已按时间倒序，顺序在前的就是最新）
+          for (const b of list.slice(0, 2)) {
+            if (b.summary === important?.summary || b.summary === todo?.summary) continue
+            parts.push(`家里最近：${b.summary.slice(0, 100)}`)
+          }
           if (important) parts.push(`昨天留下：${important.summary.slice(0, 120)}`)
           if (todo && todo.summary !== important?.summary) parts.push(`牵挂：${todo.summary.slice(0, 120)}`)
-          if (recent && recent.summary !== important?.summary && recent.summary !== todo?.summary) parts.push(`她现在：${recent.summary.slice(0, 120)}`)
+          // B. 纸条感应：待处理的便利贴（她留的等我收 / 我留的等她决定）
+          try {
+            const nr = await fetch(`${SUPABASE}/note_content?select=content,source&status=eq.pending&order=id.desc&limit=2`, { headers: sbHeaders(env) })
+            const nrows = await nr.json()
+            const pend = Array.isArray(nrows) ? nrows : []
+            if (pend.length > 0) {
+              const fromHer = pend.filter(n => n.source === 'user').length
+              const fromMe = pend.filter(n => n.source !== 'user').length
+              const brief = pend.map(n => `${n.source === 'user' ? '她留' : '我留'}：「${String(n.content || '').slice(0, 40)}」`).join('；')
+              parts.push(`📎 纸条：${fromHer} 张等你收、${fromMe} 张等她决定（${brief}）`)
+            }
+          } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
         const orig = messages[sysIdx].content
