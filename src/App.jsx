@@ -836,7 +836,7 @@ export default function App() {
 
   return (
     <div className="page-wrap">
-      <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
+      <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage onWriteDiary={handleWriteDiary}/></div>
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat
           ? <ChatDetailPage chatInfo={currentChat} onBack={handleBack}/>
