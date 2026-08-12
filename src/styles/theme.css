@@ -128,6 +128,18 @@ body {
 .msg-right { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .msg-right .msg-bubble { background: var(--color-primary); border-radius: var(--radius-bubble); border-top-right-radius: 4px; padding: 10px 14px; max-width: 75%; color: #fff; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
+/* 消息时间注脚：小灰字，低存在感（今天→18:23 / 昨天→昨天 / 更早→日期） */
+.msg-meta {
+  font-size: 10px;
+  color: var(--color-text-gray);
+  opacity: 0.55;
+  margin-top: 3px;
+  padding: 0 6px;
+  line-height: 1.4;
+  user-select: none;
+}
+.msg-right .msg-meta { text-align: right; }
+
 /* 过程注脚：工具轮里的短过渡语（"继续翻页："）——不当气泡，低存在感 */
 .chat-process-note {
   font-size: 12px;
