@@ -11,6 +11,18 @@ function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=represent
 export async function onRequestGet(context) {
   const { request, env } = context
   const url = new URL(request.url)
+  const mode = url.searchParams.get('mode') || ''
+  // mode=deleted：跨会话查最近撤回（恢复面板用）
+  if (mode === 'deleted') {
+    const res = await fetch(
+      `${SUPABASE}/messages?select=id,conversation_id,role,content,deleted_at,deleted_by&deleted_at=not.is.null&order=deleted_at.desc&limit=20`,
+      { headers: sbHeaders(env) }
+    )
+    const data = await res.json()
+    return new Response(JSON.stringify({ messages: Array.isArray(data) ? data : [] }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
+  }
   const cid = url.searchParams.get('conversationId')
   if (!cid) {
     return new Response(JSON.stringify({ error: 'conversationId required' }), {
