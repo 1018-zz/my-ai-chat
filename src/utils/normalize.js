@@ -76,6 +76,7 @@ export function migrateLegacyMessage(raw) {
 
   return {
     id: id ?? created_at ?? Date.now(),
+    ts: created_at ? new Date(created_at).getTime() : Date.now(),
     role: self ? 'user' : 'assistant',
     isSelf: self,
     status: interrupted ? 'interrupted' : loading ? 'running' : 'done',
