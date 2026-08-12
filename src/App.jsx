@@ -441,8 +441,11 @@ const SettingRoom = ({ onBack }) => (
   </div>
 )
 
-const LifePage = () => {
+const LifePage = ({ navReq, onNavConsumed }) => {
   const [room, setRoom] = useState(null)
+  useEffect(() => {
+    if (navReq && String(navReq).startsWith('diary')) { setRoom('diary'); onNavConsumed?.() }
+  }, [navReq, onNavConsumed])
   const modules = [
     { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
     { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
