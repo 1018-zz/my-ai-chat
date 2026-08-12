@@ -2,11 +2,11 @@
   --color-primary: #916B4E;
   --color-primary-light: #B89A7F;
   --color-bg: #F8F3EC;
-  --color-card-glass: rgba(255, 255, 255, 0.65);
-  --color-card-glass-dark: rgba(255, 255, 255, 0.45);
+  --color-card-glass: rgba(255, 255, 255, 0.55);
+  --color-card-glass-dark: rgba(255, 255, 255, 0.38);
   --color-text-dark: #4A3A2E;
   --color-text-gray: #88786B;
-  --color-border-glass: rgba(234, 226, 217, 0.5);
+  --color-border-glass: rgba(234, 226, 217, 0.42);
   --color-danger: #D97777;
   --radius-sm: 8px;
   --radius-md: 12px;
