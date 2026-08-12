@@ -140,6 +140,33 @@ body {
 }
 .msg-right .msg-meta { text-align: right; }
 
+/* 撤回（③消息撤回/删除）：占位灰字 + hover 撤回按钮 */
+.msg-recalled {
+  font-size: 12px;
+  color: var(--color-text-gray);
+  opacity: 0.5;
+  font-style: italic;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px dashed var(--color-border-glass);
+  border-radius: var(--radius-bubble);
+  max-width: 75%;
+}
+.msg-recall-btn {
+  font-size: 10px;
+  color: var(--color-text-gray);
+  opacity: 0;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--color-border-glass);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease-soft);
+  margin-top: 2px;
+}
+.msg-right:hover .msg-recall-btn { opacity: 0.8; }
+.msg-recall-btn:hover { opacity: 1 !important; color: var(--color-danger, #D97777); border-color: rgba(217, 119, 119, 0.5); }
+
 /* 过程注脚：工具轮里的短过渡语（"继续翻页："）——不当气泡，低存在感 */
 .chat-process-note {
   font-size: 12px;
