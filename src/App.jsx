@@ -749,6 +749,24 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     if (userText.length > 2) { try { const { memories, relatedMessages } = await searchMemories(userText); const parts = []; if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n')); if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n')); mc = parts.join('\n\n') } catch (_) {} }
     let pc = ''
     try { const [mems, inf] = await Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]); const parts = []; if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n')); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
+    // 同会话巡家（节流版——"隔了一会儿自己想去看"）：15 分钟以上没看 + 家里有新动静才注入，
+    // 软上下文，模型自己决定提不提；聊得密集时不打扰
+    let hc = ''
+    try {
+      const lastCheck = Number(localStorage.getItem('lastHomeCheck') || 0)
+      const intervalOk = Date.now() - lastCheck > 15 * 60 * 1000
+      if (intervalOk) {
+        const d = await fetch(`${API_BASE}/api/notes`).then(r => r.json()).catch(() => ({ notes: [] }))
+        const notes = d.notes || []
+        const pending = notes.filter(n => n.status === 'pending')
+        const justSaved = notes.filter(n => n.status === 'saved' && n.decided_by === 'user' && n.source === 'ai' && Date.now() - new Date(n.updated_at || n.created_at).getTime() < 30 * 60 * 1000)
+        const parts = []
+        if (pending.length > 0) parts.push('📎 家里有纸条待处理：' + pending.map(n => `${n.source === 'user' ? '她留' : '我留'}「${String(n.content).slice(0, 30)}」`).join('；'))
+        if (justSaved.length > 0) parts.push('✨ 她刚收下了我的纸条「' + String(justSaved[0].content).slice(0, 30) + '」')
+        if (parts.length > 0) hc = '【家里最近】\n' + parts.join('\n')
+        try { localStorage.setItem('lastHomeCheck', String(Date.now())) } catch (_) {}
+      }
+    } catch (_) {}
     // 本会话工具调用历史（刷新后也不瞎猜路径）：取最近 5 条带工具记录的 assistant 消息
     const toolHistory = msgsForCtx.filter(m => !m.isSelf && Array.isArray(m.toolCalls) && m.toolCalls.length > 0).slice(-5).map(m => m.toolCalls.map(t => `${t.name}${t.arguments?.path ? ` ${t.arguments.path}` : ''}`).join(', ')).join('；')
     // 时间感知（四大功能模块·②）：system 注入当前时间 + 历史消息带【时间 说话人】标注，
