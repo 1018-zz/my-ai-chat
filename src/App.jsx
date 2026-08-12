@@ -771,6 +771,16 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         <div ref={messagesEndRef}/>
       </div>
       <div className="chat-input-bar">
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching} title="添加图片">{attaching ? '⏳' : '＋'}</button>
+          {attachOpen && (
+            <div className="attach-menu">
+              <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
+              <div className="attach-item attach-disabled">📎 文件（开发中）</div>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePickImage} />
+        </div>
         <input className="input" placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."} value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}/>
         {loading
           ? <button className="btn" onClick={stopGen} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
