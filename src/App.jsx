@@ -805,7 +805,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         {msgList.map(msg => (
           <div key={msg.id} className="msg-enter">
             {msg.isSelf
-              ? <div className="msg-right"><div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>{msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}</div>
+              ? <div className="msg-right">
+                  {msg.deleted
+                    ? <div className="msg-recalled">已撤回</div>
+                    : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
+                  {msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}
+                  {!msg.deleted && !msg.loading && <button className="msg-recall-btn" onClick={() => recallMessage(msg)}>撤回</button>}
+                </div>
               : <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />}
           </div>
         ))}
