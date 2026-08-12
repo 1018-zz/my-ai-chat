@@ -452,7 +452,7 @@ const LifePage = ({ navReq, onNavConsumed }) => {
     { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
-  if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} />
+  if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} navReq={navReq} onNavConsumed={onNavConsumed} />
   if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
   return (
     <div className="life-page">
