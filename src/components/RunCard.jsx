@@ -126,6 +126,7 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
           : text
             ? <div className="msg-bubble"><Markdown>{text}</Markdown></div>
             : null}
+      {msg.ts && !msg.loading && <div className="msg-meta">{fmtMsgTime(msg.ts)}</div>}
     </div>
   )
 }
