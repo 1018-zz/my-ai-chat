@@ -73,8 +73,8 @@ const LairPage = ({ onWriteDiary }) => {
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
         <HomeWidgets items={widgets} />
       </div>
-      {/* —— 小纸条 · 钟泽的便利贴（澄设计 MVP） —— */}
-      <NoteCard />
+      {/* —— 小纸条 · 钟泽的便利贴（澄设计 MVP，已接真数据） —— */}
+      <NoteCard onWrite={onWriteDiary} />
     </div>
   )
 }
