@@ -13,6 +13,25 @@ function applyWallpaperVars(wp, op, dk) {
   root.style.setProperty('--wallpaper-darken', dk)
 }
 
+// 压缩图片：大图（9:16 竖屏照片等）先 canvas 缩小，避免 base64 超 localStorage 5MB 上限
+function compressImage(file, maxSide = 1280, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => reject(new Error('图片读取失败'))
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 export default function WallpaperSettings() {
   const [wallpaper, setWallpaper] = useState(() => {
     try { return localStorage.getItem('home-wallpaper') || '' } catch { return '' }
@@ -33,13 +52,15 @@ export default function WallpaperSettings() {
     } catch (_) {}
   }, [wallpaper, opacity, darken])
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) { alert('请选择图片文件'); return }
-    const reader = new FileReader()
-    reader.onload = () => setWallpaper(String(reader.result || ''))
-    reader.readAsDataURL(file)
+    try {
+      const compressed = await compressImage(file)
+      setWallpaper(compressed)
+    } catch (_) { alert('图片处理失败，换一张试试？') }
+    e.target.value = ''
   }
 
   const useDefault = () => setWallpaper(DEFAULT_WALLPAPER)
