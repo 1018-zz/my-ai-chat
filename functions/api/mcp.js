@@ -136,6 +136,37 @@ export async function onRequestPost(context) {
         const text = (Array.isArray(rows) ? rows : []).map(r => `• [${r.aspect}] ${r.content}`).join('\n')
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: text || '（还没有自我认知记录）' }] } }), { headers });
       }
+      if (name === 'describe_image') {
+        const imgUrl = String(args.image || args.image_url || '').trim()
+        if (!imgUrl) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '需要 image（base64 data URL）或 image_url 参数' } }), { status: 400, headers });
+        const question = String(args.question || '').trim() || '请详细描述这张图片：画面里有什么、什么场景、什么颜色、有没有文字（有则完整读出）、整体氛围如何。'
+        const imgMsg = { type: 'image_url', image_url: { url: imgUrl } }
+        const textMsg = { type: 'text', text: question }
+        // 视觉模型双通道：GLM-4V（智谱）优先，Qwen-VL（阿里云百炼）兜底
+        if (env.ZHIPU_API_KEY) {
+          const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.ZHIPU_API_KEY}` },
+            body: JSON.stringify({ model: 'glm-4v-flash', messages: [{ role: 'user', content: [imgMsg, textMsg] }], max_tokens: 1024 })
+          })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `GLM-4V [${res.status}]: ${(await res.text()).slice(0, 200)}` } }), { status: 500, headers });
+          const d = await res.json()
+          const desc = d.choices?.[0]?.message?.content || '（GLM-4V 未返回描述）'
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+        }
+        if (env.DASHSCOPE_API_KEY) {
+          const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DASHSCOPE_API_KEY}` },
+            body: JSON.stringify({ model: 'qwen-vl-plus', messages: [{ role: 'user', content: [imgMsg, textMsg] }] })
+          })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `Qwen-VL [${res.status}]: ${(await res.text()).slice(0, 200)}` } }), { status: 500, headers });
+          const d = await res.json()
+          const desc = d.choices?.[0]?.message?.content || '（Qwen-VL 未返回描述）'
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+        }
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '未配置视觉模型 API key：需要 ZHIPU_API_KEY（智谱 GLM-4V）或 DASHSCOPE_API_KEY（阿里云 Qwen-VL）。配好后小家才有"眼睛"。' } }), { status: 500, headers });
+      }
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
