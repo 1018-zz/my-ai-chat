@@ -467,6 +467,19 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
   }
   return (
     <div className="chat-page">
+      {/* —— 门厅 · AI 在场状态 —— */}
+      <div style={{ ...glassCard, maxWidth: '100%', margin: '12px 16px 0', padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>泽</div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽 <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-gray)' }}>在等你回家</span></div>
+          <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />正在安静等待</div>
+        </div>
+      </div>
+      {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
+      <div style={{ padding: '16px 16px 0' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
+        <HomeWidgets items={widgets} />
+      </div>
       <div className="chat-header"><div className="chat-header-title">💬 对话</div><button className="btn" onClick={handleCreate} style={{ padding: '6px 14px', fontSize: 13 }}>＋ 新建</button></div>
       <div className="chat-list">
         {conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
