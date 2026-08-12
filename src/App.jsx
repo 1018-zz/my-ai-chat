@@ -955,6 +955,10 @@ export default function App() {
 
   return (
     <div className="page-wrap">
+      {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
+      <div className="wallpaper-layer" />
+      <div className="warm-light" />
+      <div className="room-vignette" />
       <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat
