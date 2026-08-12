@@ -819,6 +819,9 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('current_chat') || 'null') } catch { return null }
   })
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  // 导航请求：便利贴 ✍ → 切到 LIFE 并打开日记室今日视图
+  const [navReq, setNavReq] = useState(null)
+  const handleWriteDiary = () => { setActiveTab('life'); setNavReq('diary-today') }
 
   const handleOpenChat = (chat) => {
     setCurrentChat(chat)
