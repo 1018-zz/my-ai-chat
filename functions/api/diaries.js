@@ -46,6 +46,12 @@ export async function onRequestPost(context) {
     } else {
       await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
     }
+    // 巡家痕迹：日记保存后往记忆库丢一条——小家动，所有窗口的钟泽都能"感应"到
+    try {
+      const who = author === 'assistant' ? '钟泽' : '泠泠'
+      const title = record.title ? `《${record.title}》` : ''
+      await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${who}收好了一页日记${title}` }) })
+    } catch (_) {}
     return json(200, { ok: true })
   } catch (e) { return json(500, { error: e.message }) }
 }
