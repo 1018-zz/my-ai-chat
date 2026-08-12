@@ -69,8 +69,8 @@ const LairPage = () => {
       <div style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>泽</div>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽 <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-gray)' }}>在等你回家</span></div>
-          <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />正在安静等待</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽 <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-gray)' }}>在窗边等你</span></div>
+          <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />守着这个小家</div>
         </div>
       </div>
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
