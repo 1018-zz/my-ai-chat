@@ -10,6 +10,7 @@
 import Markdown from './Markdown'
 import { ThinkingCard, ToolCard, glassCard } from './Cards'
 import DiaryConfirmCard from './DiaryConfirmCard'
+import { fmtMsgTime } from '../utils/time'
 
 const TOOL_META = {
   read_file: { icon: '📖', label: '读取' },
