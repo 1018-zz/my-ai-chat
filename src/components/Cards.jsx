@@ -36,13 +36,13 @@ export const ThinkingCard = ({ text, done, dur }) => {
   )
 }
 
-// —— 工具卡片（暖白饱和玻璃）：执行中展开，完成后自动折叠，点击展开详情 ——
+// —— 工具卡片（暖白饱和玻璃）：运行中只显头部状态，完成后自动折叠，点击展开详情 ——
 export const ToolCard = ({ tool, result }) => {
   const [open, setOpen] = useState(false)
   const isError = !!result && String(result).startsWith('执行失败')
   const isRunning = result === undefined || result === ''
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
-  const showBody = open || isRunning
+  const showBody = open
   return (
     <div style={{ ...glassCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isError ? 'status-err' : 'status-ok'}`}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
