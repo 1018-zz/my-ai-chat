@@ -93,6 +93,8 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
       )}
       {/* 心声便签（💭 有感而发的话，低存在感，不抢正文） */}
       {voice && <div className="inner-thought">💭 {voice}</div>}
+      {/* 晚安彩蛋：待确认的日记草稿（用户有最终决定权） */}
+      {draft && <DiaryConfirmCard draft={draft} msgId={msg.id} />}
       {/* 回答始终可见——折叠只收过程，不收结果；空内容（工具轮 assistant）不渲染空气泡 */}
       {msg.loading && !text
         ? <div className="msg-typing"><span className="dot"/><span className="dot"/><span className="dot"/></div>
