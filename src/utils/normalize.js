@@ -13,6 +13,17 @@
 // ContentBlock 不叫 MessageBlock——日记、Moment、回忆都是"生活事件块"，
 // 未来小家的日记/Moment 也复用这个模型。
 
+// 剥离历史消息正文里残留的 <think> 思考块（旧数据清洗——修复前存的旧消息
+// 可能在 content 里带着思考原文；新消息后端已剥离，这里兜底展示层）
+function stripLegacyThinkTags(text) {
+  if (!text) return text || ''
+  return String(text)
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // 统一入口：已统一 → 补兼容字段返回；旧格式 → 迁移
 export function normalizeMessage(raw) {
   if (!raw) return null
@@ -37,7 +48,8 @@ export function migrateLegacyMessage(raw) {
   } = raw
 
   const self = typeof isSelf === 'boolean' ? isSelf : role === 'user'
-  const body = text ?? content ?? ''
+  // 历史消息清洗：正文里残留的 <think> 思考块剥掉（思考归 thinking 块，正文归正文）
+  const body = stripLegacyThinkTags(text ?? content ?? '')
 
   // 数据库格式 tool_calls 可能是 JSON 字符串
   let tcs = toolCalls
