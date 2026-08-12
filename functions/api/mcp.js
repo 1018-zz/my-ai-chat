@@ -191,6 +191,24 @@ export async function onRequestPost(context) {
         }
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已写进今天的日记' }] } }), { headers });
       }
+      if (name === 'leave_note') {
+        const content = String(args.content || '').trim()
+        if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——纸条内容' } }), { status: 400, headers });
+        const date = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+        const res = await fetch(`${SUPABASE}/note_content`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ date, type: String(args.type || 'ai_message'), content, source: 'ai', status: 'pending' }) })
+        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `note_content [${res.status}]` } }), { status: 500, headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '📎 纸条已贴到便利贴上，等她决定收下还是飘走' }] } }), { headers });
+      }
+      if (name === 'decide_note') {
+        const noteId = Number(args.note_id)
+        if (!noteId) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'note_id required' } }), { status: 400, headers });
+        const decision = String(args.decision || '')
+        if (!['save', 'discard'].includes(decision)) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'decision 必须是 save 或 discard' } }), { status: 400, headers });
+        const status = decision === 'save' ? 'saved' : 'discarded'
+        const res = await fetch(`${SUPABASE}/note_content?id=eq.${noteId}`, { method: 'PATCH', headers: sbReturn(env), body: JSON.stringify({ status, decided_by: 'ai', updated_at: new Date().toISOString() }) })
+        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `note_content [${res.status}]` } }), { status: 500, headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: status === 'saved' ? '✅ 这张纸条我收下了' : '🌬 这张纸条让它飘走了' }] } }), { headers });
+      }
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
