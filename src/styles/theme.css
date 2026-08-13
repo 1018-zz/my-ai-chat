@@ -466,7 +466,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 /* ════════════════════════════════════════════════════════════
    微信式消息行（头像位 + 气泡列）
    ════════════════════════════════════════════════════════════ */
-.msg-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 14px; }
+.msg-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 8px; }
 .msg-row-self { justify-content: flex-end; }
 .msg-row-ai { justify-content: flex-start; }
 .msg-col { display: flex; flex-direction: column; min-width: 0; max-width: min(680px, calc(100% - 48px), 72%); }
