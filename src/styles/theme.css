@@ -475,10 +475,10 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 
 /* 头像（圆形纸质感） */
 .msg-avatar {
-  width: 36px; height: 36px; flex-shrink: 0;
+  width: 28px; height: 28px; flex-shrink: 0;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   user-select: none; -webkit-user-select: none;
   box-shadow: var(--shadow-soft);
   border: 2px solid rgba(255, 252, 247, 0.5);
