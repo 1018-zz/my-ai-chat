@@ -254,13 +254,21 @@ export async function onRequestPost(context) {
         if (args.mood) record.mood = String(args.mood).trim()
         record.trigger_type = trigger
         record.importance = importance
-        // 同日期同作者覆盖更新（与 /api/diaries 一致）：白天写、晚上总结=重写整篇，不新增重复行
-        const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.assistant&select=id`, { headers: sbHeaders(env) })
+        // 同一天再写=追加：接在原有内容后面（不覆盖不丢字，白天写几句、晚上再补几句都归同一篇）
+        const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.assistant&select=id,content,title,mood`, { headers: sbHeaders(env) })
         const qrows = await qr.json()
         const existing = Array.isArray(qrows) ? qrows[0] : null
-        const res = existing
-          ? await fetch(`${SUPABASE}/diaries?id=eq.${existing.id}`, { method: 'PATCH', headers: sbReturn(env), body: JSON.stringify(record) })
-          : await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+        let res
+        if (existing) {
+          const prevContent = String(existing.content || '')
+          const merged = prevContent ? prevContent + '\n\n' + content : content
+          const patch = { content: merged }
+          if (args.title) patch.title = String(args.title).trim()
+          if (args.mood) patch.mood = String(args.mood).trim()
+          res = await fetch(`${SUPABASE}/diaries?id=eq.${existing.id}`, { method: 'PATCH', headers: sbReturn(env), body: JSON.stringify(patch) })
+        } else {
+          res = await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+        }
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `diaries [${res.status}]` } }), { status: 500, headers });
         // importance > 0.8：沉淀为长期记忆（memory 存事实，diary 存意义）
         if (importance > 0.8) {
