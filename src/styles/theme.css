@@ -235,9 +235,9 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   opacity: 0.62;
   font-style: italic;
   line-height: 1.5;
-  margin: -3px 0 8px;
+  margin: 2px 0 8px;
   padding: 0 14px 0 16px;
-  max-width: 75%;
+  max-width: 68%;
   user-select: none;
 }
 /* ===== 晚安彩蛋：日记确认卡（🌙 我想收好今天这一页）===== */
