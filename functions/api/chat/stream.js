@@ -79,7 +79,7 @@ export async function onRequestPost(context) {
           const chk = await fetch(`${SUPABASE}/messages?conversation_id=eq.${convId}&tool_call_id=eq.${encodeURIComponent(tm.tool_call_id)}&select=id`, { headers: sbHeaders(env) })
           const rows = await chk.json()
           if (Array.isArray(rows) && rows.length > 0) continue
-          await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'tool', content: tm.content.slice(0, 8000), tool_call_id: tm.tool_call_id }) })
+          await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ conversation_id: convId, role: 'tool', content: tm.content.slice(0, 300), tool_call_id: tm.tool_call_id }) })
         } catch (_) {}
       }
     }
