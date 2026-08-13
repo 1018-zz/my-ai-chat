@@ -121,7 +121,7 @@ export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
                 : parts.length > 0
                   ? parts.map((p, i) => p.type === 'voice'
                       ? <div key={i} className="inner-thought">{p.text}</div>
-                      : <div key={i} className="msg-bubble"><Markdown>{p.text}</Markdown></div>)
+                      : splitSentences(p.text).map((s, j) => <div key={`${i}-${j}`} className="msg-bubble"><Markdown>{s}</Markdown></div>))
                   : null}
             {draft && <DiaryConfirmCard draft={draft} msgId={m.id} />}
           </Fragment>
