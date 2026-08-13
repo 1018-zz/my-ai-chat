@@ -894,10 +894,28 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const runChatTurn = async (msgsForCtx, aiMsgId) => {
     const lastUserMsg = [...msgsForCtx].reverse().find(m => m.isSelf)
     const userText = lastUserMsg?.text || ''
-    let mc = ''
-    if (userText.length > 2) { try { const { memories, relatedMessages } = await searchMemories(userText); const parts = []; if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n')); if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n')); mc = parts.join('\n\n') } catch (_) {} }
-    let pc = ''
-    try { const [mems, inf] = await Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]); const parts = []; if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n')); if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) } pc = parts.join('\n\n') } catch (_) {}
+    // 并行取上下文（原串行 → 并行，减少发送后的等待感）：记忆检索 + 项目记忆/能力 同时发起
+    let mc = '', pc = ''
+    try {
+      const [memData, projData] = await Promise.all([
+        userText.length > 2 ? searchMemories(userText).catch(() => ({ memories: [], relatedMessages: [] })) : Promise.resolve(null),
+        Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]).catch(() => null),
+      ])
+      if (memData) {
+        const { memories, relatedMessages } = memData
+        const parts = []
+        if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n'))
+        if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n'))
+        mc = parts.join('\n\n')
+      }
+      if (projData) {
+        const [mems, inf] = projData
+        const parts = []
+        if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n'))
+        if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) }
+        pc = parts.join('\n\n')
+      }
+    } catch (_) {}
     // 同会话巡家（节流版——"隔了一会儿自己想去看"）：15 分钟以上没看 + 家里有新动静才注入，
     // 软上下文，模型自己决定提不提；聊得密集时不打扰
     let hc = ''
