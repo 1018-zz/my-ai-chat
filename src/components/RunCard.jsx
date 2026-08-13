@@ -44,7 +44,8 @@ export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
   const hasTools = tools.length > 0
   const running = msgs.some(m => m.loading) || tools.some(t => t.result === undefined || t.result === '')
   const canFold = hasThinking || hasTools
-  const isCollapsed = canFold && !running && !expanded
+  // 运行中也默认折叠：只留轻量状态条，不铺开思考+工具时间线刷屏；手动点归档条可实时展开
+  const isCollapsed = canFold && !expanded
   const summary = buildToolSummary(tools)
   const durMs = msgs.reduce((s, m) => s + (m.thinkingDur || 0), 0)
   const durText = durMs > 0 ? `${(durMs / 1000).toFixed(1)}s` : ''
