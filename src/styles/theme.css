@@ -169,9 +169,11 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 .chat-message-list { flex: 1; overflow-y: auto; padding: var(--padding-lg); display: flex; flex-direction: column; gap: 2px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 60px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 60px), transparent 100%); }
 
 .msg-left { display: flex; margin-bottom: 12px; }
-.msg-left .msg-bubble { background: rgba(255, 255, 255, 0.78); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-bubble); border-top-left-radius: 4px; padding: 10px 14px; max-width: 75%; color: var(--color-text-dark); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.msg-left .msg-bubble { background: rgba(255, 255, 255, 0.78); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--color-border-glass); border-radius: var(--radius-bubble); border-top-left-radius: 4px; padding: 10px 14px; max-width: 68%; color: var(--color-text-dark); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.msg-left .msg-bubble + .msg-bubble { margin-top: 6px; }
 .msg-right { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.msg-right .msg-bubble { background: var(--color-primary); border-radius: var(--radius-bubble); border-top-right-radius: 4px; padding: 10px 14px; max-width: 75%; color: #fff; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.msg-right .msg-bubble { background: var(--color-primary); border-radius: var(--radius-bubble); border-top-right-radius: 4px; padding: 10px 14px; max-width: 68%; color: #fff; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.msg-right .msg-bubble + .msg-bubble { margin-top: 6px; }
 
 /* 消息时间注脚：小灰字，低存在感（今天→18:23 / 昨天→昨天 / 更早→日期） */
 .msg-meta {
