@@ -1083,7 +1083,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   <div className="msg-row msg-row-ai">
                     <div className="msg-avatar msg-avatar-ai">泽</div>
                     <div className="msg-col msg-col-ai">
-                      <RunCard msgs={run} showThinking={showThinking} expanded={expandedRuns.has(first.id)} onToggle={() => toggleRun(first.id)} />
+                      <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={() => toggleRun(first.id)} />
                     </div>
                   </div>
                 </div>
