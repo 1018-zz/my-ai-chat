@@ -13,13 +13,22 @@ export const glassCard = {
   maxWidth: '75%',
 }
 
-// —— 思考卡片（暖白饱和玻璃）：运行中一行状态（不预览内容），完成后收起成一行，点击展开 ——
+// 韩系手帐纸感卡片：暖纸渐变 + 双层阴影 + 暖色描边（与 ToolGroupCard 一致）
+export const paperCard = {
+  maxWidth: '75%',
+  borderRadius: 12,
+  border: '1px solid rgba(201,184,166,0.4)',
+  background: 'linear-gradient(180deg, #FFF9EF 0%, #F6EDDA 100%)',
+  boxShadow: '0 4px 14px rgba(80,60,40,0.08), 0 1px 3px rgba(80,60,40,0.10)',
+}
+
+// —— 思考卡片（暖纸手帐风）：运行中一行状态（不预览内容），完成后收起成一行，点击展开 ——
 export const ThinkingCard = ({ text, done, dur }) => {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (done) setOpen(false) }, [done])
   const showBody = open
   return (
-    <div style={glassCard} className="tool-card status-thinking">
+    <div style={paperCard} className="tool-card status-thinking">
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
         <span style={{ fontSize: 13 }}>💡</span>
         <span>{done ? (dur ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '深度思考') : <span>🌱 正在整理想法<span className="thinking-dot" /></span>}</span>
@@ -44,7 +53,7 @@ export const ToolCard = ({ tool, result }) => {
   const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
   const showBody = open
   return (
-    <div style={{ ...glassCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isError ? 'status-err' : 'status-ok'}`}>
+    <div style={{ ...paperCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isError ? 'status-err' : 'status-ok'}`}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
         <span className="tool-icon" style={{ fontSize: 13 }}>{icon}</span>
         <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>{tool.name}</span>

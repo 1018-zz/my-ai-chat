@@ -205,6 +205,7 @@ body {
 }
 
 .btn {
+  min-height: 44px;
   background-color: var(--color-primary);
   color: #fff;
   border: none;
@@ -274,13 +275,13 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   position: fixed; inset: 0; z-index: 2; pointer-events: none;
   box-shadow: inset 0 0 90px rgba(66, 47, 31, 0.08);
 }
-.page-wrap { padding-bottom: 70px; min-height: 100vh; position: relative; z-index: 3; }
+.page-wrap { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); min-height: 100dvh; position: relative; z-index: 3; }
 
 /* ════════════════════════════════════════════════════════════
    底部导航 Tab（纸质感底部栏）
    ════════════════════════════════════════════════════════════ */
 .tab-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 60px;
+  position: fixed; left: 0; right: 0; bottom: 0; height: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--color-card-glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -348,6 +349,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 .chat-item-delete {
   background: none; border: none; color: var(--color-text-gray);
   cursor: pointer; font-size: 14px; padding: 4px 8px;
+  min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
   opacity: 0.35; transition: opacity 0.2s;
 }
 .chat-item-delete:hover { opacity: 1; color: var(--color-danger); }
@@ -358,7 +360,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
    ════════════════════════════════════════════════════════════ */
 .chat-detail-page {
   display: flex; flex-direction: column;
-  height: calc(100vh - 60px);
+  height: calc(100dvh - 60px - env(safe-area-inset-bottom, 0px));
 }
 
 /* 头部：纸质感条 */
@@ -591,7 +593,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 }
 .msg-action-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
+  padding: 10px 14px; min-height: 44px;
   border-radius: var(--radius-md);
   font-size: 13px;
   color: var(--color-text-dark);
@@ -684,7 +686,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
    附件按钮 & 菜单
    ════════════════════════════════════════════════════════════ */
 .btn-attach {
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   border: 1.5px solid var(--color-border-paper);
   background: var(--color-paper);
   color: var(--color-primary); font-size: 18px; line-height: 1;

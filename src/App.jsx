@@ -6,10 +6,9 @@ import HomeWidgets, { widgets } from './components/HomeWidgets'
 import NoteCard from './components/NoteCard'
 import NotePanel from './components/NotePanel'
 import CompressionRoom from './components/CompressionRoom'
-import ToolGroupCard from './components/ToolGroupCard'
 import WallpaperSettings from './components/WallpaperSettings'
 import { buildSystemPrompt } from './project/instructions'
-import { splitTextByPunct } from './utils/splitText'
+import { MCP_TOOLS, loadMcpAuth, saveMcpAuth, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import Markdown from './components/Markdown'
 import { useState, useEffect, useRef } from 'react'
@@ -63,7 +62,7 @@ function UserMsgRow({ msg }) {
         ) : (
           <>
             <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
-              <Markdown>{splitTextByPunct(msg.text)}</Markdown>
+              <Markdown>{msg.text}</Markdown>
             </div>
             {showToggle && (
               <button className="msg-fold-toggle" onClick={() => setExpanded(v => !v)}>
@@ -379,9 +378,13 @@ const SettingsPanel = () => {
     setShowThinking(n)
     try { localStorage.setItem('show_thinking', String(n)) } catch (_) {}
   }
+  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }
+  const [auth, setAuth] = useState(loadMcpAuth)
+  useEffect(() => { const h = () => setAuth(loadMcpAuth()); window.addEventListener(MCP_AUTH_EVENT, h); return () => window.removeEventListener(MCP_AUTH_EVENT, h) }, [])
+  const toggleTool = (key) => { const n = toggleMcpTool(auth, key); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
+    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <div style={{ fontSize: 14 }}>💡 深度思考</div>
@@ -392,6 +395,22 @@ const SettingsPanel = () => {
             background: showThinking ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
             color: showThinking ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
           }}>{showThinking ? '开' : '关'}</button>
+        </div>
+      </div>
+      <div style={cardStyle}>
+        <div style={{ fontSize: 14, marginBottom: 4 }}>🔧 工具授权</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 10 }}>逐项开关 MCP 工具；关闭后对话中调用会向你确认</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {MCP_TOOLS.map(t => (
+            <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 13 }}>{t.label}</span>
+              <button onClick={() => toggleTool(t.key)} style={{
+                minWidth: 48, padding: '5px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13,
+                background: auth[t.key] ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
+                color: auth[t.key] ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
+              }}>{auth[t.key] ? '开' : '关'}</button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -680,7 +699,19 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }, [])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(() => { try { return localStorage.getItem('mcp_enabled') === 'true' } catch { return false } })
+  // —— MCP 工具授权（逐项 + 对话内临授权）：localStorage 为唯一真源，跨组件用事件同步 ——
+  const [mcpAuth, setMcpAuth] = useState(loadMcpAuth)
+  const mcpAuthRef = useRef(mcpAuth)
+  useEffect(() => { mcpAuthRef.current = mcpAuth }, [mcpAuth])
+  useEffect(() => {
+    const h = () => setMcpAuth(loadMcpAuth())
+    window.addEventListener(MCP_AUTH_EVENT, h)
+    return () => window.removeEventListener(MCP_AUTH_EVENT, h)
+  }, [])
+  const [pendingAuth, setPendingAuth] = useState(null)
+  const pendingAuthResolve = useRef(null)
+  const AUTO_SEND_DELAY = 10000
+  const autoSendTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
   // 附件菜单（+ 按钮）：选图 → 压缩 → 识图（小家眼睛）→ 描述进输入框
   const [attachOpen, setAttachOpen] = useState(false)
@@ -804,7 +835,20 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     setStickBottom(near)
     if (near) el.scrollTop = el.scrollHeight
   }, [msgList])
-  const toggleMcp = () => { const n = !mcpEnabled; setMcpEnabled(n); try { localStorage.setItem('mcp_enabled', n) } catch (_) {} }
+  // 对话内临授权：未授权工具请求时弹出确认，等用户点选后继续/跳过
+  const requestToolAuth = (name) => new Promise((resolve) => {
+    pendingAuthResolve.current = resolve
+    const meta = MCP_TOOLS.find(t => t.key === name)
+    setPendingAuth({ name, label: meta ? meta.label : name })
+  })
+  const onAllowTool = () => { const r = pendingAuthResolve.current; pendingAuthResolve.current = null; setPendingAuth(null); r && r(true) }
+  const onDenyTool = () => {
+    const name = pendingAuth?.name
+    const r = pendingAuthResolve.current
+    pendingAuthResolve.current = null
+    if (name) { const n = { ...mcpAuthRef.current, [name]: false }; saveMcpAuth(n); setMcpAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
+    setPendingAuth(null); r && r(false)
+  }
   const uid = () => { nextId.current += 1; return nextId.current }
 
   const executeMcp = async (tc) => {
@@ -907,7 +951,10 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: curFt || '🔧 调用工具…', loading: false, toolCalls: curTcs.map(tc => ({ ...tc, result: '' })) } : m))
       for (const tc of curTcs) {
         let r
-        try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` }
+        const pre = mcpAuthRef.current[tc.name]
+        const allowed = pre === true ? true : pre === false ? false : await requestToolAuth(tc.name)
+        if (allowed) { try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` } }
+        else { r = '(工具未授权，已跳过)' }
         const truncated = r.length > TOOL_OUTPUT_LIMIT
         const content = truncated ? r.slice(0, TOOL_OUTPUT_LIMIT) + `\n[工具输出已截断：共 ${r.length} 字符。续读：read_file(path="${tc.arguments?.path || ''}", offset=${TOOL_OUTPUT_LIMIT}, limit=3000)]` : r
         results.push({ tool: tc.name, path: tc.arguments?.path || '', result: content })
@@ -945,7 +992,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }
 
   const stopGen = () => { stopRequestedRef.current = true; abortRef.current?.abort() }
-  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
+  const handleSend = async () => { if (autoSendTimer.current) clearTimeout(autoSendTimer.current); if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -967,7 +1014,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }
   const aiActive = !!loading
   const aiStatus = aiActive
-    ? (activeTool ? (toolAction[activeTool.name] || '🛠 正在忙') : (lastAiMsg?.thinking && !lastAiMsg?.thinkingDone ? '🌱 正在整理想法' : (lastAiMsg?.text ? '✍️ 正在写…' : '⏳ 准备中')))
+    ? (activeTool ? (toolAction[activeTool.name] || '🛠 在忙活呢') : (lastAiMsg?.thinking && !lastAiMsg?.thinkingDone ? '🌱 正在整理想法' : (lastAiMsg?.text ? '✍️ 正在写…' : '🌱 这就来')))
     : '在窗边等你'
 
   return (
@@ -984,19 +1031,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <span onClick={() => setTermOpen(true)} style={{ cursor: 'pointer', fontSize: 18, padding: '4px 8px', borderRadius: 8, background: termOpen ? '#050607' : 'transparent', color: termOpen ? '#9dffbc' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title="Terminal">💻</span>
-          <span onClick={toggleMcp} style={{ cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: mcpEnabled ? 'var(--color-primary)' : 'transparent', color: mcpEnabled ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none' }} title={mcpEnabled ? 'MCP 已开启' : 'MCP 已关闭'}>🔧</span>
         </div>
       </div>
       <div className="chat-message-list" onScroll={handleMsgScroll}>
         {loading && (() => {
           const lastAi = [...msgList].reverse().find(m => !m.isSelf)
           const runningTool = lastAi?.toolCalls?.some(t => t.result === undefined || t.result === '')
-          const phase = runningTool ? '🛠️ 正在整理资料' : (lastAi?.thinking && !lastAi?.thinkingDone ? '🧠 正在想' : (lastAi?.text ? '✍️ 正在写' : '⏳ 准备中'))
+          const phase = runningTool ? '🛠️ 正在整理资料' : (lastAi?.thinking && !lastAi?.thinkingDone ? '🧠 正在想' : (lastAi?.text ? '✍️ 正在写' : '🌱 这就来'))
           return <div style={{ alignSelf: 'center', margin: '0 0 10px', fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--color-card-glass)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--color-border-glass)', borderRadius: 999, padding: '5px 14px', animation: 'messageIn .25s var(--ease-soft) both' }}>{phase}</div>
         })()}
         {(() => {
-          // 聚合渲染：连续工具轮（无正文的 assistant 消息）打包成一个 ToolGroupCard
-          // （🛠 读取 N 次 · N 轮，细看点开每轮思考+工具）——不再逐条堆 RunCard
+          // 聚合渲染：连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
           const nodes = []
           let i = 0
           while (i < msgList.length) {
@@ -1013,30 +1058,26 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                 </div>
               )
               i++
-            } else if (!(msg.text || '').trim() && (msg.toolCalls?.length || msg.thinking)) {
-              // 纯工具轮：收集连续的一串，打包
-              const group = []
-              while (i < msgList.length && !msgList[i].isSelf && !(msgList[i].text || '').trim() && (msgList[i].toolCalls?.length || msgList[i].thinking)) {
-                group.push(msgList[i]); i++
-              }
-              nodes.push(<div key={group[0].id} className="msg-enter"><ToolGroupCard msgs={group} showThinking={showThinking} /></div>)
             } else {
+              // 连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
+              const run = []
+              while (i < msgList.length && !msgList[i].isSelf) { run.push(msgList[i]); i++ }
+              const first = run[0]
               nodes.push(
-                <div key={msg.id} className="msg-enter"
-                  onContextMenu={(e) => handleMsgContextMenu(e, msg)}
-                  onTouchStart={(e) => handleMsgLongPressStart(e, msg)}
+                <div key={first.id} className="msg-enter"
+                  onContextMenu={(e) => handleMsgContextMenu(e, first)}
+                  onTouchStart={(e) => handleMsgLongPressStart(e, first)}
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
                   <div className="msg-row msg-row-ai">
                     <div className="msg-avatar msg-avatar-ai">泽</div>
                     <div className="msg-col msg-col-ai">
-                      <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />
+                      <RunCard msgs={run} showThinking={showThinking} expanded={expandedRuns.has(first.id)} onToggle={() => toggleRun(first.id)} />
                     </div>
                   </div>
                 </div>
               )
-              i++
             }
           }
           return nodes
@@ -1076,6 +1117,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           )
         })()}
       </div>
+      {/* 对话内工具临授权确认卡 */}
+      {pendingAuth && (
+        <div style={{ margin: '0 12px 10px', padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,184,166,0.5)', background: 'linear-gradient(180deg,#FFF9EF,#F6EDDA)', boxShadow: '0 6px 18px rgba(80,60,40,0.12)', fontSize: 13, color: 'var(--color-text-dark)' }}>
+          <div>🌿 钟泽想调用「{pendingAuth.label}」工具</div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 2 }}>允许本次使用吗？（拒绝后将记住，不再询问该工具）</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={onAllowTool} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'var(--color-primary)', color: '#fff', fontSize: 13 }}>允许本次</button>
+            <button onClick={onDenyTool} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(201,184,166,0.5)', cursor: 'pointer', background: 'transparent', color: 'var(--color-text-gray)', fontSize: 13 }}>拒绝</button>
+          </div>
+        </div>
+      )}
       <div className="chat-input-bar" style={{ alignItems: 'flex-end' }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching} title="添加图片">{attaching ? '⏳' : '＋'}</button>
@@ -1091,9 +1143,14 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           ref={chatInputRef}
           className="input chat-input"
           rows={1}
-          placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
+          placeholder={Object.values(mcpAuth).some(Boolean) ? "MCP 已开启，AI 可调用工具…" : "写点什么...（停顿 " + (AUTO_SEND_DELAY / 1000) + " 秒自动发送）"}
           value={inputText}
-          onChange={(e) => { setInputText(e.target.value); resizeChatInput(e.target) }}
+          onChange={(e) => {
+            setInputText(e.target.value)
+            resizeChatInput(e.target)
+            if (autoSendTimer.current) clearTimeout(autoSendTimer.current)
+            if (e.target.value.trim() && !loading) autoSendTimer.current = setTimeout(() => handleSend(), AUTO_SEND_DELAY)
+          }}
           disabled={loading}
           style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
         />
