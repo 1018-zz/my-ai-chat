@@ -315,7 +315,7 @@ const HistoryDiaryView = () => {
 }
 
 const SettingsPanel = () => {
-  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
+  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') === 'true' } catch { return false } })
   const toggle = () => {
     const n = !showThinking
     setShowThinking(n)
