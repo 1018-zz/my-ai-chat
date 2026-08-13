@@ -463,7 +463,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%);
   pointer-events: none;
 }
-.msg-right .msg-bubble + .msg-bubble { margin-top: 6px; }
+.msg-right .msg-bubble + .msg-bubble { margin-top: 4px; }
 
 /* ════════════════════════════════════════════════════════════
    微信式消息行（头像位 + 气泡列）
