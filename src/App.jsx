@@ -550,19 +550,53 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   )
 }
 
-const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
+// —— 会话元数据本地缓存：最后消息预览 + 自定义标题（不依赖后端，符合只读约束）——
+const CHAT_META_KEY = 'chat_meta'
+const getChatMeta = () => { try { return JSON.parse(localStorage.getItem(CHAT_META_KEY) || '{}') } catch { return {} } }
+const setChatMeta = (next) => { try { localStorage.setItem(CHAT_META_KEY, JSON.stringify(next)) } catch (_) {} }
+const updateChatPreview = (convId, text) => {
+  if (!convId || !text) return
+  const m = getChatMeta()
+  m[convId] = { ...(m[convId] || {}), last_message: String(text).slice(0, 80), updated_at: Date.now() }
+  setChatMeta(m)
+}
+const updateChatTitle = (convId, title) => {
+  if (!convId) return
+  const t = (title || '').trim()
+  const m = getChatMeta()
+  if (t) m[convId] = { ...(m[convId] || {}), title: t }
+  else if (m[convId]) delete m[convId].title
+  setChatMeta(m)
+}
+const mergeChatMeta = (convs) => { const m = getChatMeta(); return convs.map(c => ({ ...c, title: (m[c.id] && m[c.id].title) || c.title, last_message: (m[c.id] && m[c.id].last_message) || c.last_message, updated_at: (m[c.id] && m[c.id].updated_at) || c.updated_at })) }
+
+const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   const [conversations, setConversations] = useState([])
-  useEffect(() => { fetchConversations().then(setConversations).catch(() => {}) }, [refreshTrigger])
-  const handleCreate = async () => {
-    try { const { id } = await createConversation('新对话'); fetchConversations().then(setConversations); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
+  const [editingId, setEditingId] = useState(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const homeConvId = (() => { try { return localStorage.getItem('home_conv_id') } catch { return null } })()
+  const refresh = () => {
+    fetchConversations().then(list => {
+      const merged = mergeChatMeta(Array.isArray(list) ? list : [])
+      merged.sort((a, b) => a.id === homeConvId ? -1 : b.id === homeConvId ? 1 : (b.updated_at || 0) - (a.updated_at || 0))
+      setConversations(merged)
+    }).catch(() => {})
   }
-  const handleDelete = async (e, convId) => { e.stopPropagation(); await deleteConversation(convId); fetchConversations().then(setConversations) }
+  useEffect(() => { refresh() }, [refreshTrigger, homeConvId])
+  const handleCreate = async () => {
+    try { const { id } = await createConversation('新对话'); refresh(); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
+  }
+  const handleDelete = async (e, convId) => { e.stopPropagation(); if (convId === homeConvId) return; await deleteConversation(convId); refresh() }
+  const startRename = (e, conv) => { e.stopPropagation(); setEditingId(conv.id); setEditingTitle(conv.title || '新对话') }
+  const commitRename = () => { if (editingId) { updateChatTitle(editingId, editingTitle); setConversations(cs => cs.map(c => c.id === editingId ? { ...c, title: editingTitle.trim() || c.title } : c)); onTitleChange && onTitleChange(editingId, editingTitle.trim()) } setEditingId(null) }
   const formatTime = (ts) => {
     if (!ts) return ''; const d = new Date(ts), diff = Date.now() - d
     if (diff < 60000) return '刚刚'; if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`
     if (diff < 86400000) return d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
     return d.toLocaleDateString('zh-CN', { month:'short', day:'numeric' })
   }
+  const editBtnStyle = { background: 'none', border: 'none', color: 'var(--color-text-gray)', cursor: 'pointer', fontSize: 14, padding: '4px 8px', opacity: 0.4, transition: 'opacity .2s' }
+  const renameInputStyle = { flex: 1, fontSize: 15, fontWeight: 600, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', outline: 'none' }
   return (
     <div className="chat-page">
       <div className="chat-header"><div className="chat-header-title">💬 对话</div><button className="btn" onClick={handleCreate} style={{ padding: '6px 14px', fontSize: 13 }}>＋ 新建</button></div>
@@ -570,8 +604,17 @@ const ChatListPage = ({ onOpenChat, refreshTrigger }) => {
         {conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
           <div key={conv.id} className="chat-item" onClick={() => onOpenChat(conv)}>
             <div className="chat-avatar">❤️</div>
-            <div className="chat-info"><div className="chat-name">{conv.title || '新对话'}</div><div className="chat-last-msg">{conv.last_message || ''}</div></div>
-            <div className="chat-right"><div className="chat-time">{formatTime(conv.updated_at)}</div><button className="chat-item-delete" onClick={(e) => handleDelete(e, conv.id)}>✕</button></div>
+            <div className="chat-info">
+              {editingId === conv.id
+                ? <input className="chat-rename-input" style={renameInputStyle} autoFocus value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }} />
+                : <div className="chat-name">{conv.title || '新对话'}</div>}
+              <div className="chat-last-msg">{conv.last_message || '还没有消息~'}</div>
+            </div>
+            <div className="chat-right">
+              <div className="chat-time">{formatTime(conv.updated_at)}</div>
+              <button style={editBtnStyle} onClick={e => startRename(e, conv)} title="重命名">✎</button>
+              {conv.id !== homeConvId && <button className="chat-item-delete" onClick={e => handleDelete(e, conv.id)}>✕</button>}
+            </div>
           </div>
         ))}
       </div>
@@ -929,10 +972,11 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       if (nxt.thDur) setMsgList(p => p.map(m => m.id === nid ? { ...m, thinkingDone: true, thinkingDur: nxt.thDur } : m))
       curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curReasoning = nxt.reasoningContent || ''; curAiId = nid
     }
+    return curFt
   }
 
   const stopGen = () => { if (sleepTimer.current) clearTimeout(sleepTimer.current); stopRequestedRef.current = true; abortRef.current?.abort() }
-  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); await new Promise(r => { sleepTimer.current = setTimeout(r, 5000) }); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
+  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); await new Promise(r => { sleepTimer.current = setTimeout(r, 5000) }); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); if (chatInfo.id) updateChatPreview(chatInfo.id, ut); try { const aiText = await runChatTurn([...msgList, um], uidA); if (chatInfo.id) updateChatPreview(chatInfo.id, (aiText && aiText.trim()) ? aiText : ut) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -965,7 +1009,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         <div className="ai-presence">
           <div className="ai-avatar">泽</div>
           <div className="ai-meta">
-            <div className="ai-name">钟泽 <span className="ai-title">{chatInfo?.title || '新对话'}</span></div>
+            <div className="ai-name">{chatInfo?.title || '钟泽'}</div>
             <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}</div>
           </div>
         </div>
@@ -1133,6 +1177,37 @@ export default function App() {
     setRefreshTrigger(t => t + 1)
   }
 
+  // 默认「我们的窗口」：首次启动把已有会话认领为默认（不可删除），没有才新建
+  useEffect(() => {
+    (async () => {
+      try {
+        const homeId = localStorage.getItem('home_conv_id')
+        const list = await fetchConversations()
+        const arr = Array.isArray(list) ? list : []
+        const exists = homeId && arr.some(c => c.id === homeId)
+        if (!exists) {
+          let home = arr[0]
+          if (!home) { const { id } = await createConversation('钟泽 💛'); home = { id, title: '钟泽 💛' } }
+          localStorage.setItem('home_conv_id', home.id)
+          if (!currentChat) {
+            const c = { id: home.id, title: home.title || '钟泽' }
+            setCurrentChat(c)
+            try { localStorage.setItem('current_chat', JSON.stringify(c)) } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    })()
+  }, [])
+
+  // 列表里改了标题，同步回当前打开的会话（头部标题跟着变）
+  const handleTitleChange = (convId, title) => {
+    if (currentChat?.id === convId) {
+      const upd = { ...currentChat, title: title || currentChat.title }
+      setCurrentChat(upd)
+      try { localStorage.setItem('current_chat', JSON.stringify(upd)) } catch (_) {}
+    }
+  }
+
   return (
     <div className="page-wrap">
       {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
@@ -1143,7 +1218,7 @@ export default function App() {
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat
           ? <ChatDetailPage chatInfo={currentChat} onBack={handleBack}/>
-          : <ChatListPage onOpenChat={handleOpenChat} refreshTrigger={refreshTrigger}/>
+          : <ChatListPage onOpenChat={handleOpenChat} refreshTrigger={refreshTrigger} onTitleChange={handleTitleChange}/>
         }
       </div>
       <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage navReq={navReq} onNavConsumed={() => setNavReq(null)}/></div>
