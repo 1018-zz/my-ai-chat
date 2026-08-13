@@ -15,6 +15,70 @@ import Markdown from './components/Markdown'
 import { useState, useEffect, useRef } from 'react'
 import './styles/theme.css'
 
+// ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
+const ActionIcons = {
+  like: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3z" />
+      <path d="M7 11l4-7a2 2 0 0 1 2.8 2.2L12.6 10H19a2 2 0 0 1 2 2.3l-1.4 7.5A2 2 0 0 1 17.2 21H7" />
+    </svg>
+  ),
+  dislike: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3z" />
+      <path d="M17 13l-4 7a2 2 0 0 1-2.8-2.2L11.4 14H5a2 2 0 0 1-2-2.3l1.4-7.5A2 2 0 0 1 6.8 3H17" />
+    </svg>
+  ),
+  recall: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7v6h6" />
+      <path d="M3.6 13a9 9 0 1 0 2.5-6.4L3 7" />
+    </svg>
+  ),
+  delete: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  ),
+}
+
+// 用户消息行：预留头像位 + 气泡列（长文本可折叠，仿 ChatGPT）+ 时间戳置于气泡下方
+function UserMsgRow({ msg }) {
+  const [expanded, setExpanded] = useState(false)
+  const bodyRef = useRef(null)
+  const [overflow, setOverflow] = useState((msg.text || '').length > 240)
+  useEffect(() => {
+    const el = bodyRef.current
+    if (el) setOverflow(el.scrollHeight - el.clientHeight > 4)
+  }, [msg.text])
+  const showToggle = overflow || expanded
+  return (
+    <div className="msg-row msg-row-self">
+      <div className="msg-col">
+        {msg.deleted ? (
+          <div className="msg-recalled">已撤回</div>
+        ) : (
+          <>
+            <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
+              <Markdown>{splitTextByPunct(msg.text)}</Markdown>
+            </div>
+            {showToggle && (
+              <button className="msg-fold-toggle" onClick={() => setExpanded(v => !v)}>
+                {expanded ? '收起 ▲' : '展开全文 ▼'}
+              </button>
+            )}
+            {msg.ts && <div className="msg-meta">{fmtMsgTime(msg.ts)}</div>}
+          </>
+        )}
+      </div>
+      <div className="msg-avatar msg-avatar-self">我</div>
+    </div>
+  )
+}
+
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 const MCP_URL = `${API_BASE}/api/mcp-proxy`
 const systemPrompt = buildSystemPrompt()
@@ -67,12 +131,23 @@ const LairPage = () => {
         <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>天</div>
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-gray)' }}>2026.03.13 · 泠泠和钟泽</div>
       </div>
-      {/* —— 门厅 · AI 在场状态 —— */}
-      <div style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>泽</div>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽 <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-gray)' }}>在窗边等你</span></div>
-          <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />守着这个小家</div>
+      {/* —— 门厅 · 我和他的在场状态（头像交叠 + 今日心情/状态） —— */}
+      <div style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* 我和他头像轻微交叠 */}
+        <div style={{ position: 'relative', width: 72, height: 46, flexShrink: 0 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, #E7D7C5, #C4A88F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#5A4636', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>我</div>
+          <div style={{ position: 'absolute', left: 30, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)', border: '2px solid var(--color-paper)' }}>泽</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽</div>
+          {/* 今天的心情（薄荷粉底药丸，mock 数据，后续接真数据） */}
+          <div style={{ marginTop: 7, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--accent-mint-soft)', padding: '3px 11px', borderRadius: 'var(--radius-pill)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-mint)', display: 'inline-block' }} /> 今天的心情 · 平静温暖
+          </div>
+          {/* 状态 */}
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} /> 在窗边等你
+          </div>
         </div>
       </div>
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
@@ -611,6 +686,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [attachOpen, setAttachOpen] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const fileInputRef = useRef(null)
+  const chatInputRef = useRef(null)
+  // 输入框随内容自动增高（上限后内部滚动），避免长文本横向一条过去
+  const resizeChatInput = (el) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }
   // 图片压缩：最大边 512px，quality 0.7——识图够用，base64 不会太大
   const compressImage = (file, maxSize = 512, quality = 0.7) => new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -647,6 +729,39 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
   const toggleRun = (id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
+  // 长按气泡操作菜单：移除常驻删除按钮后，靠长按/右键唤起浮层菜单
+  const [actionMenu, setActionMenu] = useState({ visible: false, msgId: null, isSelf: false, x: 0, y: 0, below: false })
+  const longPressTimer = useRef(null)
+  const closeActionMenu = () => { setActionMenu(a => ({ ...a, visible: false })) }
+  const handleMsgLongPressStart = (e, msg) => {
+    const el = e.currentTarget
+    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+    longPressTimer.current = setTimeout(() => {
+      const rect = el.getBoundingClientRect()
+      const below = rect.top < 64
+      setActionMenu({ visible: true, msgId: msg.id, isSelf: !!msg.isSelf, x: rect.left + rect.width / 2, y: below ? rect.bottom + 8 : rect.top - 8, below })
+    }, 450)
+  }
+  const handleMsgLongPressEnd = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+  }
+  const handleMsgContextMenu = (e, msg) => {
+    e.preventDefault()
+    const below = e.clientY < 64
+    setActionMenu({ visible: true, msgId: msg.id, isSelf: !!msg.isSelf, x: e.clientX, y: below ? e.clientY + 8 : e.clientY - 8, below })
+  }
+  const handleMenuAction = (action, msg) => {
+    closeActionMenu()
+    switch (action) {
+      case 'like': console.log('[action] like', msg.id); break
+      case 'dislike': console.log('[action] dislike', msg.id); break
+      case 'recall': recallMessage(msg); break
+      case 'delete':
+        if (window.confirm('从本地移除这条消息？')) setMsgList(p => p.filter(m => m.id !== msg.id))
+        break
+      default: break
+    }
+  }
   const messagesEndRef = useRef(null)
   let nextId = useRef(Date.now())
   const abortRef = useRef(null)
@@ -830,8 +945,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }
 
   const stopGen = () => { stopRequestedRef.current = true; abortRef.current?.abort() }
-  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
-  const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
+  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -889,14 +1003,13 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
             const msg = msgList[i]
             if (msg.isSelf) {
               nodes.push(
-                <div key={msg.id} className="msg-enter">
-                  <div className="msg-right">
-                    {msg.deleted
-                      ? <div className="msg-recalled">已撤回</div>
-                      : <div className="msg-bubble"><Markdown>{splitTextByPunct(msg.text)}</Markdown></div>}
-                    {msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}
-                    {!msg.deleted && !msg.loading && <button className="msg-recall-btn" title="撤回" onClick={() => recallMessage(msg)}>🗑</button>}
-                  </div>
+                <div key={msg.id} className="msg-enter"
+                  onContextMenu={(e) => handleMsgContextMenu(e, msg)}
+                  onTouchStart={(e) => handleMsgLongPressStart(e, msg)}
+                  onTouchEnd={handleMsgLongPressEnd}
+                  onTouchMove={handleMsgLongPressEnd}
+                >
+                  <UserMsgRow msg={msg} />
                 </div>
               )
               i++
@@ -909,8 +1022,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
               nodes.push(<div key={group[0].id} className="msg-enter"><ToolGroupCard msgs={group} showThinking={showThinking} /></div>)
             } else {
               nodes.push(
-                <div key={msg.id} className="msg-enter">
-                  <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />
+                <div key={msg.id} className="msg-enter"
+                  onContextMenu={(e) => handleMsgContextMenu(e, msg)}
+                  onTouchStart={(e) => handleMsgLongPressStart(e, msg)}
+                  onTouchEnd={handleMsgLongPressEnd}
+                  onTouchMove={handleMsgLongPressEnd}
+                >
+                  <div className="msg-row msg-row-ai">
+                    <div className="msg-avatar msg-avatar-ai">泽</div>
+                    <div className="msg-col msg-col-ai">
+                      <RunCard msg={msg} showThinking={showThinking} expanded={expandedRuns.has(msg.id)} onToggle={() => toggleRun(msg.id)} />
+                    </div>
+                  </div>
                 </div>
               )
               i++
@@ -919,8 +1042,41 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           return nodes
         })()}
         <div ref={messagesEndRef}/>
+        {/* 长按/右键唤起的消息操作菜单（覆盖层 + 玻璃面板），点击遮罩关闭 */}
+        {actionMenu.visible && (() => {
+          const m = msgList.find(x => x.id === actionMenu.msgId)
+          if (!m) return null
+          const items = [
+            { action: 'like', label: '有帮助' },
+            { action: 'dislike', label: '没帮助' },
+            { action: 'delete', label: '本地删除', danger: true },
+          ]
+          if (actionMenu.isSelf) {
+            items.push({ action: 'recall', label: '撤回', danger: true })
+          }
+          return (
+            <div className="msg-action-menu-overlay" onClick={closeActionMenu}>
+              <div
+                className={`msg-action-menu${actionMenu.below ? ' below' : ''}`}
+                style={{ '--menu-x': `${actionMenu.x}px`, '--menu-y': `${actionMenu.y}px` }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {items.map((it) => (
+                  <div
+                    key={it.action}
+                    className={`msg-action-item${it.danger ? ' msg-action-danger' : ''}`}
+                    onClick={() => handleMenuAction(it.action, m)}
+                  >
+                    <span className="msg-action-icon">{ActionIcons[it.action]}</span>
+                    <span>{it.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </div>
-      <div className="chat-input-bar">
+      <div className="chat-input-bar" style={{ alignItems: 'flex-end' }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching} title="添加图片">{attaching ? '⏳' : '＋'}</button>
           {attachOpen && (
@@ -931,7 +1087,16 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           )}
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePickImage} />
         </div>
-        <input className="input" placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."} value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}/>
+        <textarea
+          ref={chatInputRef}
+          className="input chat-input"
+          rows={1}
+          placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
+          value={inputText}
+          onChange={(e) => { setInputText(e.target.value); resizeChatInput(e.target) }}
+          disabled={loading}
+          style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
+        />
         {loading
           ? <button className="btn" onClick={stopGen} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
           : <button className="btn" onClick={handleSend} disabled={loading || !inputText.trim()}>发送</button>}

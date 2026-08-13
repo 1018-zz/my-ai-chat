@@ -1,0 +1,75 @@
+/* ================================================================
+   我的空间 · 软件图标网格（仅本模块横向可滑动）
+   韩系奶油手帐风：圆角方 tile + 双层阴影 + 粉彩底
+   ================================================================ */
+
+/* 横向滚动容器：仅软件模块横向滚动，纵向不滚动（避免整页横向溢出） */
+.app-grid {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;        /* 与 overflow-x:auto 配合，纵向不出现滚动 */
+  padding: 16px 4px 18px;    /* 上下留白容纳 tile 双层阴影，避免被裁切 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;     /* Firefox 隐藏滚动条 */
+  scroll-snap-type: x proximity;
+}
+
+/* WebKit 隐藏滚动条 */
+.app-grid::-webkit-scrollbar {
+  display: none;
+}
+
+/* 单个软件图标 */
+.app-icon {
+  flex: 0 0 auto;
+  width: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* 圆角方 tile：粉彩底 + 双层阴影（柔扩散 + 锐接触）塑体积 */
+.app-icon-tile {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 2px 4px rgba(120, 95, 68, 0.06),
+    0 8px 20px rgba(120, 95, 68, 0.10);
+  transition: transform 0.18s var(--ease-soft), box-shadow 0.18s var(--ease-soft);
+}
+
+.app-icon:active .app-icon-tile {
+  transform: scale(0.94);
+  box-shadow:
+    0 1px 2px rgba(120, 95, 68, 0.08),
+    0 4px 12px rgba(120, 95, 68, 0.10);
+}
+
+.app-icon-glyph {
+  font-size: 26px;
+  line-height: 1;
+  /* 图标空位预留：用户后续会替换成自己画的画 */
+}
+
+/* 图标下方标题 */
+.app-icon-label {
+  font-size: 11px;
+  color: var(--color-text-dark);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 66px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
