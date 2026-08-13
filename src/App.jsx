@@ -347,6 +347,19 @@ const SettingsPanel = () => {
         </div>
       </div>
       <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14 }}>🔧 工具详情</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>工具调用记录默认折叠，点归档条展开查看</div>
+          </div>
+          <button onClick={toggleTools} style={{
+            minWidth: 48, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13,
+            background: showTools ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
+            color: showTools ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
+          }}>{showTools ? '开' : '关'}</button>
+        </div>
+      </div>
+      <div style={cardStyle}>
         <div style={{ fontSize: 14, marginBottom: 4 }}>🔧 工具授权</div>
         <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 10 }}>逐项开关 MCP 工具；关闭后对话中调用会向你确认</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
