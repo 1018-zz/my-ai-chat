@@ -748,7 +748,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
   const toggleRun = (id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') !== 'false' } catch { return true } })
+  const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') === 'true' } catch { return false } })
+  // 工具详情默认展开开关（LIFE→设置→工具详情；默认折叠，开=思考+工具卡自动展开）
+  const [showTools, setShowTools] = useState(() => { try { return localStorage.getItem('show_tools') === 'true' } catch { return false } })
   // 长按气泡操作菜单：移除常驻删除按钮后，靠长按/右键唤起浮层菜单
   const [actionMenu, setActionMenu] = useState({ visible: false, msgId: null, isSelf: false, x: 0, y: 0, below: false })
   const longPressTimer = useRef(null)
