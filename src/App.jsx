@@ -587,6 +587,11 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
     try { const { id } = await createConversation('新对话'); refresh(); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
   }
   const handleDelete = async (e, convId) => { e.stopPropagation(); if (convId === homeConvId) return; await deleteConversation(convId); refresh() }
+  const setHome = (e, convId) => {
+    e.stopPropagation()
+    try { localStorage.setItem('home_conv_id', convId) } catch (_) {}
+    refresh()
+  }
   const startRename = (e, conv) => { e.stopPropagation(); setEditingId(conv.id); setEditingTitle(conv.title || '新对话') }
   const commitRename = () => { if (editingId) { updateChatTitle(editingId, editingTitle); setConversations(cs => cs.map(c => c.id === editingId ? { ...c, title: editingTitle.trim() || c.title } : c)); onTitleChange && onTitleChange(editingId, editingTitle.trim()) } setEditingId(null) }
   const formatTime = (ts) => {
@@ -612,6 +617,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
             </div>
             <div className="chat-right">
               <div className="chat-time">{formatTime(conv.updated_at)}</div>
+              <button style={{ ...editBtnStyle, opacity: conv.id === homeConvId ? 1 : 0.4 }} onClick={e => setHome(e, conv.id)} title={conv.id === homeConvId ? '默认窗口' : '设为默认窗口'}>{conv.id === homeConvId ? '🏠' : '🏡'}</button>
               <button style={editBtnStyle} onClick={e => startRename(e, conv)} title="重命名">✎</button>
               {conv.id !== homeConvId && <button className="chat-item-delete" onClick={e => handleDelete(e, conv.id)}>✕</button>}
             </div>
