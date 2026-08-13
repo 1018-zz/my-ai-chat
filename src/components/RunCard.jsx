@@ -8,6 +8,7 @@
 // 工具过程可见，但完成后归档。像翻开工作台，而不是看服务器日志。
 
 import Markdown from './Markdown'
+import { splitTextByPunct } from '../utils/splitText'
 import { ThinkingCard, ToolCard, glassCard } from './Cards'
 import DiaryConfirmCard from './DiaryConfirmCard'
 import { fmtMsgTime } from '../utils/time'
