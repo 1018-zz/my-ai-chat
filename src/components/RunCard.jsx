@@ -123,7 +123,7 @@ export default function RunCard({ msg, showThinking, expanded, onToggle }) {
           : parts.length > 0
             ? parts.map((p, i) => p.type === 'voice'
               ? <div key={i} className="inner-thought">💭 {p.text}</div>
-              : <div key={i} className="msg-bubble"><Markdown>{splitTextByPunct(p.text)}</Markdown></div>)
+              : splitSentences(p.text).map((s, j) => <div key={`${i}-${j}`} className="msg-bubble"><Markdown>{s}</Markdown></div>))
             : null}
       {msg.ts && !msg.loading && <div className="msg-meta">{fmtMsgTime(msg.ts)}</div>}
     </div>
