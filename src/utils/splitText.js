@@ -80,4 +80,37 @@ export function splitTextByPunct(text) {
   return out.join('\n')
 }
 
+// 拆成多个独立气泡（AI 回复"连发几句"用）：每句一气泡；
+// 代码块围栏整体一气泡；连续列表/标题/引用/表格行合并成一块；空行分隔
+export function splitSentences(text) {
+  const src = String(text || '')
+  const lines = src.split('\n')
+  const out = []
+  let inFence = false
+  let fenceBuf = []
+  let blockBuf = []
+  const flushBlock = () => { if (blockBuf.length) { out.push(blockBuf.join('\n')); blockBuf = [] } }
+  const flushFence = () => { if (fenceBuf.length) { out.push(fenceBuf.join('\n')); fenceBuf = [] } }
+  const pushText = (t) => { const s = t.trim(); if (s) out.push(s) }
+  for (const line of lines) {
+    const t = line.trim()
+    if (/^(```|~~~)/.test(t)) {
+      flushBlock()
+      if (!inFence) { fenceBuf.push(line); inFence = true }
+      else { fenceBuf.push(line); flushFence(); inFence = false }
+      continue
+    }
+    if (inFence) { fenceBuf.push(line); continue }
+    if (!t) { flushBlock(); continue }
+    if (/^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>\s?|\|\s?|[-=]{3,}$)/.test(line)) {
+      blockBuf.push(line) // 不 flush：连续块级行自动合并
+      continue
+    }
+    flushBlock()
+    for (const s of splitLineByPunct(line)) pushText(s)
+  }
+  flushBlock(); flushFence()
+  return out
+}
+
 export default splitTextByPunct
