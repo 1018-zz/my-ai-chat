@@ -4,6 +4,7 @@
 // 正文始终可见——每条 assistant 消息一气泡（仅识别原生 \n 做段落换行，不按标点切分），心声单独成便签。
 import { Fragment } from 'react'
 import Markdown from './Markdown'
+import { splitSentences } from '../utils/splitText'
 import { ThinkingCard, ToolCard, paperCard } from './Cards'
 import DiaryConfirmCard from './DiaryConfirmCard'
 import { fmtMsgTime } from '../utils/time'
