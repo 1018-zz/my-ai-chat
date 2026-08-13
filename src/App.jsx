@@ -893,7 +893,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   <div className="msg-right">
                     {msg.deleted
                       ? <div className="msg-recalled">已撤回</div>
-                      : <div className="msg-bubble"><Markdown>{msg.text}</Markdown></div>}
+                      : <div className="msg-bubble"><Markdown>{splitTextByPunct(msg.text)}</Markdown></div>}
                     {msg.ts ? <div className="msg-meta">{fmtMsgTime(msg.ts)}</div> : null}
                     {!msg.deleted && !msg.loading && <button className="msg-recall-btn" title="撤回" onClick={() => recallMessage(msg)}>🗑</button>}
                   </div>
