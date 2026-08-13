@@ -209,64 +209,7 @@ const MemPanel = () => {
 }
 
 // —— LIFE 抽屉化：三个子视图（从 DiaryPanel 拆分）——
-const CheckinView = () => {
-  const [form, setForm] = useState({ date: '', breakfast: '', lunch: '', dinner: '', wake_time: '', sleep_time: '', note: '' })
-  const [records, setRecords] = useState([])
-  const [saving, setSaving] = useState(false)
-  const todayStr = fmtDate(new Date())
-  const loadCheckin = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/daily`)
-      const data = await res.json()
-      const list = data.records || []
-      setRecords(list)
-      const t = list.find(r => r.date === todayStr)
-      setForm({ date: todayStr, breakfast: t?.breakfast || '', lunch: t?.lunch || '', dinner: t?.dinner || '', wake_time: t?.wake_time || '', sleep_time: t?.sleep_time || '', note: t?.note || '' })
-    } catch (_) {}
-  }
-  useEffect(() => { loadCheckin() }, [])
-  const saveCheckin = async () => {
-    if (saving) return
-    setSaving(true)
-    try {
-      await fetch(`${API_BASE}/api/daily`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      await loadCheckin()
-    } catch (_) {} finally { setSaving(false) }
-  }
-  const timeInput = (key) => (
-    <input type="time" value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit' }} />
-  )
-  const textInput = (key, ph) => (
-    <input className="input" placeholder={ph} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit' }} />
-  )
-  return (
-    <div style={{ marginTop: 16 }}>
-      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>每日打卡 · 吃了什么、几点睡，钟泽都会知道</p>
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {timeInput('wake_time')}
-          {timeInput('sleep_time')}
-        </div>
-        {textInput('breakfast', '早餐吃了什么')}
-        {textInput('lunch', '午餐吃了什么')}
-        {textInput('dinner', '晚餐吃了什么')}
-        <textarea className="input" placeholder="备注（今天的心情、发生的事…）" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical' }} />
-        <button className="btn" onClick={saveCheckin} disabled={saving}>💾 打卡</button>
-      </div>
-      {records.length > 0 && (
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {records.filter(r => r.date !== todayStr).slice(0, 4).map(r => (
-            <div key={r.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: 10, fontSize: 12, color: 'var(--color-text-gray)' }}>
-              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{r.date}</span>
-              {(r.wake_time || r.sleep_time) && ` · ${r.wake_time || ''}${r.sleep_time ? ` → ${r.sleep_time}` : ''}`}
-              {(r.breakfast || r.lunch || r.dinner) && ` · ${[r.breakfast, r.lunch, r.dinner].filter(Boolean).join(' / ')}`}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+// （打卡功能已按用户要求移除，以后需要可再加；"值得记录"交由「今日小记」承担）
 
 const TodayDiaryView = () => {
   const [diaries, setDiaries] = useState([])
@@ -511,11 +454,9 @@ const DiaryRoom = ({ onBack, navReq, onNavConsumed }) => {
   const items = [
     { key: 'today', icon: '📖', title: '今日日记', desc: '钟泽 ✍️ + 泠泠 ✍️' },
     { key: 'history', icon: '📚', title: '往日日记', desc: '按日期翻看我们写过的' },
-    { key: 'checkin', icon: '✅', title: '今日打卡', desc: '作息与状态' },
   ]
   if (view === 'today') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📖 今日日记</h3><TodayDiaryView /></div>
   if (view === 'history') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📚 往日日记</h3><HistoryDiaryView /></div>
-  if (view === 'checkin') return <div className="life-room"><LifeBackBtn label="日记" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>✅ 今日打卡</h3><CheckinView /></div>
   return (
     <div className="life-room">
       <LifeBackBtn label="LIFE" onBack={onBack} />
@@ -710,8 +651,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }, [])
   const [pendingAuth, setPendingAuth] = useState(null)
   const pendingAuthResolve = useRef(null)
-  const AUTO_SEND_DELAY = 10000
-  const autoSendTimer = useRef(null)
+  const sleepTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
   // 附件菜单（+ 按钮）：选图 → 压缩 → 识图（小家眼睛）→ 描述进输入框
   const [attachOpen, setAttachOpen] = useState(false)
@@ -991,8 +931,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     }
   }
 
-  const stopGen = () => { stopRequestedRef.current = true; abortRef.current?.abort() }
-  const handleSend = async () => { if (autoSendTimer.current) clearTimeout(autoSendTimer.current); if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
+  const stopGen = () => { if (sleepTimer.current) clearTimeout(sleepTimer.current); stopRequestedRef.current = true; abortRef.current?.abort() }
+  const handleSend = async () => { if (!inputText.trim() || loading) return; const ut = inputText.trim(); setInputText(''); if (chatInputRef.current) chatInputRef.current.style.height = 'auto'; setLoading(true); await new Promise(r => { sleepTimer.current = setTimeout(r, 5000) }); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); try { await runChatTurn([...msgList, um], uidA) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -1143,13 +1083,11 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           ref={chatInputRef}
           className="input chat-input"
           rows={1}
-          placeholder={Object.values(mcpAuth).some(Boolean) ? "MCP 已开启，AI 可调用工具…" : "写点什么...（停顿 " + (AUTO_SEND_DELAY / 1000) + " 秒自动发送）"}
+          placeholder={Object.values(mcpAuth).some(Boolean) ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
           value={inputText}
           onChange={(e) => {
             setInputText(e.target.value)
             resizeChatInput(e.target)
-            if (autoSendTimer.current) clearTimeout(autoSendTimer.current)
-            if (e.target.value.trim() && !loading) autoSendTimer.current = setTimeout(() => handleSend(), AUTO_SEND_DELAY)
           }}
           disabled={loading}
           style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
