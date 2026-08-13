@@ -321,6 +321,12 @@ const SettingsPanel = () => {
     setShowThinking(n)
     try { localStorage.setItem('show_thinking', String(n)) } catch (_) {}
   }
+  const [showTools, setShowTools] = useState(() => { try { return localStorage.getItem('show_tools') === 'true' } catch { return false } })
+  const toggleTools = () => {
+    const n = !showTools
+    setShowTools(n)
+    try { localStorage.setItem('show_tools', String(n)) } catch (_) {}
+  }
   const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }
   const [auth, setAuth] = useState(loadMcpAuth)
   useEffect(() => { const h = () => setAuth(loadMcpAuth()); window.addEventListener(MCP_AUTH_EVENT, h); return () => window.removeEventListener(MCP_AUTH_EVENT, h) }, [])
