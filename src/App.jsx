@@ -937,7 +937,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
       rounds++
       const results = []
-      setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: curFt || '🔧 调用工具…', loading: false, toolCalls: curTcs.map(tc => ({ ...tc, result: '' })) } : m))
+      setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: curFt || '', loading: false, toolCalls: curTcs.map(tc => ({ ...tc, result: '' })) } : m))
       for (const tc of curTcs) {
         let r
         const pre = mcpAuthRef.current[tc.name]
