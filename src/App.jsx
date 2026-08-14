@@ -841,9 +841,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   useEffect(() => {
     const el = messagesEndRef.current?.parentElement
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    setStickBottom(near)
-    if (near) el.scrollTop = el.scrollHeight
+    const follow = () => {
+      const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+      setStickBottom(near)
+      // 贴底才跟随：长回复/逐句浮现自动往下滚；上翻历史时不打扰
+      if (near) el.scrollTop = el.scrollHeight
+    }
+    follow()
+    // MutationObserver：内容子节点/文本变化（逐句浮现新气泡、流式续写、新消息插入）也触发跟随，
+    // 不依赖 msgList 引用变化——否则 reveal 冒泡时页面不滚，长消息就得手动翻
+    const mo = new MutationObserver(follow)
+    mo.observe(el, { childList: true, subtree: true, characterData: true })
+    return () => mo.disconnect()
   }, [msgList])
   // 对话内临授权：未授权工具请求时弹出确认，等用户点选后继续/跳过
   const requestToolAuth = (name) => new Promise((resolve) => {
