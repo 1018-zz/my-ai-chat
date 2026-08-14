@@ -718,7 +718,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const iv = setInterval(applyTime, 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [])
-  const [inputText, setInputText] = useState('')
+  // （输入框状态已内聚到 ChatInputBar）
   const [loading, setLoading] = useState(false)
   // —— MCP 工具授权（逐项 + 对话内临授权）：localStorage 为唯一真源，跨组件用事件同步 ——
   const [mcpAuth, setMcpAuth] = useState(loadMcpAuth)
