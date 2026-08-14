@@ -166,6 +166,13 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
   )
 }
 
-// memo：props（msgs 引用/showThinking/expanded/onToggle）不变时跳过重渲染——
-// 打字、loading 切换、菜单开关等不碰消息数据的状态变化，不再连带刷新整条 AI 卡片
-export default memo(RunCard)
+// memo + 自定义比较：run 切片数组每次渲染都是新引用（默认浅比较必失效），
+// 改为逐条比较消息元素引用——元素没变就是真没变，打字/loading 切换/菜单开关都跳过重渲染
+export default memo(RunCard, (prev, next) => {
+  if (prev.showThinking !== next.showThinking || prev.expanded !== next.expanded || prev.onToggle !== next.onToggle) return false
+  const a = prev.msgs, b = next.msgs
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+})
