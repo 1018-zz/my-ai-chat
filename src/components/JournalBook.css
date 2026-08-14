@@ -19,6 +19,9 @@
 /* 册子外层 */
 .journal-book-page,
 .journal-timeline-page {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
   min-height: 100%;
   padding: 20px 20px calc(100px);
   color: var(--journal-ink);

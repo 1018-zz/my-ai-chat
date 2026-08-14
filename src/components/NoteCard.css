@@ -60,7 +60,7 @@
 .note-mask {
   position: fixed;
   inset: 0;
-  background: rgba(74, 58, 46, 0.28);
+  background: rgba(74, 58, 46, 0.5); /* 加深：避免底层首页 UI 透过弹窗缝隙 */
   display: flex;
   justify-content: center;
   align-items: center;
