@@ -441,6 +441,7 @@ const MemoryRoom = ({ onBack }) => {
   const [view, setView] = useState(null)
   if (view === 'moments') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>🖼 Moment 墙</h3><MomentWall /></div>
   if (view === 'notes') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📌 不能丢的时刻</h3><MemPanel /></div>
+  if (view === 'stats') return <div className="life-room room-enter"><LifeBackBtn label="统计" onBack={() => setView(null)} /><StatisticsPage /></div>
   return (
     <div className="life-room room-enter">
       <LifeBackBtn label="LIFE" onBack={onBack} />
