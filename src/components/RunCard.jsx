@@ -13,6 +13,39 @@ import { buildToolSummary } from './ToolGroupCard'
 // 心声标记（[心里嘀咕：...] 或 <!-- 心声：... -->）
 const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]/g
 
+// 逐句浮现：本次生成的消息按节奏一句一句冒出来（像真人连发消息），
+// 流式再快也不怕——生成完仍按 180ms/句 继续冒完；历史消息（挂载时未在流式）直接全显示
+function RevealItems({ items, live }) {
+  const [shown, setShown] = useState(() => (live ? 0 : items.length))
+  const totalRef = useRef(items.length)
+  totalRef.current = items.length
+  const liveRef = useRef(live)
+  useEffect(() => {
+    if (!liveRef.current) return
+    let timer = setInterval(() => {
+      setShown(prev => {
+        if (prev >= totalRef.current) { clearInterval(timer); return prev }
+        return prev + 1
+      })
+    }, 180)
+    return () => clearInterval(timer)
+  }, [])
+  const visible = live ? items.slice(0, shown) : items
+  return visible.map(it => it.kind === 'voice'
+    ? <div key={it.key} className="inner-thought">{it.text}</div>
+    : <div key={it.key} className="msg-bubble"><Markdown>{it.text}</Markdown></div>)
+}
+
+// 把 parts（心声 + 正文混排）展开成统一渲染序列：心声一项，正文每句一项
+function buildItems(parts) {
+  const items = []
+  parts.forEach((p, i) => {
+    if (p.type === 'voice') items.push({ kind: 'voice', key: `v${i}`, text: p.text })
+    else splitSentences(p.text).forEach((s, j) => items.push({ kind: 'bubble', key: `${i}-${j}`, text: s }))
+  })
+  return items
+}
+
 function splitVoiceParts(text) {
   const src = String(text || '')
   const items = []
