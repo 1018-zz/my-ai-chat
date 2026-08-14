@@ -1,0 +1,112 @@
+/* 手账纸张组件 · 设计系统（视觉手账化）
+   新增 token 仅在此文件 :root 扩展，不改动 theme.css 全局色调 */
+
+:root {
+  /* 纸张语义 */
+  --paper-diary: #F7F1E6;   /* 米白纸 · 日记 */
+  --paper-note: #F4E7B2;    /* 淡黄纸 · 纸条 */
+  --paper-memory: #E6E9DC;  /* 淡绿纸 · 记忆 */
+  --paper-record: #ECE8DE;  /* 微灰纸 · 工具/系统记录 */
+
+  /* 墨色 */
+  --ink: #574A3F;
+  --ink-soft: #8C7D70;
+  --ink-faint: #B2A69A;
+
+  /* 手账强调色（小面积点缀） */
+  --sage: #AAB7A0;
+  --terracotta: #B78368;
+  --pencil: #9D948A;
+
+  /* 阴影 / 缓动 */
+  --shadow-paper: 0 8px 24px rgba(70, 55, 40, .10);
+  --shadow-float: 0 16px 40px rgba(70, 55, 40, .14);
+  --ease-paper: cubic-bezier(.22, .8, .25, 1);
+
+  /* 字体 */
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-hand: "LXGW WenKai", "Kaiti SC", "STKaiti", cursive;
+}
+
+/* 极弱纸张纹理（横向规则线 + 极弱噪点，opacity≈.035，不可一眼察觉） */
+.journal-paper {
+  position: relative;
+  width: min(86vw, 460px);
+  padding: 34px 28px 30px;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80, 60, 40, .014) 6px),
+    var(--paper-note);
+  box-shadow: var(--shadow-paper);
+  transform: rotate(-0.7deg);
+  border-radius: 3px 2px 4px 2px;
+  overflow: visible;
+  transition: transform .45s var(--ease-paper), box-shadow .45s var(--ease-paper);
+}
+.journal-paper:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow: var(--shadow-float);
+}
+.journal-paper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 顶部胶带 */
+.journal-paper__tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 92px;
+  height: 25px;
+  transform: translateX(-50%) rotate(-1.5deg);
+  background: rgba(225, 210, 165, .58);
+  box-shadow: 0 1px 3px rgba(80, 60, 40, .06);
+}
+
+.journal-paper__date {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.journal-paper__title {
+  margin: 12px 0 22px;
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.journal-paper__body {
+  font-size: 15px;
+  line-height: 2;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.journal-paper__signature {
+  margin-top: 24px;
+  text-align: right;
+  font-family: var(--font-hand);
+  font-size: 15px;
+  color: var(--ink-soft);
+  transform: rotate(-2deg);
+}
+
+/* 纸张变体 */
+.journal-paper--diary  { background: repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80,60,40,.014) 6px), var(--paper-diary); }
+.journal-paper--note   { background: repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80,60,40,.014) 6px), var(--paper-note); }
+.journal-paper--memory { background: repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80,60,40,.014) 6px), var(--paper-memory); }
+.journal-paper--record { background: repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80,60,40,.014) 6px), var(--paper-record); }
+
+@media (max-width: 375px) {
+  .journal-paper { width: 88vw; padding: 28px 20px 26px; }
+  .journal-paper__title { font-size: 22px; margin: 10px 0 18px; }
+  .journal-paper__body { font-size: 14px; line-height: 1.9; }
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './NoteCard.css'
+import JournalPaper from './JournalPaper'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 
@@ -58,51 +59,53 @@ export default function NoteCard({ onOpenPanel }) {
         )}
       </div>
 
-      {/* 展开浮层 */}
+      {/* 展开浮层：今日小记 = 桌上那页手账纸 */}
       {open && (
         <div className="note-mask" onClick={() => setOpen(false)}>
-          <div className="sticky-note" onClick={(e) => e.stopPropagation()}>
-            <div className="tape" />
-            <div className="note-date">{latest ? `${latest.date} · ${who(latest)}` : '—'}</div>
-            <div className="note-title">今天的小纸条</div>
-
-            {/* 写纸条模式 */}
-            {writing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '10px 0' }}>
+          <div className="note-sheet" onClick={(e) => e.stopPropagation()}>
+            <JournalPaper
+              paper="note"
+              date={latest ? latest.date : '—'}
+              title="今天的小纸条"
+              signature={latest ? who(latest) : undefined}
+            >
+              {writing ? (
                 <textarea
+                  className="note-write"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="想留点什么？像传纸条一样自然就好…"
-                  style={{ width: '100%', minHeight: 64, padding: 8, borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'rgba(255,255,255,0.7)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
                 />
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button className="note-btn" onClick={() => { setWriting(false); setDraft('') }}>算了</button>
-                  <button className="note-btn" style={{ background: 'var(--color-primary)', color: '#fff', border: 'none' }} onClick={submit}>贴上去 📎</button>
-                </div>
-              </div>
-            ) : (
-              <>
+              ) : (
                 <div className="note-content">{latest ? latest.content : '（还没有纸条——想留的时候，就写一张）'}</div>
-                {/* 状态与操作 */}
-                {latest && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-gray)' }}>
-                    {latest.status === 'pending' && latest.source === 'ai' && (
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button className="note-btn" onClick={() => decide(latest.id, 'saved')}>收到 ✨</button>
-                        <button className="note-btn" onClick={() => decide(latest.id, 'discarded')}>不要 🌬</button>
-                      </div>
-                    )}
-                    {latest.status === 'pending' && latest.source === 'user' && <span>⏳ 钟泽还没看这张</span>}
-                    {latest.status === 'saved' && <span>✨ 已收下（{latest.decided_by === 'user' ? '你收的' : '钟泽收的'}）</span>}
-                    {latest.status === 'discarded' && <span>🌬 已飘走</span>}
-                  </div>
-                )}
-              </>
-            )}
+              )}
+              {latest && (
+                <div className="note-status">
+                  {latest.status === 'pending' && latest.source === 'user' && '⏳ 钟泽还没看这张'}
+                  {latest.status === 'saved' && `✨ 已收下（${latest.decided_by === 'user' ? '你收的' : '钟泽收的'}）`}
+                  {latest.status === 'discarded' && '🌬 已飘走'}
+                </div>
+              )}
+            </JournalPaper>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'space-between' }}>
-              <button className="note-btn" onClick={() => setWriting(true)}>✍ 写一张</button>
-              <button className="note-btn" onClick={onOpenPanel}>📖 今日小记{pendingCount > 0 ? `（${pendingCount}）` : ''}</button>
+            {/* 操作收成轻量书签，不堆在纸面上 */}
+            <div className="note-bookmarks">
+              {!writing && latest && latest.status === 'pending' && latest.source === 'ai' && (
+                <>
+                  <button className="note-bookmark" onClick={() => decide(latest.id, 'saved')}>收到 ✨</button>
+                  <button className="note-bookmark" onClick={() => decide(latest.id, 'discarded')}>不要 🌬</button>
+                </>
+              )}
+              {writing && (
+                <>
+                  <button className="note-bookmark" onClick={() => { setWriting(false); setDraft('') }}>算了</button>
+                  <button className="note-bookmark note-bookmark--solid" onClick={submit}>贴上去 📎</button>
+                </>
+              )}
+              {!writing && (
+                <button className="note-bookmark" onClick={() => setWriting(true)}>✍ 写一张</button>
+              )}
+              <button className="note-bookmark" onClick={onOpenPanel}>📖 今日小记{pendingCount > 0 ? `（${pendingCount}）` : ''}</button>
             </div>
           </div>
         </div>
