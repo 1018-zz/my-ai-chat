@@ -736,7 +736,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
-  const toggleRun = (id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleRun = useCallback((id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }), [])
   const [showThinking, setShowThinking] = useState(() => { try { return localStorage.getItem('show_thinking') === 'true' } catch { return false } })
   // 工具详情默认展开开关（LIFE→设置→工具详情；默认折叠，开=思考+工具卡自动展开）
   const [showTools, setShowTools] = useState(() => { try { return localStorage.getItem('show_tools') === 'true' } catch { return false } })
