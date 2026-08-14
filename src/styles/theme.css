@@ -1075,3 +1075,40 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   border-width: 0 0 16px 16px;
   border-color: transparent transparent rgba(200, 180, 120, 0.3) transparent;
 }
+
+/* ════════════════════════════════════════════════════════════
+   统计页（StatisticsPage）
+   ════════════════════════════════════════════════════════════ */
+.stat-page { padding: 2px 2px 32px; }
+.stat-heatmap {
+  background: var(--color-card-glass);
+  border: 1px solid var(--color-border-glass);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 10px;
+  backdrop-filter: var(--glass-blur);
+}
+.stat-heat-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--color-text-gray); margin-bottom: 12px; }
+.stat-heat-grid { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 2px; }
+.stat-heat-col { display: flex; flex-direction: column; gap: 3px; }
+.stat-heat-cell { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.stat-heat-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 10px; font-size: 10px; color: var(--color-text-gray); }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.stat-card {
+  background: var(--color-card-glass);
+  border: 1px solid var(--color-border-glass);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  backdrop-filter: var(--glass-blur);
+}
+.stat-card-label { font-size: 12px; color: var(--color-text-gray); }
+.stat-card-num { margin-top: 6px; font-size: 22px; font-weight: 700; color: var(--color-text-dark); letter-spacing: 0.5px; }
+.stat-placeholder {
+  margin-top: 14px;
+  border: 1px dashed var(--color-border-glass);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-gray);
+  background: rgba(255, 255, 255, 0.25);
+}
