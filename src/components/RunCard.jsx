@@ -155,9 +155,7 @@ export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
               : isTiny
                 ? <div className="chat-process-note">{fullText}</div>
                 : parts.length > 0
-                  ? parts.map((p, i) => p.type === 'voice'
-                      ? <div key={i} className="inner-thought">{p.text}</div>
-                      : splitSentences(p.text).map((s, j) => <div key={`${i}-${j}`} className="msg-bubble"><Markdown>{s}</Markdown></div>))
+                  ? <RevealItems items={buildItems(parts)} live={live} />
                   : null}
             {draft && <DiaryConfirmCard draft={draft} msgId={m.id} />}
           </Fragment>
