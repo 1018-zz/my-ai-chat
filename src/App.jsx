@@ -463,6 +463,14 @@ const MemoryRoom = ({ onBack }) => {
           </div>
           <span style={{ color: 'var(--color-text-gray)' }}>→</span>
         </div>
+        <div className="life-card" onClick={() => setView('stats')}>
+          <span className="life-card-icon">📊</span>
+          <div style={{ flex: 1 }}>
+            <div className="life-card-title">统计</div>
+            <div className="life-card-desc">我们的聊天足迹</div>
+          </div>
+          <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+        </div>
       </div>
     </div>
   )
