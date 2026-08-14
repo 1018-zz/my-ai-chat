@@ -147,16 +147,13 @@ export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
         const { draft, text: textNoDraft } = extractDiaryDraft(m.text)
         const parts = splitVoiceParts(textNoDraft)
         const fullText = parts.map(p => p.text).join('').trim()
-        const isTiny = !!fullText && !m.loading && fullText.length <= 24 && !draft && !hasTools
         return (
           <Fragment key={m.id}>
             {m.loading && !fullText
               ? <div className="msg-typing"><span className="dot" /><span className="dot" /><span className="dot" /></div>
-              : isTiny
-                ? <div className="chat-process-note">{fullText}</div>
-                : parts.length > 0
-                  ? <RevealItems items={buildItems(parts)} live={live} />
-                  : null}
+              : parts.length > 0
+                ? <RevealItems items={buildItems(parts)} live={live} />
+                : null}
             {draft && <DiaryConfirmCard draft={draft} msgId={m.id} />}
           </Fragment>
         )
