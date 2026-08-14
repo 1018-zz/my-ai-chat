@@ -1,10 +1,9 @@
 // src/components/RunCard.jsx
 // 一次 AI 回复（可能跨多个工具轮）统一渲染成一张卡片：
 // 运行中显示轻量工作台状态；完成后折叠成归档条；展开看思考 + 工具时间线；
-// 正文始终可见——每条 assistant 消息按标点拆成多个气泡（一句一泡，像连发几句），心声单独成便签。
-import { Fragment, memo, useEffect, useRef, useState } from 'react'
+// 正文始终可见——每条 assistant 消息按 \n\n 拆成段落，在单卡片内错落浮现（段落呼吸），心声单独成便签。
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import Markdown from './Markdown'
-import { splitSentences } from '../utils/splitText'
 import { ThinkingCard, ToolCard, paperCard } from './Cards'
 import DiaryConfirmCard from './DiaryConfirmCard'
 import { fmtMsgTime } from '../utils/time'
@@ -13,37 +12,71 @@ import { buildToolSummary } from './ToolGroupCard'
 // 心声标记（[心里嘀咕：...] 或 <!-- 心声：... -->）
 const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]/g
 
-// 逐句浮现：本次生成的消息按节奏一句一句冒出来（像真人连发消息），
-// 流式再快也不怕——生成完仍按 180ms/句 继续冒完；历史消息（挂载时未在流式）直接全显示
-function RevealItems({ items, live }) {
-  const [shown, setShown] = useState(() => (live ? 0 : items.length))
-  const totalRef = useRef(items.length)
-  totalRef.current = items.length
+// 段落呼吸：单卡片内按 \n\n 切成段落，逐段错落浮现（像一个人慢慢说），不再拆成多个气泡。
+// 流式再快也不怕——生成完仍按呼吸节奏把剩余段落补冒完；历史消息（挂载时未在流式）直接全显示。
+function delayFor(t) {
+  const n = (t || '').length
+  if (n < 12) return 480 + Math.random() * 520
+  if (n < 40) return 720 + Math.random() * 680
+  return 920 + Math.min(n, 120) * 22
+}
+// 把 parts（心声 + 正文混排）展开成分段序列：心声一项，正文按 \n\n 分成段落（单气泡内多段）
+function buildSegs(parts) {
+  const segs = []
+  let buf = []
+  const flush = () => { if (buf.length) { segs.push({ kind: 'bubble', paras: buf }); buf = [] } }
+  for (const p of parts) {
+    if (p.type === 'voice') { flush(); segs.push({ kind: 'voice', text: p.text }) }
+    else String(p.text).split(/\n\n+/).map(s => s.trim()).filter(Boolean).forEach(t => buf.push(t))
+  }
+  flush()
+  return segs
+}
+
+function RevealCard({ parts, live }) {
+  const segs = useMemo(() => buildSegs(parts), [parts])
+  const units = useMemo(() => {
+    const u = []
+    segs.forEach((s, si) => {
+      if (s.kind === 'voice') u.push({ seg: si, kind: 'voice' })
+      else s.paras.forEach((text, pi) => u.push({ seg: si, kind: 'para', pi, text }))
+    })
+    return u
+  }, [segs])
+  const [shown, setShown] = useState(() => (live ? 0 : units.length))
+  const totalRef = useRef(units.length); totalRef.current = units.length
   const liveRef = useRef(live)
   useEffect(() => {
     if (!liveRef.current) return
-    let timer = setInterval(() => {
+    let timer
+    const tick = () => {
       setShown(prev => {
-        if (prev >= totalRef.current) { clearInterval(timer); return prev }
-        return prev + 1
+        if (prev >= totalRef.current) return prev
+        const next = prev + 1
+        const u = units[next - 1]
+        timer = setTimeout(tick, delayFor(u?.text))
+        return next
       })
-    }, 180)
-    return () => clearInterval(timer)
+    }
+    timer = setTimeout(tick, 520)
+    return () => clearTimeout(timer)
   }, [])
-  const visible = live ? items.slice(0, shown) : items
-  return visible.map(it => it.kind === 'voice'
-    ? <div key={it.key} className="inner-thought">{it.text}</div>
-    : <div key={it.key} className="msg-bubble"><Markdown>{it.text}</Markdown></div>)
-}
-
-// 把 parts（心声 + 正文混排）展开成统一渲染序列：心声一项，正文每句一项
-function buildItems(parts) {
-  const items = []
-  parts.forEach((p, i) => {
-    if (p.type === 'voice') items.push({ kind: 'voice', key: `v${i}`, text: p.text })
-    else splitSentences(p.text).forEach((s, j) => items.push({ kind: 'bubble', key: `${i}-${j}`, text: s }))
+  const visibleCount = live ? shown : units.length
+  let gi = 0
+  return segs.map((s, si) => {
+    if (s.kind === 'voice') {
+      const idx = gi; gi += 1
+      return (!live || idx < visibleCount) ? <div key={si} className="inner-thought">{s.text}</div> : null
+    }
+    const start = gi; gi += s.paras.length
+    const paras = s.paras.filter((_, pi) => { const idx = start + pi; return !live || idx < visibleCount })
+    if (!paras.length) return null
+    return (
+      <div key={si} className="msg-bubble">
+        {paras.map((t, pi) => <p key={pi} className="breath-para"><Markdown>{t}</Markdown></p>)}
+      </div>
+    )
   })
-  return items
 }
 
 function splitVoiceParts(text) {
@@ -142,7 +175,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
           })}
         </div>
       )}
-      {/* 正文：每条 assistant 消息一气泡（仅原生换行），心声单独成便签 */}
+      {/* 正文：每条 assistant 消息在单卡片内按 \n\n 分段落呼吸浮现，心声单独成便签 */}
       {msgs.map((m) => {
         const { draft, text: textNoDraft } = extractDiaryDraft(m.text)
         const parts = splitVoiceParts(textNoDraft)
@@ -152,7 +185,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
             {m.loading && !fullText
               ? <div className="msg-typing"><span className="dot" /><span className="dot" /><span className="dot" /></div>
               : parts.length > 0
-                ? <RevealItems items={buildItems(parts)} live={live} />
+                ? <RevealCard parts={parts} live={live} />
                 : null}
             {draft && <DiaryConfirmCard draft={draft} msgId={m.id} />}
           </Fragment>

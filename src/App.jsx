@@ -11,11 +11,12 @@ import NotePanel from './components/NotePanel'
 import CompressionRoom from './components/CompressionRoom'
 import WallpaperSettings from './components/WallpaperSettings'
 import { buildSystemPrompt } from './project/instructions'
-import { MCP_TOOLS, loadMcpAuth, saveMcpAuth, MCP_AUTH_EVENT } from './utils/mcpAuth'
+import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import Markdown from './components/Markdown'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
+import './styles/chat-tweaks.css'
 
 // ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
 const ActionIcons = {
@@ -333,7 +334,57 @@ const SettingsPanel = () => {
   const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }
   const [auth, setAuth] = useState(loadMcpAuth)
   useEffect(() => { const h = () => setAuth(loadMcpAuth()); window.addEventListener(MCP_AUTH_EVENT, h); return () => window.removeEventListener(MCP_AUTH_EVENT, h) }, [])
-  const toggleTool = (key) => { const n = toggleMcpTool(auth, key); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
+  const labelOf = Object.fromEntries(MCP_TOOLS.map(t => [t.key, t.label]))
+  const [toolView, setToolView] = useState(false)
+  const [expanded, setExpanded] = useState(null)
+  const setMode = (key, mode) => { const n = setMcpToolMode(auth, key, mode); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
+
+  // —— 「钟泽能做什么」：按用途分组，默认只显示状态，点击展开选项 ——
+  if (toolView) {
+    return (
+      <div>
+        <LifeBackBtn label="工具与权限" onBack={() => { setToolView(false); setExpanded(null) }} />
+        <h3 style={{ color: 'var(--color-primary)' }}>钟泽能做什么</h3>
+        <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 4 }}>这些事情，他可以在需要的时候帮你完成。</p>
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {TOOL_GROUPS.map(g => (
+            <div key={g.key} style={cardStyle}>
+              <div style={{ fontSize: 14, marginBottom: 2 }}>{g.emoji} {g.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8 }}>{g.desc}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {g.tools.map(k => {
+                  const mode = auth[k] || 'ask'
+                  const open = expanded === k
+                  return (
+                    <div key={k} style={{ borderRadius: 10, background: open ? 'rgba(145,107,78,0.06)' : 'transparent', padding: open ? '8px 10px' : 0 }}>
+                      <div onClick={() => setExpanded(open ? null : k)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '7px 2px' }}>
+                        <span style={{ fontSize: 13 }}>{labelOf[k]}</span>
+                        <span style={{ fontSize: 12, color: mode === 'always' ? 'var(--color-primary)' : 'var(--color-text-gray)' }}>{MODE_LABEL[mode]} ›</span>
+                      </div>
+                      {open && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingBottom: 2 }}>
+                          {['ask', 'always', 'never'].map(opt => (
+                            <button key={opt} onClick={() => { setMode(k, opt); setExpanded(null) }} style={{
+                              flex: 1, padding: '7px 0', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 12,
+                              background: mode === opt ? 'var(--color-primary)' : 'rgba(145,107,78,0.12)',
+                              color: mode === opt ? '#fff' : 'var(--color-text-gray)', transition: 'all .2s',
+                            }}>{MODE_LABEL[opt]}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // —— 首页卡片：只留一个「工具与权限」入口（工具再多也不膨胀）——
+  const recents = MCP_TOOLS.slice(0, 3)
   return (
     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={cardStyle}>
@@ -362,20 +413,25 @@ const SettingsPanel = () => {
           }}>{showTools ? '开' : '关'}</button>
         </div>
       </div>
-      <div style={cardStyle}>
-        <div style={{ fontSize: 14, marginBottom: 4 }}>🔧 工具授权</div>
-        <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 10 }}>逐项开关 MCP 工具；关闭后对话中调用会向你确认</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {MCP_TOOLS.map(t => (
-            <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 13 }}>{t.label}</span>
-              <button onClick={() => toggleTool(t.key)} style={{
-                minWidth: 48, padding: '5px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13,
-                background: auth[t.key] ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
-                color: auth[t.key] ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
-              }}>{auth[t.key] ? '开' : '关'}</button>
-            </div>
-          ))}
+      <div style={{ ...cardStyle, cursor: 'pointer' }} onClick={() => setToolView(true)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14 }}>工具与权限</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>让钟泽知道哪些事情可以自己做</div>
+          </div>
+          <span style={{ fontSize: 18, color: 'var(--color-text-gray)' }}>›</span>
+        </div>
+        <div style={{ marginTop: 10, borderTop: '1px solid var(--color-border-glass)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {recents.map(t => {
+            const mode = auth[t.key] || 'ask'
+            return (
+              <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: 'var(--color-text-gray)' }}>{t.label}</span>
+                <span style={{ color: mode === 'always' ? 'var(--color-primary)' : 'var(--color-text-gray)' }}>{MODE_LABEL[mode]}</span>
+              </div>
+            )
+          })}
+          <div style={{ fontSize: 11, color: 'var(--color-text-gray)', marginTop: 4, opacity: 0.7 }}>第一次使用工具时，钟泽会先问你</div>
         </div>
       </div>
     </div>
@@ -731,6 +787,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }, [])
   const [pendingAuth, setPendingAuth] = useState(null)
   const pendingAuthResolve = useRef(null)
+  const sessionAuthRef = useRef({})
   const sleepTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
   // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
@@ -825,19 +882,25 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     return () => mo.disconnect()
   }, [msgList])
   // 对话内临授权：未授权工具请求时弹出确认，等用户点选后继续/跳过
+  // 返回 'once'（本次会话允许）/ 'always'（持久允许）/ 'deny'（仅本次跳过，不持久）
   const requestToolAuth = (name) => new Promise((resolve) => {
     pendingAuthResolve.current = resolve
     const meta = MCP_TOOLS.find(t => t.key === name)
     setPendingAuth({ name, label: meta ? meta.label : name })
   })
-  const onAllowTool = () => { const r = pendingAuthResolve.current; pendingAuthResolve.current = null; setPendingAuth(null); r && r(true) }
-  const onDenyTool = () => {
-    const name = pendingAuth?.name
+  const resolveAuth = (decision) => {
     const r = pendingAuthResolve.current
     pendingAuthResolve.current = null
-    if (name) { const n = { ...mcpAuthRef.current, [name]: false }; saveMcpAuth(n); setMcpAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
-    setPendingAuth(null); r && r(false)
+    setPendingAuth(null)
+    r && r(decision)
   }
+  const onAllowOnce = () => resolveAuth('once')
+  const onAllowAlways = () => {
+    const name = pendingAuth?.name
+    if (name) { const n = { ...mcpAuthRef.current, [name]: 'always' }; saveMcpAuth(n); setMcpAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
+    resolveAuth('always')
+  }
+  const onDenyOnce = () => resolveAuth('deny')
   const uid = () => { nextId.current += 1; return nextId.current }
 
   const executeMcp = async (tc) => {
@@ -959,7 +1022,16 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       for (const tc of curTcs) {
         let r
         const pre = mcpAuthRef.current[tc.name]
-        const allowed = pre === true ? true : pre === false ? false : await requestToolAuth(tc.name)
+        let allowed
+        if (sessionAuthRef.current[tc.name] === true) allowed = true          // 本次会话已允许（允许一次）
+        else if (pre === 'always') allowed = true                            // 永久允许
+        else if (pre === 'never') allowed = false                            // 永久禁止
+        else {
+          const decision = await requestToolAuth(tc.name)                    // ask → 弹窗
+          if (decision === 'once') { sessionAuthRef.current[tc.name] = true; allowed = true }
+          else if (decision === 'always') allowed = true
+          else allowed = false
+        }
         if (allowed) { try { r = await executeMcp(tc) } catch (e) { r = `执行失败: ${e.message}` } }
         else { r = '(工具未授权，已跳过)' }
         const truncated = r.length > TOOL_OUTPUT_LIMIT
@@ -1128,15 +1200,16 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       {/* 对话内工具临授权确认卡 */}
       {pendingAuth && (
         <div style={{ margin: '0 12px 10px', padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,184,166,0.5)', background: 'linear-gradient(180deg,#FFF9EF,#F6EDDA)', boxShadow: '0 6px 18px rgba(80,60,40,0.12)', fontSize: 13, color: 'var(--color-text-dark)' }}>
-          <div>🌿 钟泽想调用「{pendingAuth.label}」工具</div>
-          <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 2 }}>允许本次使用吗？（拒绝后将记住，不再询问该工具）</div>
+          <div>🌿 钟泽想做一件事：{pendingAuth.label}</div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 2 }}>需要你点一下允许，他才能接着做。</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={onAllowTool} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'var(--color-primary)', color: '#fff', fontSize: 13 }}>允许本次</button>
-            <button onClick={onDenyTool} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(201,184,166,0.5)', cursor: 'pointer', background: 'transparent', color: 'var(--color-text-gray)', fontSize: 13 }}>拒绝</button>
+            <button onClick={onAllowOnce} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'rgba(145,107,78,0.12)', color: 'var(--color-text-gray)', fontSize: 13 }}>允许一次</button>
+            <button onClick={onAllowAlways} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'var(--color-primary)', color: '#fff', fontSize: 13 }}>以后允许</button>
+            <button onClick={onDenyOnce} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(201,184,166,0.5)', cursor: 'pointer', background: 'transparent', color: 'var(--color-text-gray)', fontSize: 13 }}>这次不用</button>
           </div>
         </div>
       )}
-      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(Boolean)} onSend={handleSend} onStop={stopGen} />
+      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} />
     </div>
   )
 }
@@ -1211,8 +1284,6 @@ export default function App() {
     <div className="page-wrap">
       {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
       <div className="wallpaper-layer" />
-      <div className="warm-light" />
-      <div className="room-vignette" />
       <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat
