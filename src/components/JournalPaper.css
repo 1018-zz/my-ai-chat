@@ -39,14 +39,44 @@
     repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80, 60, 40, .010) 6px),
     var(--paper-note);
   box-shadow: var(--shadow-paper);
-  transform: rotate(-0.5deg);
   border-radius: 2px 3px 2px 4px;
   overflow: visible;
   transition: transform .45s var(--ease-paper), box-shadow .45s var(--ease-paper);
 }
-.journal-paper:hover {
+
+/* 三态：today(桌面) / full(阅读) / preview(折叠摘要) */
+.journal-paper--mode-today {
+  transform: rotate(-0.5deg);
+}
+.journal-paper--mode-today:hover {
   transform: rotate(0deg) translateY(-1px);
   box-shadow: var(--shadow-float);
+}
+.journal-paper--mode-full {
+  transform: none;
+  box-shadow: var(--shadow-paper);
+}
+.journal-paper--mode-preview {
+  transform: none;
+  width: 100%;
+  padding: 18px 18px 16px;
+  box-shadow: 0 2px 8px rgba(70, 55, 40, .04);
+}
+.journal-paper--mode-preview .journal-paper__title {
+  margin: 6px 0 10px;
+  font-size: 17px;
+}
+.journal-paper--mode-preview .journal-paper__body {
+  font-size: 13px;
+  line-height: 1.7;
+  -webkit-line-clamp: 3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.journal-paper--mode-preview .journal-paper__signature {
+  margin-top: 12px;
+  font-size: 13px;
 }
 .journal-paper::after {
   content: "";
@@ -111,4 +141,5 @@
   .journal-paper { width: 88vw; padding: 28px 20px 26px; }
   .journal-paper__title { font-size: 22px; margin: 10px 0 18px; }
   .journal-paper__body { font-size: 14px; line-height: 1.9; }
+  .journal-paper--mode-preview { padding: 16px 16px 14px; }
 }
