@@ -1245,7 +1245,7 @@ export default function App() {
         const exists = homeId && arr.some(c => c.id === homeId)
         if (!exists) {
           let home = arr[0]
-          if (!home) { const { id } = await createConversation('钟泽 💛'); home = { id, title: '钟泽 💛' } }
+          if (!home) { const { id } = await createConversation('钟泽 💛'); stats.newConversation(); home = { id, title: '钟泽 💛' } }
           localStorage.setItem('home_conv_id', home.id)
           if (!currentChat) {
             const c = { id: home.id, title: home.title || '钟泽' }
