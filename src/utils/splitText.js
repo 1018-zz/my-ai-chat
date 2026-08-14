@@ -56,6 +56,12 @@ function splitLineByPunct(line) {
     cur += ch
     i++
   }
+  // 行尾无主省略号：回填到前句末尾（"一定是。……"→ 并成一泡）；整行只有省略号则保留
+  if (pendingDots) {
+    if (out.length) out[out.length - 1] += pendingDots
+    else if (pendingDots.trim()) out.push(pendingDots)
+    pendingDots = ''
+  }
   const tail = cur.trim()
   if (tail) out.push(tail)
   // 纯符号残句并入前句（防止句尾 emoji 被单独切成空段落）
