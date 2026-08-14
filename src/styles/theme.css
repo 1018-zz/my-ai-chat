@@ -491,6 +491,14 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
 /* ════════════════════════════════════════════════════════════
    长文本折叠（手帐折角风格）
    ════════════════════════════════════════════════════════════ */
+/* 气泡浮现动画：新句子挂载时轻轻浮起（连发消息的节奏感） */
+.msg-bubble {
+  animation: bubbleIn 0.22s ease both;
+}
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
 .msg-bubble.msg-folded {
   display: -webkit-box;
   -webkit-line-clamp: 6;
