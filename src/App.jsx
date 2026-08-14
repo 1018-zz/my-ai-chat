@@ -733,49 +733,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const pendingAuthResolve = useRef(null)
   const sleepTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
-  // 附件菜单（+ 按钮）：选图 → 压缩 → 识图（小家眼睛）→ 描述进输入框
-  const [attachOpen, setAttachOpen] = useState(false)
-  const [attaching, setAttaching] = useState(false)
-  const fileInputRef = useRef(null)
-  const chatInputRef = useRef(null)
-  // 输入框随内容自动增高（上限后内部滚动），避免长文本横向一条过去
-  const resizeChatInput = (el) => {
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-  }
-  // 图片压缩：最大边 512px，quality 0.7——识图够用，base64 不会太大
-  const compressImage = (file, maxSize = 512, quality = 0.7) => new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const img = new Image()
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.max(1, Math.round(img.width * scale))
-        canvas.height = Math.max(1, Math.round(img.height * scale))
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/jpeg', quality))
-      }
-      img.onerror = () => reject(new Error('img load failed'))
-      img.src = ev.target.result
-    }
-    reader.onerror = () => reject(new Error('read failed'))
-    reader.readAsDataURL(file)
-  })
-  const handlePickImage = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file || attaching) return
-    setAttachOpen(false); setAttaching(true)
-    try {
-      const b64 = await compressImage(file)
-      const res = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'describe_image', arguments: { image: b64 } }, id: 1 }) })
-      const d = await res.json()
-      const desc = d.result?.content?.[0]?.text || d.error?.message || '（识图失败）'
-      setInputText(p => (p ? p + '\n' : '') + `[图片] ${desc}`)
-    } catch (_) { setInputText(p => (p ? p + '\n' : '') + '[图片]（识别失败：网络或眼睛没配好）') } finally { setAttaching(false) }
-  }
+  // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
   const toggleRun = (id) => setExpandedRuns(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
