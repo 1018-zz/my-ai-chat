@@ -65,10 +65,18 @@
   -webkit-backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
-  align-items: center;
-  z-index: 999;
+  align-items: safe center; /* 内容比视口高时回退到顶部对齐，避免上下被裁且滑不动 */
+  overflow-y: auto;
+  overflow-x: hidden; /* 防止入场动画 translateX 短暂出现横向滚动条；同时作为 sticky 的滚动容器 */
+  -webkit-overflow-scrolling: touch;
+  z-index: 800; /* 弹层基础层：高于页面内容(page-wrap 3 / 底栏 99)，低于聊天长按菜单(999/1000) */
   animation: note-fade 0.25s var(--ease-soft);
 }
+
+/* 弹层递进层级（显式意图，不依赖 DOM 顺序）：
+   纸条 800 → 手账册 810 → 整理面板 820 → 聊天菜单 overlay 999 / menu 1000 */
+.note-mask--journal { z-index: 810; } /* 手账册：从纸条打开，始终压在纸条之上 */
+.note-mask--panel { z-index: 820; }   /* 整理面板：顶层收纳抽屉 */
 
 /* —— 今日小记纸面容器 + 书签 —— */
 .note-sheet {

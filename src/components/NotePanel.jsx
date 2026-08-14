@@ -56,7 +56,7 @@ export default function NotePanel({ onClose }) {
   }[tab]
 
   return (
-    <div className="note-mask" onClick={onClose}>
+    <div className="note-mask note-mask--panel" onClick={onClose}>
       <div className="note-panel" onClick={(e) => e.stopPropagation()}>
         <div className="note-panel__tape" />
         <div className="note-panel__head">
