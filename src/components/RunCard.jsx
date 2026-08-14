@@ -2,7 +2,7 @@
 // 一次 AI 回复（可能跨多个工具轮）统一渲染成一张卡片：
 // 运行中显示轻量工作台状态；完成后折叠成归档条；展开看思考 + 工具时间线；
 // 正文始终可见——每条 assistant 消息按标点拆成多个气泡（一句一泡，像连发几句），心声单独成便签。
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Markdown from './Markdown'
 import { splitSentences } from '../utils/splitText'
 import { ThinkingCard, ToolCard, paperCard } from './Cards'
