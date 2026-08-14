@@ -605,7 +605,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   }
   useEffect(() => { refresh() }, [refreshTrigger, homeConvId])
   const handleCreate = async () => {
-    try { const { id } = await createConversation('新对话'); refresh(); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
+    try { const { id } = await createConversation('新对话'); stats.newConversation(); refresh(); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
   }
   const handleDelete = async (e, convId) => { e.stopPropagation(); if (convId === homeConvId) return; await deleteConversation(convId); refresh() }
   const setHome = (e, convId) => {
