@@ -1202,6 +1202,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
+  // 应用启动埋点（本地统计）
+  useEffect(() => { stats.launch() }, [])
   // 环境层初始化：读 localStorage 应用壁纸变量（壁纸设置组件也会写，这里是首屏就生效）
   useEffect(() => {
     try {
