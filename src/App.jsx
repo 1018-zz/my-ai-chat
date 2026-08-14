@@ -1136,34 +1136,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           </div>
         </div>
       )}
-      <div className="chat-input-bar" style={{ alignItems: 'flex-end' }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching} title="添加图片">{attaching ? '⏳' : '＋'}</button>
-          {attachOpen && (
-            <div className="attach-menu">
-              <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
-              <div className="attach-item attach-disabled">📎 文件（开发中）</div>
-            </div>
-          )}
-          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePickImage} />
-        </div>
-        <textarea
-          ref={chatInputRef}
-          className="input chat-input"
-          rows={1}
-          placeholder={Object.values(mcpAuth).some(Boolean) ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
-          value={inputText}
-          onChange={(e) => {
-            setInputText(e.target.value)
-            resizeChatInput(e.target)
-          }}
-          disabled={loading}
-          style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
-        />
-        {loading
-          ? <button className="btn" onClick={stopGen} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
-          : <button className="btn" onClick={handleSend} disabled={loading || !inputText.trim()}>发送</button>}
-      </div>
+      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(Boolean)} onSend={handleSend} onStop={stopGen} />
     </div>
   )
 }
