@@ -106,7 +106,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
       {/* 完成态归档条：抽屉拉手——点一下翻开工作台 */}
       {canFold && !running && (
         <div
-          onClick={onToggle}
+          onClick={() => onToggle(msgs[0]?.id)}
           style={{ ...paperCard, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}
         >
           <span style={{ opacity: 0.9, lineHeight: 1.6 }}>
