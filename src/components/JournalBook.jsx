@@ -63,6 +63,13 @@ export default function JournalBook({ onClose }) {
 
   useEffect(() => { refresh() }, [])
 
+  /* 结构性修复：抽屉打开时锁底层滚动，避免首页在底下偷偷滚 */
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
   const months = useMemo(() => buildJournal(notes), [notes])
   const totalKept = useMemo(
     () => months.reduce((s, m) => s + m.count, 0),

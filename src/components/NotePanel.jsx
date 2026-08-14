@@ -18,6 +18,13 @@ export default function NotePanel({ onClose }) {
 
   useEffect(() => { refresh() }, [])
 
+  /* 抽屉打开时锁底层滚动 */
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
   const list = notes.filter(n => n.status === tab)
 
   const decide = async (id, status) => {

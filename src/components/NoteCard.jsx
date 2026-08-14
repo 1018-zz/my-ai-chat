@@ -22,6 +22,14 @@ export default function NoteCard({ onOpenPanel }) {
 
   useEffect(() => { refresh() }, [])
 
+  /* 展开今日小记时锁底层滚动 */
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
   const latest = notes[0]
   const pendingCount = counts.pending || 0
 

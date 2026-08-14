@@ -60,7 +60,9 @@
 .note-mask {
   position: fixed;
   inset: 0;
-  background: rgba(74, 58, 46, 0.5); /* 加深：避免底层首页 UI 透过弹窗缝隙 */
+  background: rgba(40, 33, 26, 0.32); /* 淡暖棕灰，保留小家温柔感 */
+  backdrop-filter: blur(3px); /* 模糊底层：阻断文字穿透，而非单纯压暗 */
+  -webkit-backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
   align-items: center;
