@@ -165,3 +165,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
     </div>
   )
 }
+
+// memo：props（msgs 引用/showThinking/expanded/onToggle）不变时跳过重渲染——
+// 打字、loading 切换、菜单开关等不碰消息数据的状态变化，不再连带刷新整条 AI 卡片
+export default memo(RunCard)
