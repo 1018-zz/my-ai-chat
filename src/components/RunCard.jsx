@@ -72,7 +72,7 @@ function extractDiaryDraft(text) {
   } catch (_) { return { draft: null, text: text || '' } }
 }
 
-export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
+function RunCard({ msgs, showThinking, expanded, onToggle }) {
   const tools = msgs.flatMap(m => (m.toolCalls || []).filter(t => t.name))
   // 挂载时是否正在流式生成：本次生成 → 逐句浮现；历史消息 → 直接全显示
   const liveRef = useRef(msgs.some(m => m.loading))
