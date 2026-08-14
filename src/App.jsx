@@ -14,7 +14,7 @@ import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, loadMcpAuth, saveMcpAuth, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import Markdown from './components/Markdown'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
 
 // ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
