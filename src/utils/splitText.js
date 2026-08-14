@@ -13,7 +13,7 @@ function pushSentence(arr, s) {
 function splitLineByPunct(line) {
   const out = []
   let cur = ''
-  let inBold = 0, inCode = 0, inStrike = 0, inLink = 0
+  let inBold = 0, inCode = 0, inStrike = 0, inLink = 0, pendingDots = ''
   let i = 0
   const n = line.length
   while (i < n) {
