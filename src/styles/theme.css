@@ -444,7 +444,7 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   background: var(--color-primary);
   border-radius: var(--radius-bubble);
   border-top-right-radius: 4px;
-  padding: 8px 12px;
+  padding: 5px 12px;
   max-width: 100%;
   color: #fff;
   font-size: 14px;
