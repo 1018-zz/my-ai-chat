@@ -105,7 +105,7 @@ export default function NoteCard({ onOpenPanel }) {
               {!writing && (
                 <button className="note-bookmark" onClick={() => setWriting(true)}>✍ 写一张</button>
               )}
-              <button className="note-bookmark" onClick={onOpenPanel}>📖 今日小记{pendingCount > 0 ? `（${pendingCount}）` : ''}</button>
+              <button className="note-bookmark" onClick={onOpenPanel}>📖 我们的手账{pendingCount > 0 ? `（${pendingCount}）` : ''}</button>
             </div>
           </div>
         </div>

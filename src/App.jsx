@@ -8,6 +8,7 @@ import { stats, estimateTokens } from './utils/stats'
 import HomeWidgets, { widgets } from './components/HomeWidgets'
 import NoteCard from './components/NoteCard'
 import NotePanel from './components/NotePanel'
+import JournalBook from './components/JournalBook'
 import CompressionRoom from './components/CompressionRoom'
 import WallpaperSettings from './components/WallpaperSettings'
 import { buildSystemPrompt } from './project/instructions'
@@ -120,6 +121,7 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 const LairPage = () => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
+  const [journalBook, setJournalBook] = useState(false)
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
     const diff = Math.floor((Date.now() - start.getTime()) / 86400000)
@@ -159,8 +161,8 @@ const LairPage = () => {
         <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setNotePanel(true) }} />
       </div>
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
-      <NoteCard onOpenPanel={() => setNotePanel(true)} />
-      {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
+      <NoteCard onOpenPanel={() => setJournalBook(true)} />
+      {journalBook && <JournalBook onClose={() => setJournalBook(false)} />}
       {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
     </div>
   )
