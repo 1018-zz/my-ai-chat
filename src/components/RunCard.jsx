@@ -74,6 +74,9 @@ function extractDiaryDraft(text) {
 
 export default function RunCard({ msgs, showThinking, expanded, onToggle }) {
   const tools = msgs.flatMap(m => (m.toolCalls || []).filter(t => t.name))
+  // 挂载时是否正在流式生成：本次生成 → 逐句浮现；历史消息 → 直接全显示
+  const liveRef = useRef(msgs.some(m => m.loading))
+  const live = liveRef.current
   const hasThinking = msgs.some(m => m.thinking && showThinking)
   const hasTools = tools.length > 0
   const running = msgs.some(m => m.loading) || tools.some(t => t.result === undefined || t.result === '')
