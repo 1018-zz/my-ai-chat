@@ -36,15 +36,23 @@ function splitLineByPunct(line) {
       continue
     }
     if (ch === '…' && !inBold && !inCode && !inStrike && !inLink) {
-      // 省略号连续序列（…… / ...）整体归入前句，随后切分
+      // 省略号连续序列（…… / ...）：
+      // 有前文 → 跟前文走（"一定是……"一泡）；
+      // 无前文 → 先攒着 pendingDots，等文字来了拼到句首（"……好吧"一泡）——永不单独成泡
       let j = i
       while (j < n && (line[j] === '…' || line[j] === '.')) j++
-      cur += line.slice(i, j)
-      pushSentence(out, cur)
-      cur = ''
+      const dots = line.slice(i, j)
+      if (cur.trim()) {
+        cur += dots
+        pushSentence(out, cur)
+        cur = ''
+      } else {
+        pendingDots += dots
+      }
       i = j
       continue
     }
+    if (pendingDots) { cur = pendingDots + cur; pendingDots = '' }
     cur += ch
     i++
   }
