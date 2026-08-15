@@ -13,6 +13,7 @@ export default function JournalPaper({
   paper = 'note',
   mode = 'today',
   className = '',
+  onDelete,
   children,
 }) {
   const cls = [
@@ -26,6 +27,17 @@ export default function JournalPaper({
 
   return (
     <article className={cls}>
+      {onDelete && (
+        <button
+          type="button"
+          className="journal-paper__del"
+          aria-label="删除这张纸条"
+          title="删除这张纸条"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+        >
+          ×
+        </button>
+      )}
       {showTape && <div className="journal-paper__tape" />}
       {date && <div className="journal-paper__date">{date}</div>}
       {title && <h2 className="journal-paper__title">{title}</h2>}

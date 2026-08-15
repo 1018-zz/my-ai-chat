@@ -1,6 +1,7 @@
 import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { normalizeMessage } from './utils/normalize'
 import { fmtMsgTime } from './utils/time'
+import { applyTwemoji } from './utils/emoji'
 import RunCard from './components/RunCard'
 import ChatInputBar, { DEFAULT_MODEL } from './components/ChatInputBar'
 import StatisticsPage from './components/StatisticsPage'
@@ -56,7 +57,7 @@ const ActionIcons = {
 }
 
 // 用户消息行：预留头像位 + 气泡列（长文本可折叠，仿 ChatGPT）+ 时间戳置于气泡下方
-function UserMsgRow({ msg }) {
+function UserMsgRow({ msg, avatar, onAvatarClick }) {
   const [expanded, setExpanded] = useState(false)
   const bodyRef = useRef(null)
   const [overflow, setOverflow] = useState((msg.text || '').length > 240)
@@ -91,7 +92,12 @@ function UserMsgRow({ msg }) {
           </>
         )}
       </div>
-      <div className="msg-avatar msg-avatar-self">我</div>
+      <div
+        className="msg-avatar msg-avatar-self"
+        style={avatar?.startsWith('http') ? { backgroundImage: `url(${avatar})`, backgroundSize: 'cover', color: 'transparent' } : {}}
+        onClick={onAvatarClick}
+        title="点击换头像"
+      >{avatar?.startsWith('http') ? '' : (avatar || '我')}</div>
     </div>
   )
 }
@@ -826,6 +832,18 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [termOpen, setTermOpen] = useState(false)
   // 引用回复：暂存被引用的消息（id/text/isSelf），发送时挂到用户消息上
   const [quote, setQuote] = useState(null)
+  /* 自定义头像（localStorage 持久化，支持 emoji / 图片 URL） */
+  const [avatarAi, setAvatarAi] = useState(() => { try { return localStorage.getItem('chat_avatar_ai') || '泽' } catch { return '泽' } })
+  const [avatarSelf, setAvatarSelf] = useState(() => { try { return localStorage.getItem('chat_avatar_self') || '我' } catch { return '我' } })
+  const [avatarPick, setAvatarPick] = useState(null) // null | 'ai' | 'self'
+  // 聊天容器 ref：用于把头像 emoji / 选择器 emoji 也替换成 Twemoji 彩色 SVG
+  const chatDetailRef = useRef(null)
+  useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarAi, avatarSelf, avatarPick])
+  const saveAvatar = (side, val) => {
+    if (side === 'ai') { setAvatarAi(val); try { localStorage.setItem('chat_avatar_ai', val) } catch {} }
+    else { setAvatarSelf(val); try { localStorage.setItem('chat_avatar_self', val) } catch {} }
+    setAvatarPick(null)
+  }
   // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
@@ -1162,12 +1180,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     : '在窗边等你'
 
   return (
-    <div className="chat-detail-page">
+    <div className="chat-detail-page" ref={chatDetailRef}>
       <Terminal open={termOpen} onClose={() => setTermOpen(false)} />
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>
         <div className="ai-presence">
-          <div className="ai-avatar">泽</div>
+          <div
+            className="ai-avatar"
+            style={avatarAi.startsWith('http') ? { backgroundImage: `url(${avatarAi})`, backgroundSize: 'cover', color: 'transparent' } : {}}
+            onClick={() => setAvatarPick('ai')}
+            title="点击换头像"
+          >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
           <div className="ai-meta">
             <div className="ai-name">{chatInfo?.title || '钟泽'}</div>
             <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}</div>
@@ -1198,7 +1221,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
-                  <UserMsgRow msg={msg} />
+                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} />
                 </div>
               )
               i++
@@ -1215,7 +1238,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   onTouchMove={handleMsgLongPressEnd}
                 >
                   <div className="msg-row msg-row-ai">
-                    <div className="msg-avatar msg-avatar-ai">泽</div>
+                    <div
+                      className="msg-avatar msg-avatar-ai"
+                      style={avatarAi.startsWith('http') ? { backgroundImage: `url(${avatarAi})`, backgroundSize: 'cover', color: 'transparent' } : {}}
+                      onClick={() => setAvatarPick('ai')}
+                      title="点击换头像"
+                    >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
                     <div className="msg-col msg-col-ai">
                       <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} />
                     </div>
@@ -1275,6 +1303,28 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         </div>
       )}
       <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} model={model} onSelectModel={selectModel} />
+      {/* 头像选择器（点击头像唤起）—— 居中弹层，emoji 网格排布，避免向上展开被裁切 */}
+      {avatarPick && (
+        <div className="msg-action-menu-overlay" onClick={() => setAvatarPick(null)}>
+          <div className="msg-action-menu avatar-picker-menu" style={{ '--menu-x': '50vw', '--menu-y': '50%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8, textAlign: 'center' }}>
+              {avatarPick === 'ai' ? '换 AI 头像' : '换我的头像'}
+            </div>
+            <div className="avatar-emoji-grid">
+              {['泽', '🐱', '🌸', '⭐', '🌙', '🍵', '🎨', '💫'].map(emoji => (
+                <div key={emoji} className="avatar-emoji" onClick={() => saveAvatar(avatarPick, emoji)}>{emoji}</div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px solid var(--color-border-warm)', margin: '8px 0 4px' }} />
+            <div className="msg-action-item" onClick={() => {
+              const url = window.prompt('粘贴图片 URL：')
+              if (url) saveAvatar(avatarPick, url.trim())
+            }} style={{ justifyContent: 'center', fontSize: 12 }}>
+              📷 图片链接…
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

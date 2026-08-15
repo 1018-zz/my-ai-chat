@@ -211,6 +211,14 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
     refresh()
   }
 
+  /* 单张删除：只删这一张纸条，不波及其他 */
+  const deleteNote = async (id) => {
+    if (!id) return
+    if (!window.confirm('删除这张纸条？此操作不可恢复。')) return
+    await fetch(`${API_BASE}/api/notes?id=${id}`, { method: 'DELETE' }).catch(() => {})
+    refresh()
+  }
+
   const closeMenu = () => setShowMenu(false)
 
   /* ====== 封面 ====== */
@@ -505,6 +513,7 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
                   }`}
                   paper="inner"
                   mode="full"
+                  onDelete={() => deleteNote(n.id)}
                 >
                   {n.content}
                 </JournalPaper>
