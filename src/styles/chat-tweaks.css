@@ -382,3 +382,35 @@ img.emoji {
 .model-option-label { font-size: 12.5px; color: var(--color-text-dark); }
 .model-option-desc { font-size: 10.5px; color: var(--color-text-gray); margin-top: 1px; }
 .model-option-check { color: var(--color-primary); font-size: 13px; flex-shrink: 0; }
+
+/* 跳到新消息气泡（微信式）：浮于消息区底部、输入框上方，纸感主色胶囊，顺滑淡入 */
+.chat-detail-page { position: relative; }
+.new-msg-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 78px;
+  transform: translateX(-50%) translateY(12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12.5px;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  box-shadow: 0 6px 18px rgba(145, 107, 78, 0.32);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.26s var(--ease-soft), transform 0.26s var(--ease-soft);
+  z-index: 20;
+}
+.new-msg-pill.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.new-msg-pill:active { transform: translateX(-50%) translateY(1px); }

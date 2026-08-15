@@ -4,15 +4,14 @@
 // 图片直发（多选）：选图只压缩进待发，点发送后才并行 MCP describe_image，
 // 描述仅注入 AI 上下文（不进气泡）；引用回复也走这里
 import { useRef, useState } from 'react'
+import { getEnabledModels, getDefaultEnabledModelId, findModel } from '../utils/models'
 
 const MCP_URL = 'https://my-ai-chat-4zy.pages.dev/api/mcp-proxy'
 const NL = String.fromCharCode(10)
 
-// 可选模型列表（后续接入新模型：往这里加一项即可；需 deepseek 端点真支持该模型名）
-export const MODELS = [
-  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', desc: '默认 · 响应快' },
-]
-export const DEFAULT_MODEL = MODELS[0].id
+// 模型库由设置页「模型管理」维护（localStorage xiaojia.models）；这里只读取启用的项做选择。
+// DEFAULT_MODEL 动态取「首个启用模型」，保证库被改后仍有合理默认。
+export const DEFAULT_MODEL = getDefaultEnabledModelId()
 
 export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quote, onClearQuote, model = DEFAULT_MODEL, onSelectModel }) {
   const [text, setText] = useState('')
@@ -21,7 +20,13 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
   const [pendingImages, setPendingImages] = useState([]) // [{ dataUrl }]
   const [sending, setSending] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
-  const currentModelLabel = (MODELS.find(m => m.id === model) || {}).label || model
+  // 当前选中模型的展示名：优先库里找，找不到（已停用/历史值）就回退原 id
+  const currentModelLabel = (findModel(model) || {}).label || model
+  // 菜单项 = 启用的模型；若当前 model 不在启用列表（被停用），额外补一条让其仍可见
+  const enabledModels = getEnabledModels()
+  const menuModels = enabledModels.some(m => m.id === model)
+    ? enabledModels
+    : [...enabledModels, { id: model, label: currentModelLabel, desc: '（已停用，切换后生效）', enabled: false }]
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -120,20 +125,23 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
             <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
             <div className="attach-item attach-disabled">📎 文件（开发中）</div>
             <div className="attach-item attach-model-item" onClick={() => setModelMenuOpen(o => !o)}>
-              <span className="attach-model-label">🤖 模型</span>
+              <span className="attach-model-label">✦ 模型</span>
               <span className="attach-model-current">{currentModelLabel}</span>
               <span className="attach-caret">{modelMenuOpen ? '▴' : '▾'}</span>
             </div>
             {modelMenuOpen && (
               <div className="model-submenu">
-                {MODELS.map(m => (
+                {menuModels.length === 0 && (
+                  <div className="model-option model-option-empty">去设置里启用模型</div>
+                )}
+                {menuModels.map(m => (
                   <div
                     key={m.id}
-                    className={`model-option ${model === m.id ? 'selected' : ''}`}
+                    className={`model-option ${model === m.id ? 'selected' : ''} ${m.enabled === false ? 'model-option-disabled' : ''}`}
                     onClick={() => { onSelectModel?.(m.id); setModelMenuOpen(false); setAttachOpen(false) }}
                   >
                     <span className="model-option-main">
-                      <span className="model-option-label">{m.label}</span>
+                      <span className="model-option-label">✦ {m.label}</span>
                       {m.desc && <span className="model-option-desc">{m.desc}</span>}
                     </span>
                     {model === m.id && <span className="model-option-check">✓</span>}

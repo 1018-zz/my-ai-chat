@@ -3,7 +3,8 @@ import { normalizeMessage } from './utils/normalize'
 import { fmtMsgTime } from './utils/time'
 import { applyTwemoji } from './utils/emoji'
 import RunCard from './components/RunCard'
-import ChatInputBar, { DEFAULT_MODEL } from './components/ChatInputBar'
+import ChatInputBar from './components/ChatInputBar'
+import { getChatModel, setChatModel } from './utils/models'
 import StatisticsPage from './components/StatisticsPage'
 import { stats, estimateTokens } from './utils/stats'
 import HomeWidgets, { widgets } from './components/HomeWidgets'
@@ -12,6 +13,7 @@ import NotePanel from './components/NotePanel'
 import JournalBook from './components/JournalBook'
 import CompressionRoom from './components/CompressionRoom'
 import WallpaperSettings from './components/WallpaperSettings'
+import ModelManager from './components/ModelManager'
 import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
@@ -618,6 +620,7 @@ const SettingRoom = ({ onBack }) => (
     <LifeBackBtn label="设置" onBack={onBack} />
     <h3 style={{ color: 'var(--color-primary)' }}>⚙️ 设置</h3>
     <SettingsPanel />
+    <ModelManager />
     <WallpaperSettings />
     <RecalledPanel />
   </div>
@@ -797,24 +800,24 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }, [])
   // （输入框状态已内聚到 ChatInputBar）
   const [loading, setLoading] = useState(false)
-  // —— 每聊模型选择（localStorage 按 chatId 存，零后端改动）——
-  const [model, setModel] = useState(() => (chatInfo?.id && localStorage.getItem('chat_model_' + chatInfo.id)) || DEFAULT_MODEL)
+  // —— 每聊模型选择（两层存储：xiaojia.chatModels 按 chatId 存，回退旧 chat_model_${id}）——
+  const [model, setModel] = useState(() => getChatModel(chatInfo?.id))
   const selectModel = (m) => {
     setModel(m)
-    if (chatInfo?.id) localStorage.setItem('chat_model_' + chatInfo.id, m)
+    if (chatInfo?.id) setChatModel(chatInfo.id, m)
   }
   const prevChatIdRef = useRef(chatInfo?.id)
   useEffect(() => {
     const id = chatInfo?.id
     // 从「一个已存在的聊天」切到「另一个已存在的聊天」时，加载目标聊天的模型
     if (id && prevChatIdRef.current && id !== prevChatIdRef.current) {
-      setModel(localStorage.getItem('chat_model_' + id) || DEFAULT_MODEL)
+      setModel(getChatModel(id))
     }
     prevChatIdRef.current = id
   }, [chatInfo?.id])
   // 模型或聊天 id 变化时持久化（新聊天首次拿到 id 后也会落盘）
   useEffect(() => {
-    if (chatInfo?.id) localStorage.setItem('chat_model_' + chatInfo.id, model)
+    if (chatInfo?.id) setChatModel(chatInfo.id, model)
   }, [chatInfo?.id, model])
   // —— MCP 工具授权（逐项 + 对话内临授权）：localStorage 为唯一真源，跨组件用事件同步 ——
   const [mcpAuth, setMcpAuth] = useState(loadMcpAuth)
@@ -890,6 +893,21 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const abortRef = useRef(null)
   const stopRequestedRef = useRef(false)
 
+  // —— 滚动跟随（微信式）：在底部贴底跟随；上翻历史累计未读，浮出"跳到新消息"气泡 ——
+  const atBottomRef = useRef(true)
+  const prevMsgLenRef = useRef(msgList.length)
+  const [unseenCount, setUnseenCount] = useState(0)
+  const [showNewPill, setShowNewPill] = useState(false)
+  const scrollMsgToBottom = (behavior = 'auto') => {
+    const el = messagesEndRef.current?.parentElement
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior })
+  }
+  const jumpToNew = () => {
+    scrollMsgToBottom('smooth')
+    atBottomRef.current = true
+    setUnseenCount(0); setShowNewPill(false)
+  }
+
   useEffect(() => {
     if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => {
       // P0.7c：工具结果回填——tool 消息按消息序列聚合回对应 assistant 的 toolCalls
@@ -910,28 +928,41 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         else pending = null
       }
       setMsgList(restored)
-      // 进入会话强制定位到底部（DOM 渲染完成后；进来就该停在最近的消息处，不依赖 stickBottom 判断）
-      setTimeout(() => { const el = messagesEndRef.current?.parentElement; if (el) el.scrollTop = el.scrollHeight }, 80)
+      // 进入会话强制定位到底部（DOM 渲染完成后；进来就该停在最近的消息处）
+      atBottomRef.current = true
+      setUnseenCount(0); setShowNewPill(false)
+      prevMsgLenRef.current = restored.length
+      setTimeout(() => scrollMsgToBottom('auto'), 80)
     }).catch(() => {})
   }, [chatInfo?.id])
-  // 滚动跟随：用户在底部附近（120px 内）才自动滚到底；上翻历史时消息更新不打扰
-  const [stickBottom, setStickBottom] = useState(true)
+
   const handleMsgScroll = (e) => {
     const el = e.currentTarget
-    setStickBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120)
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    atBottomRef.current = atBottom
+    // 滚回底部即视为已读，清空未读与气泡
+    if (atBottom) { setUnseenCount(0); setShowNewPill(false) }
+    else { setShowNewPill(unseenCount > 0) }
   }
+  // 新消息到达：在底部贴底跟随；不在底部按"新增条数"累计未读（流式同条续写不重复计）
+  useEffect(() => {
+    const newLen = msgList.length
+    const added = newLen - prevMsgLenRef.current
+    prevMsgLenRef.current = newLen
+    if (atBottomRef.current) {
+      const el = messagesEndRef.current?.parentElement
+      if (el) el.scrollTop = el.scrollHeight
+    } else if (added > 0) {
+      setUnseenCount(n => n + added)
+      setShowNewPill(true)
+    }
+  }, [msgList])
+  // MutationObserver：内容高度变化（逐句浮现、流式续写）也贴底跟随，不依赖 msgList 引用变化
   useEffect(() => {
     const el = messagesEndRef.current?.parentElement
     if (!el) return
-    const follow = () => {
-      const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-      setStickBottom(near)
-      // 贴底才跟随：长回复/逐句浮现自动往下滚；上翻历史时不打扰
-      if (near) el.scrollTop = el.scrollHeight
-    }
+    const follow = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
     follow()
-    // MutationObserver：内容子节点/文本变化（逐句浮现新气泡、流式续写、新消息插入）也触发跟随，
-    // 不依赖 msgList 引用变化——否则 reveal 冒泡时页面不滚，长消息就得手动翻
     const mo = new MutationObserver(follow)
     mo.observe(el, { childList: true, subtree: true, characterData: true })
     return () => mo.disconnect()
@@ -1290,6 +1321,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           )
         })()}
       </div>
+      {/* 微信式：上翻历史后浮出"跳到新消息"，点击平滑回到底部 */}
+      {showNewPill && (
+        <button className="new-msg-pill show" onClick={jumpToNew}>
+          ✦ {unseenCount} 条新消息
+        </button>
+      )}
       {/* 对话内工具临授权确认卡 */}
       {pendingAuth && (
         <div style={{ margin: '0 12px 10px', padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,184,166,0.5)', background: 'linear-gradient(180deg,#FFF9EF,#F6EDDA)', boxShadow: '0 6px 18px rgba(80,60,40,0.12)', fontSize: 13, color: 'var(--color-text-dark)' }}>

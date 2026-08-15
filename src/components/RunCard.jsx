@@ -71,10 +71,15 @@ function RevealCard({ parts, live }) {
     const start = gi; gi += s.paras.length
     const paras = s.paras.filter((_, pi) => { const idx = start + pi; return !live || idx < visibleCount })
     if (!paras.length) return null
+    /* 按呼吸节奏拆分：每段一个独立气泡（像微信逐条发送），间距加大 */
     return (
-      <div key={si} className="msg-bubble">
-        {paras.map((t, pi) => <div key={pi} className="breath-para"><Markdown>{t}</Markdown></div>)}
-      </div>
+      <Fragment key={si}>
+        {paras.map((t, pi) => (
+          <div key={pi} className="msg-bubble msg-bubble--split">
+            <div className="breath-para"><Markdown>{t}</Markdown></div>
+          </div>
+        ))}
+      </Fragment>
     )
   })
 }
