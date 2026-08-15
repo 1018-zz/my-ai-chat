@@ -26,6 +26,7 @@ import './styles/life-tweaks.css'
 import './styles/memory-tweaks.css'
 import './styles/global-tweaks.css'
 import './styles/lair-tweaks.css'
+import './styles/motion-tweaks.css'
 
 // ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
 const ActionIcons = {

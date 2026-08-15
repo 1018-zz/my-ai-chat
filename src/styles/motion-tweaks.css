@@ -1,0 +1,101 @@
+/* =========================================================
+   motion-tweaks.css · 微动效补强（手册 Devsnap/Animata 思路落地）
+   只加“轻交互反馈”，不碰主题色、结构、position/z-index。
+   纯 CSS、零依赖、375px 友好；尊重 prefers-reduced-motion。
+   ========================================================= */
+
+/* —— 1. LAIR 窗边光：极慢呼吸（像阳光在房间里轻轻起伏）——
+   只对 ::after 的 opacity 做缓动，绝不动 position/z-index，
+   避免重现“纸条/今日小记点不开”的回归。 */
+.lair-room::after {
+  animation: lair-light-breathe 9s ease-in-out infinite;
+}
+
+@keyframes lair-light-breathe {
+  0%, 100% { opacity: .62; }
+  50%      { opacity: 1; }
+}
+
+/* —— 2. 日记「翻开 ↓」：展开后内容轻轻浮起渐显 —— */
+.diary-entry {
+  animation: diary-entry-in .42s var(--ease-soft) both;
+}
+/* 前几条错落浮现，像一页页被翻开的字 */
+.diary-entry:nth-child(1) { animation-delay: .04s; }
+.diary-entry:nth-child(2) { animation-delay: .10s; }
+.diary-entry:nth-child(3) { animation-delay: .16s; }
+.diary-entry:nth-child(4) { animation-delay: .22s; }
+.diary-entry:nth-child(5) { animation-delay: .28s; }
+.diary-entry:nth-child(6) { animation-delay: .34s; }
+
+@keyframes diary-entry-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 翻开按钮：点按微微下沉，给触感 */
+.diary-toggle {
+  transition: color .2s var(--ease-soft), transform .12s var(--ease-soft);
+  cursor: pointer;
+}
+.diary-daypage__head:active .diary-toggle {
+  transform: scale(.94);
+  color: var(--terracotta, #b0513c);
+}
+
+/* —— 3. 纸条面板：卡片依次浮入（不是同时“啪”地出现）——
+   仅作用于列表卡片，面板本身已有 note-pop。 */
+.note-list-card {
+  animation: note-card-in .38s var(--ease-soft) both;
+}
+.note-list-card:nth-child(1) { animation-delay: .02s; }
+.note-list-card:nth-child(2) { animation-delay: .07s; }
+.note-list-card:nth-child(3) { animation-delay: .12s; }
+.note-list-card:nth-child(4) { animation-delay: .17s; }
+.note-list-card:nth-child(5) { animation-delay: .22s; }
+.note-list-card:nth-child(6) { animation-delay: .27s; }
+.note-list-card:nth-child(7) { animation-delay: .32s; }
+.note-list-card:nth-child(8) { animation-delay: .37s; }
+
+@keyframes note-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* —— 4. 按钮触感：点按轻微回弹（移动端 tap 的实体感）——
+   只加 scale 反馈，不动已有效果与配色。 */
+.note-tag-btn,
+.note-bookmark,
+.note-tab {
+  transition:
+    background .2s var(--ease-soft),
+    color .2s var(--ease-soft),
+    box-shadow .2s var(--ease-soft),
+    transform .12s var(--ease-soft);
+}
+.note-tag-btn:active,
+.note-bookmark:active {
+  transform: scale(.95);
+}
+.note-tab:active {
+  transform: scale(.97);
+}
+
+/* —— 5. 无障碍：用户要求减少动态时，关掉循环与位移动效 —— */
+@media (prefers-reduced-motion: reduce) {
+  .lair-room::after {
+    animation: none;
+    opacity: .85;
+  }
+  .diary-entry,
+  .note-list-card {
+    animation: none !important;
+    transform: none !important;
+  }
+  .diary-daypage__head:active .diary-toggle,
+  .note-tag-btn:active,
+  .note-bookmark:active,
+  .note-tab:active {
+    transform: none;
+  }
+}
