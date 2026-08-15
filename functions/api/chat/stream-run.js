@@ -124,7 +124,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          buffer += new TextDecoder().decode(value, { stream: true })
+          buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n'); buffer = lines.pop() || ''
           for (const line of lines) {
             if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
