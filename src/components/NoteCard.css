@@ -7,7 +7,7 @@
   bottom: 76px; /* 避让底部 TabNav（60px） */
   width: 176px;
   height: 88px;
-  background: #f4eee3; /* 暖米白，不再刺眼明黄 */
+  background: rgba(242, 238, 230, .94); /* 灰白 · 留言条，和另外三张纸区分 */
   border: 1px solid rgba(100, 80, 60, .10);
   padding: 12px 14px;
   border-radius: 6px 8px 6px 7px; /* 轻微不规则，纸感 */

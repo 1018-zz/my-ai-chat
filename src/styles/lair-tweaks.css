@@ -1,0 +1,108 @@
+/* =========================================================
+   LAIR · 房间桌面感（最后导入，覆盖 HomeWidgets.css 同名类）
+   只做“生活痕迹”，不碰主题色与结构。
+   ========================================================= */
+
+/* —— 房间根：窗边光晕 + 内容层级 —— */
+.lair-room {
+  position: relative;
+  padding: 20px;
+}
+
+/* 窗边的光：像阳光从上方落进房间，不抢内容。
+   pointer-events:none 保证它绝不拦截点击；
+   注意：绝不能用 `.lair-room > *` 给直接子元素强加 position/z-index，
+   否则会覆盖纸条卡片(NoteCard)与弹窗(JournalBook/NotePanel)自带的
+   fixed + 高 z-index，导致它们"点不开"。 */
+.lair-room::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      circle at 50% 16%,
+      rgba(255, 246, 232, .42),
+      rgba(255, 246, 232, .12) 38%,
+      transparent 60%
+    );
+}
+
+/* =========================================================
+   钟泽 · 主人状态牌（分层，像房间里的状态牌而非资料卡）
+   ========================================================= */
+
+.lair-status__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.lair-status__name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text-dark);
+  letter-spacing: .02em;
+}
+
+/* 今日心情：kicker + 正文的轻微层级 */
+.lair-status__mood {
+  margin-top: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lair-status__mood-tag {
+  font-size: 11px;
+  color: var(--accent-mint-deep, #7E9E8C);
+  letter-spacing: .04em;
+  opacity: .9;
+}
+
+.lair-status__mood-text {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink, #574A3F);
+  line-height: 1.3;
+}
+
+/* 正在做什么：轻描，退到心情之后 */
+.lair-status__state {
+  margin-top: 7px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-gray);
+}
+
+.lair-status__state-label {
+  opacity: .65;
+}
+
+.lair-status__state-text {
+  position: relative;
+  color: var(--color-text-dark);
+}
+
+.lair-status__state-text::before {
+  content: "「";
+  opacity: .4;
+  margin-right: 1px;
+}
+
+.lair-status__state-text::after {
+  content: "」";
+  opacity: .4;
+  margin-left: 1px;
+}
+
+/* 375px：状态牌略微收紧 */
+@media (max-width: 375px) {
+  .lair-status__name { font-size: 16px; }
+  .lair-status__mood-text { font-size: 13px; }
+}

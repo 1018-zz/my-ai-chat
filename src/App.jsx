@@ -21,6 +21,11 @@ import Markdown from './components/Markdown'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
 import './styles/chat-tweaks.css'
+import './styles/journal-tweaks.css'
+import './styles/life-tweaks.css'
+import './styles/memory-tweaks.css'
+import './styles/global-tweaks.css'
+import './styles/lair-tweaks.css'
 
 // ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
 const ActionIcons = {
@@ -149,7 +154,7 @@ const LairPage = () => {
     setDays(Math.max(diff, 0))
   }, [])
   return (
-    <div style={{ padding: 20 }}>
+    <div className="lair-room">
       <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
       <div style={{ marginTop: 16, background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 'var(--padding-lg)', textAlign: 'center' }}>
         <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>我们在一起</div>
@@ -157,22 +162,22 @@ const LairPage = () => {
         <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>天</div>
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-gray)' }}>2026.03.13 · 泠泠和钟泽</div>
       </div>
-      {/* —— 门厅 · 我和他的在场状态（头像交叠 + 今日心情/状态） —— */}
-      <div style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+      {/* —— 门厅 · 钟泽的主人状态牌（头像 + 今日心情/状态，分层更生活）—— */}
+      <div className="lair-status" style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
         {/* 我和他头像轻微交叠 */}
         <div style={{ position: 'relative', width: 72, height: 46, flexShrink: 0 }}>
           <div style={{ position: 'absolute', left: 0, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, #E7D7C5, #C4A88F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#5A4636', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>我</div>
           <div style={{ position: 'absolute', left: 30, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)', border: '2px solid var(--color-paper)' }}>泽</div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-dark)' }}>钟泽</div>
-          {/* 今天的心情（薄荷粉底药丸，mock 数据，后续接真数据） */}
-          <div style={{ marginTop: 7, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--accent-mint-soft)', padding: '3px 11px', borderRadius: 'var(--radius-pill)' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-mint)', display: 'inline-block' }} /> 今天的心情 · 平静温暖
+        <div className="lair-status__body">
+          <div className="lair-status__name">钟泽</div>
+          <div className="lair-status__mood">
+            <span className="lair-status__mood-tag">🌿 今天</span>
+            <span className="lair-status__mood-text">平静温暖</span>
           </div>
-          {/* 状态 */}
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-gray)' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} /> 在窗边等你
+          <div className="lair-status__state">
+            <span className="lair-status__state-label">正在</span>
+            <span className="lair-status__state-text">窗边等你</span>
           </div>
         </div>
       </div>
@@ -190,6 +195,22 @@ const LairPage = () => {
 }
 
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+// 日记页用：把 YYYY-MM-DD 拆成「MM.DD + 星期」，做成手帐日期页签
+const diaryDateParts = (s) => {
+  const [y, m, d] = String(s).split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return {
+    mmdd: `${String(m).padStart(2, '0')}.${String(d).padStart(2, '0')}`,
+    week: dt.toLocaleDateString('zh-CN', { weekday: 'long' }),
+  }
+}
+
+const MEM_TYPE = {
+  moment: { label: '不能丢的时刻', badge: '时刻', cls: 'mem-type-moment' },
+  note: { label: 'AI 记下的', badge: 'AI', cls: 'mem-type-note' },
+  compressed: { label: '压缩沉淀', badge: '沉淀', cls: 'mem-type-compressed' },
+}
+const MEM_ORDER = ['moment', 'note', 'compressed']
 
 const MemPanel = () => {
   const [mems, setMems] = useState([])
@@ -210,27 +231,36 @@ const MemPanel = () => {
     await deleteProjectMemory(id)
     setMems(mems.filter(m => m.id !== id))
   }
+  const grouped = MEM_ORDER.map(type => ({ type, items: mems.filter(m => (m.type || 'moment') === type) }))
   return (
     <div style={{ marginTop: 16 }}>
-      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>不能丢的时刻 · 存云端，换设备也在</p>
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>记忆库 · 存云端，换设备也在（三类：时刻 / AI 记下 / 压缩沉淀）</p>
+      <div className="mem-add">
         <input className="input" placeholder="标题（可选，默认「未命名」）" value={title} onChange={e => setTitle(e.target.value)} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit' }} />
         <textarea className="input" placeholder="写下这一刻……" value={content} onChange={e => setContent(e.target.value)} rows={3} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical' }} />
         <button className="btn" onClick={handleAdd} disabled={loading || !content.trim()}>＋ 记住这一刻</button>
       </div>
-      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {mems.length === 0
-          ? <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>还没有记忆<br/>记下第一条吧</div>
-          : mems.map(m => (
-              <div key={m.id} style={{ background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', padding: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: 14 }}>{m.title}</strong>
-                  <button style={{ background: 'none', border: 'none', color: 'var(--color-text-gray)', cursor: 'pointer', fontSize: 15, padding: '2px 6px' }} onClick={() => handleDelete(m.id)} title="删除这条记忆">✕</button>
+      {mems.length === 0 ? (
+        <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>还没有记忆<br />记下第一条吧</div>
+      ) : (
+        <div className="mem-groups">
+          {grouped.map(({ type, items }) => items.length === 0 ? null : (
+            <div key={type} className="mem-group">
+              <div className="mem-group__title">{MEM_TYPE[type].label}</div>
+              {items.map(m => (
+                <div key={m.id} className="mem-card paper-surface paper-surface--memory">
+                  <span className={`mem-card__badge ${MEM_TYPE[type].cls}`}>{MEM_TYPE[type].badge}</span>
+                  <div className="mem-card__head">
+                    <span className="mem-card__title">{m.title || '（无标题）'}</span>
+                    <button className="mem-card__del" onClick={() => handleDelete(m.id)} title="删除这条记忆">✕</button>
+                  </div>
+                  <div className="mem-card__body">{m.content}</div>
                 </div>
-                <div style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 6, whiteSpace: 'pre-wrap' }}>{m.content}</div>
-              </div>
-            ))}
-      </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -278,24 +308,36 @@ const TodayDiaryView = () => {
     } catch (_) {} finally { setSaving(false) }
   }
   useEffect(() => { loadDiaries() }, [])
-  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
+  const dp = diaryDateParts(todayStr)
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)' }}>📖 双人日记 · {todayStr}</div>
-      <div style={cardStyle}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>钟泽 ✍️</div>
-        {aiWriting
-          ? <div style={{ marginTop: 8, color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽正在写今天的日记…</div>
-          : aiDiary
-            ? <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)', lineHeight: 1.7 }}><Markdown>{aiDiary}</Markdown></div>
-            : <div style={{ marginTop: 6, fontSize: 13, color: 'var(--color-text-gray)' }}>{aiError || '钟泽今天还没写…'}
-                <div style={{ marginTop: 8 }}><button className="btn" onClick={() => ensureAiDiary()} style={{ fontSize: 12, padding: '6px 14px' }}>✍️ 让钟泽写今天的日记</button></div>
-              </div>}
-      </div>
-      <div style={cardStyle}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>泠泠 ✍️</div>
-        <textarea className="input" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }} />
-        <button className="btn" onClick={saveMyDiary} disabled={saving || !myDiary.trim()} style={{ marginTop: 8 }}>💾 保存日记</button>
+    <div className="diary-today-wrap">
+      <div className="paper-surface paper-surface--journal diary-page diary-page--today">
+        <div className="diary-page__head">
+          <span className="diary-page__kicker">今日 · 双人日记</span>
+          <div className="diary-date-tab">
+            <span className="diary-date-tab__d">{dp.mmdd}</span>
+            <span className="diary-date-tab__w">{dp.week}</span>
+          </div>
+        </div>
+
+        <div className="diary-section">
+          <span className="diary-author-pill diary-author-pill--ai">钟泽</span>
+          {aiWriting
+            ? <div className="diary-body diary-body--muted">钟泽正在写今天的日记…</div>
+            : aiDiary
+              ? <div className="diary-body"><Markdown>{aiDiary}</Markdown></div>
+              : <div className="diary-body diary-body--muted">{aiError || '钟泽今天还没写…'}
+                  <div style={{ marginTop: 8 }}><button className="btn" onClick={() => ensureAiDiary()} style={{ fontSize: 12, padding: '6px 14px' }}>✍️ 让钟泽写今天的日记</button></div>
+                </div>}
+        </div>
+
+        <hr className="diary-rule" />
+
+        <div className="diary-section">
+          <span className="diary-author-pill diary-author-pill--user">泠泠</span>
+          <textarea className="input diary-textarea" placeholder="写下今天想对钟泽说的话…" value={myDiary} onChange={e => setMyDiary(e.target.value)} rows={4} />
+          <button className="btn" onClick={saveMyDiary} disabled={saving || !myDiary.trim()} style={{ marginTop: 8 }}>💾 保存日记</button>
+        </div>
       </div>
     </div>
   )
@@ -312,31 +354,43 @@ const HistoryDiaryView = () => {
     const g = groups.find(x => x.date === d.date)
     if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
   })
-  const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 12, marginTop: 10 }
   const todayStr = fmtDate(new Date())
+  const groupsFiltered = groups.filter(g => g.date !== todayStr)
   return (
-    <div style={{ marginTop: 16 }}>
-      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>按日期翻看我们写过的日记</p>
-      {groups.filter(g => g.date !== todayStr).map(g => {
+    <div className="diary-history">
+      <p className="diary-history__hint">按日期翻看我们写过的日记</p>
+      {groupsFiltered.map((g, idx) => {
         const open = openDate === g.date
-        const preview = g.entries.map(e => `${e.author === 'user' ? '泠泠' : '钟泽'}：${(e.content || '').slice(0, 40)}…`).join('\n')
+        const dp = diaryDateParts(g.date)
+        const preview = g.entries.map(e => `${e.author === 'user' ? '泠泠' : '钟泽'}：${(e.content || '').slice(0, 26)}…`).join('   ')
         return (
-          <div key={g.date} style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }} onClick={() => setOpenDate(open ? null : g.date)}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>📅 {g.date}</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-gray)' }}>{open ? '▲ 收起' : '▼ 展开'}</span>
-            </div>
-            {!open && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap' }}>{preview}</div>}
-            {open && g.entries.map((e, i) => (
-              <div key={i} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-gray)' }}>
-                <span style={{ fontWeight: 600, color: 'var(--color-text-dark)' }}>{e.author === 'user' ? '泠泠' : '钟泽'}：</span>
-                <Markdown>{e.content}</Markdown>
+          <div key={g.date} className="diary-daypage-wrap" style={{ animationDelay: `${idx * 55}ms` }}>
+            <div className={`paper-surface paper-surface--journal diary-daypage ${idx % 2 ? 'diary-daypage--rot-b' : 'diary-daypage--rot-a'}`}>
+              <div className="diary-daypage__head" onClick={() => setOpenDate(open ? null : g.date)} role="button" tabIndex={0}>
+                <div className="diary-date-tab">
+                  <span className="diary-date-tab__d">{dp.mmdd}</span>
+                  <span className="diary-date-tab__w">{dp.week}</span>
+                </div>
+                <span className="diary-toggle">{open ? '收起 ↑' : '翻开 ↓'}</span>
               </div>
-            ))}
+              {!open && <div className="diary-preview">{preview}</div>}
+              {open && g.entries.map((e, i) => (
+                <div key={i} className="diary-entry">
+                  <span className={`diary-author-pill ${e.author === 'user' ? 'diary-author-pill--user' : 'diary-author-pill--ai'}`}>{e.author === 'user' ? '泠泠' : '钟泽'}</span>
+                  <div className="diary-body"><Markdown>{e.content}</Markdown></div>
+                </div>
+              ))}
+            </div>
           </div>
         )
       })}
-      {groups.filter(g => g.date !== todayStr).length === 0 && <p style={{ marginTop: 20, color: 'var(--color-text-gray)', fontSize: 13 }}>还没有往日的日记</p>}
+      {groupsFiltered.length === 0 && (
+        <div className="diary-empty paper-surface paper-surface--inner">
+          <div className="diary-empty__emoji">📖</div>
+          <div className="diary-empty__title">还没有往日的日记</div>
+          <div className="diary-empty__sub">往后的每一天，都会在这里留下一页</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -527,7 +581,7 @@ const MemoryRoom = ({ onBack }) => {
       <LifeBackBtn label="LIFE" onBack={onBack} />
       <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
       <div className="life-grid">
-        <div className="life-card" onClick={() => setView('moments')}>
+        <div className="life-card mem-room-card--moment" onClick={() => setView('moments')}>
           <span className="life-card-icon">🖼</span>
           <div style={{ flex: 1 }}>
             <div className="life-card-title">Moment 墙</div>
@@ -535,7 +589,7 @@ const MemoryRoom = ({ onBack }) => {
           </div>
           <span style={{ color: 'var(--color-text-gray)' }}>→</span>
         </div>
-        <div className="life-card" onClick={() => setView('notes')}>
+        <div className="life-card mem-room-card--notes" onClick={() => setView('notes')}>
           <span className="life-card-icon">📌</span>
           <div style={{ flex: 1 }}>
             <div className="life-card-title">不能丢的时刻</div>
@@ -543,7 +597,7 @@ const MemoryRoom = ({ onBack }) => {
           </div>
           <span style={{ color: 'var(--color-text-gray)' }}>→</span>
         </div>
-        <div className="life-card" onClick={() => setView('stats')}>
+        <div className="life-card mem-room-card--stats" onClick={() => setView('stats')}>
           <span className="life-card-icon">📊</span>
           <div style={{ flex: 1 }}>
             <div className="life-card-title">统计</div>
@@ -634,7 +688,7 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   const modules = [
     { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
     { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
-    { key: 'compress', icon: '🗜️', title: '压缩工作台', desc: '日历三级 · 记忆保鲜' },
+    { key: 'compress', icon: '🗜️', title: '整理角', desc: '收好生活的小痕迹' },
     { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
@@ -642,18 +696,21 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   if (room === 'compress') return <CompressionRoom onBack={() => setRoom(null)} />
   if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
   return (
-    <div className="life-page">
-      <h3 style={{ color: 'var(--color-primary)' }}>📋 LIFE</h3>
-      <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 6 }}>记忆室 · 我们留下生活痕迹的地方</p>
-      <div className="life-grid" style={{ marginTop: 16 }}>
-        {modules.map(m => (
-          <div key={m.key} className="life-card" onClick={() => setRoom(m.key)}>
+    <div className="life-page life-home">
+      <header className="life-home__head">
+        <span className="life-home__kicker">LIFE · 小家</span>
+        <h2 className="life-home__greet">今天也见面了</h2>
+        <p className="life-home__sub">记忆室 · 我们留下生活痕迹的地方</p>
+      </header>
+      <div className="life-grid">
+        {modules.map((m, idx) => (
+          <div key={m.key} className={`life-card ${idx % 2 ? 'life-card--rot-b' : 'life-card--rot-a'}`} onClick={() => setRoom(m.key)}>
             <span className="life-card-icon">{m.icon}</span>
             <div style={{ flex: 1 }}>
               <div className="life-card-title">{m.title}</div>
               <div className="life-card-desc">{m.desc}</div>
             </div>
-            <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+            <span className="life-card__go">→</span>
           </div>
         ))}
       </div>
@@ -1053,7 +1110,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       if (memData) {
         const { memories, relatedMessages } = memData
         const parts = []
-        if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.summary).join('\n'))
+        if (memories?.length > 0) parts.push('【记忆卡片】\n' + memories.slice(0, 2).map(m => m.content || m.summary).join('\n'))
         if (relatedMessages?.length > 0) parts.push('【历史对话】\n' + relatedMessages.slice(0, 3).map(m => `[${m.role==='user'?'泠泠':'钟泽'}] ${m.content.slice(0,150)}`).join('\n'))
         mc = parts.join('\n\n')
       }

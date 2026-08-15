@@ -1,0 +1,73 @@
+/* =========================================================
+   LIFE 主页美化 · 独立样式（小家 project · 2026-08-16）
+   —— theme.css 中 .life-* 为只读保护区，此处按"导入顺序靠后"覆盖同一批规则。
+   —— 复用 JournalPaper.css 的 :root 变量（--ink / --ink-soft / --ink-faint / --sage / --terracotta / --font-serif）。
+   目标：把"门厅"做成有生活痕迹的小家入口，而非后台 dashboard。
+   ========================================================= */
+
+/* —— 整页入场（与卡片旋转分处不同元素，transform 不打架）—— */
+.life-home {
+  animation: life-in .5s var(--ease-soft) both;
+  /* 顶部房间光线，极淡，模拟空气感 */
+  background:
+    radial-gradient(ellipse 130% 55% at 50% -8%, rgba(255, 255, 255, .5), transparent 62%);
+}
+@keyframes life-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* —— 头部：暖问候，替代冷硬的「LIFE」大标题 —— */
+.life-home__head { margin-bottom: 18px; }
+.life-home__kicker {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.life-home__greet {
+  margin: 6px 0 0;
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 450;
+  color: var(--ink);
+  letter-spacing: .01em;
+}
+.life-home__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* —— 卡片：手放感微旋转（交替），hover 回正 + 上浮 —— */
+.life-card--rot-a { transform: rotate(-0.4deg); }
+.life-card--rot-b { transform: rotate(0.3deg); }
+.life-card--rot-a:hover,
+.life-card--rot-b:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow: var(--shadow-lift-strong);
+}
+
+/* —— 首卡轻强调：3px 暖色侧条，记忆作为门厅主角（不明显）—— */
+.life-grid > .life-card:first-child {
+  border-left: 3px solid rgba(183, 131, 104, .35);
+}
+
+/* —— 箭头更轻、hover 微移 —— */
+.life-card__go {
+  color: var(--ink-faint);
+  font-size: 18px;
+  transition: transform .2s var(--ease-soft), color .2s;
+}
+.life-card:hover .life-card__go {
+  transform: translateX(3px);
+  color: var(--terracotta);
+}
+
+/* =========================================================
+   375px · 收紧
+   ========================================================= */
+@media (max-width: 375px) {
+  .life-home__greet { font-size: 22px; }
+}

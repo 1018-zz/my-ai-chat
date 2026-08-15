@@ -144,24 +144,57 @@
 
 .app-icon .paper-tape {
   position: absolute;
-  top: -7px;
+  top: -8px;
   left: 50%;
 
-  width: 58px;
-  height: 17px;
+  width: 60px;
+  height: 18px;
 
   transform:
     translateX(-50%)
     rotate(-1.8deg);
 
-  background: var(--tape, rgba(216, 201, 164, .45));
+  /*
+   * 和纸胶带：用胶带色做斜纹，
+   * 比纯色更像“随手撕一段贴上去”。
+   */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--tape, #D8C9A4) 78%, transparent) 0 7px,
+      color-mix(in srgb, var(--tape, #D8C9A4) 58%, transparent) 7px 14px
+    );
 
-  opacity: .55;
+  opacity: .82;
 
   box-shadow:
-    0 1px 2px rgba(70, 55, 40, .035);
+    0 1px 3px rgba(70, 55, 40, .08);
+
+  border-radius: 1px;
 
   pointer-events: none;
+}
+
+/* 每张纸的胶带角度略有不同，像不是同一卷贴的 */
+.app-icon--large .paper-tape { transform: translateX(-50%) rotate(-2.4deg); }
+.app-icon--medium .paper-tape { transform: translateX(-50%) rotate(1.6deg); }
+.app-icon--small .paper-tape { transform: translateX(-50%) rotate(-1.2deg); }
+
+/* =========================================================
+   每张纸有自己的底色：像桌上不同来路的纸
+   （覆盖 paper-surface 的 --paper-bg，保持纸纹不变）
+   ========================================================= */
+
+.app-icon--large .app-icon-tile {
+  --paper-bg: rgba(250, 239, 218, .92);   /* 米黄 · 歌单纸 */
+}
+
+.app-icon--medium .app-icon-tile {
+  --paper-bg: rgba(255, 250, 240, .95);   /* 奶白 · 日记页 */
+}
+
+.app-icon--small .app-icon-tile {
+  --paper-bg: rgba(225, 240, 224, .86);   /* 淡绿 · 健康便签 */
 }
 
 /* 不同纸片的胶带略有不同 */

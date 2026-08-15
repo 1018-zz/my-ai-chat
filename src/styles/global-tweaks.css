@@ -1,0 +1,73 @@
+/* =========================================================
+   全局 polish · 独立样式（小家 project · 2026-08-16）
+   —— 方向：Soft / Warm-Editorial（呼应 ui-design 准则）
+   —— 仅覆盖，不动 theme.css 全局色调与字号体系。
+   —— 四大收敛：阴影温度 / 标题降重 / Tab 栏 / 按钮 hover
+   ========================================================= */
+
+/* —— 1. 修复：--shadow-float 此前从未定义 ——
+   日记页 / 记忆页卡片 hover 上浮的 box-shadow 实际为空（真 bug）。
+   这里补一个暖棕柔浮，与 theme.css 的阴影语言一致。 */
+:root {
+  --shadow-float:
+    0 2px 6px rgba(120, 95, 68, 0.05),
+    0 16px 40px rgba(120, 95, 68, 0.12);
+}
+
+/* —— 2. 标题降重：页面大标题不再是"系统粗体" ——
+   全部 h3 均为房间页标题（LAIR / 记忆 / 日记 / 设置 …），
+   字重 700 → 500，加极小字距，更柔和、更像手写本的章节头。 */
+h3 {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* —— 3. 底部 Tab 栏：像房间里被轻轻按下的开关 —— */
+.tab-icon {
+  font-size: 19px;
+  margin-bottom: 3px;
+  transition: transform 0.22s var(--ease-soft);
+}
+.tab-item.active .tab-icon {
+  transform: translateY(-1px) scale(1.06);
+}
+.tab-item.active .tab-text {
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+/* 非激活项：略微退后，聚焦当前 */
+.tab-item:not(.active) {
+  opacity: 0.7;
+}
+.tab-item:not(.active):hover {
+  opacity: 1;
+}
+/* 激活下划线：更短更圆、用主色深棕，像贴纸压出的边 */
+.tab-item.active::after {
+  width: 18px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--color-primary-deep);
+  opacity: 0.9;
+}
+
+/* —— 4. 按钮 hover：暖色轻抬起，按下回落 —— */
+.btn {
+  transition: transform 0.18s var(--ease-soft), box-shadow 0.18s var(--ease-soft), background 0.18s var(--ease-soft);
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lift);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-inset);
+}
+
+/* =========================================================
+   375px · 收紧
+   ========================================================= */
+@media (max-width: 375px) {
+  .tab-icon { font-size: 18px; }
+  h3 { letter-spacing: 0; }
+}

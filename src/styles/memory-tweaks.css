@@ -1,0 +1,23 @@
+/* =========================================================
+   记忆子页 · 三色情绪区分（小家 project · 2026-08-16）
+   —— 极低饱和度，像旧照片里洗出来的颜色，不破坏奶油暖调
+   —— 只给 MemoryRoom 三张入口卡加 3px 左色带，不动 theme.css
+   ========================================================= */
+
+/* Moment 墙 · 暖杏（值得回头看的瞬间） */
+.mem-room-card--moment {
+  border-left: 3px solid #f3ddd3;
+}
+/* 不能丢的时刻 · 淡粉（存云端的小事） */
+.mem-room-card--notes {
+  border-left: 3px solid #efd8dc;
+}
+/* 统计 · 雾蓝（我们的足迹） */
+.mem-room-card--stats {
+  border-left: 3px solid #d9e1e6;
+}
+
+/*  hover 时色带轻轻亮一点，像被手指碰到 */
+.mem-room-card--moment:hover { border-left-color: #eccdbd; }
+.mem-room-card--notes:hover  { border-left-color: #e7c2c9; }
+.mem-room-card--stats:hover  { border-left-color: #cdd8df; }
