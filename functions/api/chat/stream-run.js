@@ -166,6 +166,8 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         console.error('Stream:', e.message)
         aborted = true
       } finally {
+        // 冲刷 TextDecoder 残留字节（流结束时补全最后一个被切开的多字节字符）
+        buffer += decoder.decode()
         // 冲刷过滤器残留：pending 尾块 + 最后一段思考
         const tail = thinkFilter.flush()
         if (tail) {
