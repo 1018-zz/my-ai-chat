@@ -233,9 +233,24 @@ export async function onRequestPost(context) {
       const overallEnd = new Date(Math.max(...chunk.map(p => p.end))).toISOString()
       const outputIds = []
 
-      // durable_facts → 记忆库（压缩有损，重要的永远在）
+      // durable_facts → 记忆库（压缩有损，重要的永远在）：结构化写入 type='compressed'
       for (const d of out.durable) {
-        await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `[压缩提取] ${d.content}` }) })
+        const content = String(d.content || '').trim()
+        if (!content) continue
+        const payload = {
+          summary: content,
+          type: 'compressed',
+          title: null,
+          content,
+          source: 'compression',
+          importance: Math.max(0.8, Math.min(1, Number(d.importance) || 0.85)),
+          keywords: JSON.stringify((Array.isArray(d.keywords) ? d.keywords : []).map(String).slice(0, 8)),
+        }
+        let r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(payload) })
+        // 容错：新列未建时退回旧 [压缩提取] 前缀格式
+        if (!r.ok && payload.type !== undefined) {
+          r = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `[压缩提取] ${content}` }) })
+        }
       }
       // 摘要 → compression_summaries
       for (const p of chunk) {

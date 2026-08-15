@@ -7,6 +7,19 @@ const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
 function sbReturn(env) { return { ...sbHeaders(env), 'Prefer': 'return=representation' } }
 
+// 归一成 {title, content, keywords}：优先结构化列，旧行兼容解析 summary 前缀
+function cleanMem(row) {
+  const s = row.summary || ''
+  let title = row.title != null ? row.title : null
+  let content = row.content || ''
+  if (!content) {
+    if (s.startsWith('家·')) { const m = s.match(/^家·(.+?)\] ([\s\S]*)$/); title = m ? m[1].trim() : ''; content = m ? m[2].trim() : s.slice(2) }
+    else if (s.startsWith('[压缩提取]')) { content = s.slice(6).trim(); title = null }
+    else { content = s }
+  }
+  return { title: title || '', content, keywords: row.keywords || '' }
+}
+
 // GitHub base64 content 解码为 UTF-8 文本
 function decodeBase64(b64) {
   const bin = atob(b64)
@@ -106,21 +119,27 @@ export async function onRequestPost(context) {
       if (name === 'read_memories') {
         const query = String(args.query || '').trim()
         const limit = Number(args.limit) || 5
-        const res = await fetch(`${SUPABASE}/memories?select=id,summary&order=id.desc&limit=200`, { headers: sbHeaders(env) })
+        // 结构化读取：优先 content，旧行兼容解析 summary 前缀
+        const res = await fetch(`${SUPABASE}/memories?select=id,summary,type,title,content,created_at,importance,keywords,source&order=created_at.desc&limit=1000`, { headers: sbHeaders(env) })
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
         const rows = await res.json()
-        let list = Array.isArray(rows) ? rows : []
+        let list = Array.isArray(rows) ? rows.map(cleanMem) : []
         if (query) {
           const words = String(query).split(/[\s,，。、;；]+/).filter(w => w && w.length > 0)
-          list = list.filter(r => words.some(w => (r.summary || '').includes(w)))
+          list = list.filter(r => words.some(w => `${r.title} ${r.content} ${r.keywords}`.includes(w)))
         }
-        const text = list.slice(0, limit).map(r => `• ${r.summary}`).join('\n')
+        const text = list.slice(0, limit).map(r => `• ${r.title ? r.title + '：' : ''}${r.content}`).join('\n')
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: text || '（记忆库中暂无匹配的记录）' }] } }), { headers });
       }
       if (name === 'write_memory') {
         const content = String(args.content || '').trim()
         if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required' } }), { status: 400, headers });
-        const res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: content }) })
+        const payload = { summary: content, type: 'note', title: null, content, source: 'ai_write', importance: 0.6 }
+        let res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(payload) })
+        // 容错：新列未建时退回只写 summary
+        if (!res.ok && payload.type !== undefined) {
+          res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: content }) })
+        }
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已记住' }] } }), { headers });
       }
