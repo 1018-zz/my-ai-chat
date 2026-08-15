@@ -111,6 +111,8 @@ function extractThinkTagReasoning(text) {
 
 export async function runStream(dsRes, env, convId, isToolRound = false) {
   const encoder = new TextEncoder()
+  // TextDecoder 提到循环外：跨 chunk 保持解码状态，中文字符被 chunk 切开时不再烂成 U+FFFD
+  const decoder = new TextDecoder()
   let fullContent = '', buffer = '', toolCalls = [], reasoning = ''
   let aborted = false
   const thinkFilter = new ThinkTagReasoningFilter()
