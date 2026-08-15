@@ -26,14 +26,11 @@
   position: relative;
   width: 100%;
   max-width: 460px;
-  min-width: 0; /* flex 子项默认 min-width:auto 会撑破容器；归零后才能在窄/桌面端正确收缩 */
   min-height: 100%;
   margin: 0 auto;
   padding: 20px 20px 100px;
   box-sizing: border-box;
   color: var(--journal-ink);
-
-  overflow-x: hidden; /* 兜底：内部任何元素横向溢出时裁掉，不撑大遮罩 */
 
   isolation: isolate;
 }
@@ -926,76 +923,4 @@
     animation: none !important;
     transition: none !important;
   }
-}
-
-/* =========================================================
-   右上角三点菜单（日期页操作）
-   ========================================================= */
-
-.journal-menu {
-  position: absolute;
-  top: 52px;
-  right: 16px;
-
-  min-width: 130px;
-
-  background: var(--paper-journal, #f7f2e8);
-  border: 1px solid rgba(100, 85, 70, .12);
-  border-radius: var(--radius-md, 10px);
-  box-shadow:
-    0 4px 14px rgba(70, 55, 40, .10),
-    0 1px 3px rgba(70, 55, 40, .06);
-
-  padding: 5px 0;
-
-  z-index: 20;
-
-  animation: journal-menu-in .18s var(--ease-soft);
-}
-
-@keyframes journal-menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(.97);
-  }
-}
-
-.journal-menu__item {
-  display: block;
-
-  width: 100%;
-  padding: 9px 16px;
-
-  border: 0;
-  background: transparent;
-
-  color: var(--color-text-dark);
-  font-family: var(--font-serif);
-  font-size: 13px;
-  text-align: left;
-
-  cursor: pointer;
-
-  transition: background .15s ease;
-}
-
-.journal-menu__item:hover {
-  background: rgba(100, 85, 70, .06);
-}
-
-.journal-menu__item:active {
-  background: rgba(100, 85, 70, .10);
-}
-
-.journal-menu__item--danger {
-  color: #c0392b;
-  font-weight: 600;
-}
-
-.journal-menu__item--danger:hover {
-  background: rgba(192, 57, 43, .07);
-}
-
-.journal-menu__item--danger:active {
-  background: rgba(192, 57, 43, .12);
 }

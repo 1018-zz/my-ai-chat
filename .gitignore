@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 build-check
-.tmp-*
+.tmp-build
 *.local
 
 # Editor directories and files

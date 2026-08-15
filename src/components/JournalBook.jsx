@@ -1,12 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import JournalPaper from './JournalPaper'
 import './JournalBook.css'
 
 const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
-
-const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 function getDow(dateStr) {
   try {
@@ -69,7 +67,7 @@ function makePreview(content) {
     .slice(0, 60)
 }
 
-export default function JournalBook({ onClose, initialView = 'cover' }) {
+export default function JournalBook({ onClose }) {
   const [view, setView] = useState('cover')
   const [selMonth, setSelMonth] = useState(null)
   const [selDate, setSelDate] = useState(null)
@@ -83,8 +81,6 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
    */
   const [pageDirection, setPageDirection] = useState('forward')
   const [pageKey, setPageKey] = useState(0)
-  const [showMenu, setShowMenu] = useState(false)
-  const didInitToday = useRef(false)
 
   const refresh = () =>
     fetch(`${API_BASE}/api/notes`)
@@ -96,41 +92,6 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
     refresh()
   }, [])
 
-  /* 月份归档：必须早于下方 initialView effect —— 否则 effect 依赖数组读取 months 会触发 TDZ（Cannot access 'months' before initialization） */
-  const months = useMemo(
-    () => buildJournal(notes),
-    [notes]
-  )
-
-  /* initialView === 'today'：数据加载后自动导航到今日（只跳一次，绝不卡死） */
-  useEffect(() => {
-    if (initialView !== 'today') return
-    if (didInitToday.current) return
-    if (notes.length === 0) return
-
-    didInitToday.current = true
-
-    const today = fmtDate(new Date())
-    const kept = notes.filter(n => n.status === 'saved')
-
-    /* 找今天是否有已收下的纸条 */
-    const todayNote = kept.find(n => (n.date || '').slice(0, 10) === today)
-
-    if (todayNote) {
-      /* 有 → 直达今日日期页 */
-      const m = (todayNote.date || '').slice(0, 7)
-      const monthData = months.find(x => x.key === m)
-      if (monthData) {
-        setSelMonth(monthData)
-        setSelDate(today)
-        changePage('day', 'forward')
-        return
-      }
-    }
-
-    /* 没有 → 留在封面（空手账或今天没写），不卡 loading */
-  }, [notes, months, initialView])
-
   /* Drawer 打开时锁底层滚动 */
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -140,6 +101,11 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
       document.body.style.overflow = prev
     }
   }, [])
+
+  const months = useMemo(
+    () => buildJournal(notes),
+    [notes]
+  )
 
   const totalKept = useMemo(
     () => months.reduce((s, m) => s + m.count, 0),
@@ -180,38 +146,6 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
     setSelDate(null)
     changePage('month', 'back')
   }
-
-  /* 菜单操作 */
-  const unsaveDay = async () => {
-    if (!selDate) return
-    const dayData = selMonth?.days.find(d => d.date === selDate)
-    if (!dayData) return
-    for (const n of dayData.notes) {
-      if (n.status === 'saved') {
-        await fetch(`${API_BASE}/api/notes`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: n.id, status: 'pending' })
-        }).catch(() => {})
-      }
-    }
-    setShowMenu(false)
-    refresh()
-  }
-
-  /* 彻底删除（物理删除，不可恢复）：删除当天所有纸条 */
-  const deleteDay = async () => {
-    if (!selDate) return
-    const dayData = selMonth?.days.find(d => d.date === selDate)
-    if (!dayData) return
-    for (const n of dayData.notes) {
-      await fetch(`${API_BASE}/api/notes?id=${n.id}`, { method: 'DELETE' }).catch(() => {})
-    }
-    setShowMenu(false)
-    refresh()
-  }
-
-  const closeMenu = () => setShowMenu(false)
 
   /* ====== 封面 ====== */
   if (view === 'cover') {
@@ -432,7 +366,7 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
         <div
           className={`journal-book-page journal-view journal-view--${pageDirection}`}
           key={pageKey}
-          onClick={e => { e.stopPropagation(); if (showMenu) setShowMenu(false) }}
+          onClick={e => e.stopPropagation()}
           style={{ background: 'var(--journal-bg)' }}
         >
           <header className="journal-header">
@@ -451,37 +385,10 @@ export default function JournalBook({ onClose, initialView = 'cover' }) {
               className="journal-more"
               aria-label="更多"
               type="button"
-              onClick={(e) => { e.stopPropagation(); setShowMenu(s => !s) }}
             >
               ···
             </button>
           </header>
-
-          {showMenu && (
-            <div className="journal-menu" onClick={e => e.stopPropagation()}>
-              {dayNotes.some(n => n.status === 'saved') && (
-                <button className="journal-menu__item" onClick={unsaveDay} type="button">
-                  移出收藏夹
-                </button>
-              )}
-              {dayNotes.length > 0 && (
-                <button
-                  className="journal-menu__item journal-menu__item--danger"
-                  onClick={() => {
-                    if (window.confirm('确定彻底删除这一天的全部纸条？此操作不可恢复。')) {
-                      deleteDay()
-                    }
-                  }}
-                  type="button"
-                >
-                  彻底删除
-                </button>
-              )}
-              <button className="journal-menu__item" onClick={closeMenu} type="button">
-                取消
-              </button>
-            </div>
-          )}
 
           {dayNotes.length === 0 ? (
             <div className="journal-cover__empty">

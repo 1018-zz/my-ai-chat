@@ -1,8 +1,9 @@
 // src/components/ChatInputBar.jsx — 输入框独立组件
 // 打字卡顿的根治：inputText 状态内聚在本组件，敲字只重渲染自己，
 // 不再触发父组件（ChatDetailPage）连带重渲染整个消息列表
-// 图片：选图阶段只压缩+预览；点发送后才并行调 MCP describe_image 识图，全部完成再组装发出
-import { useRef, useState, useEffect } from 'react'
+// 图片直发（多选）：选图只压缩进待发，点发送后才并行 MCP describe_image，
+// 描述仅注入 AI 上下文（不进气泡）；引用回复也走这里
+import { useRef, useState } from 'react'
 
 const MCP_URL = 'https://my-ai-chat-4zy.pages.dev/api/mcp-proxy'
 const NL = String.fromCharCode(10)
@@ -11,13 +12,10 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
   const [text, setText] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
   const [attaching, setAttaching] = useState(false)
-  const [pendingImages, setPendingImages] = useState([]) // 待发图片数组：[{ dataUrl, desc? }]
-  const [sending, setSending] = useState(false) // 发送中（并行识图阶段）loading 提示
+  const [pendingImages, setPendingImages] = useState([]) // [{ dataUrl }]
+  const [sending, setSending] = useState(false)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
-
-  // 引用回复：出现引用时自动聚焦输入框，方便接着写
-  useEffect(() => { if (quote && inputRef.current) inputRef.current.focus() }, [quote])
 
   // 输入框随内容自动增高（上限后内部滚动），避免长文本横向一条过去
   const resize = (el) => {
@@ -46,72 +44,69 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
     reader.readAsDataURL(file)
   })
 
-  // 选图阶段只压缩+预览，不调用 describe_image（识图移到发送时）
+  // 选图：只压缩进待发，不调识图（识图推迟到发送时并行）
   const pickImage = async (e) => {
     const files = Array.from(e.target.files || [])
     e.target.value = ''
     if (!files.length || attaching) return
     setAttachOpen(false); setAttaching(true)
     try {
-      const results = await Promise.all(files.map(async (file) => {
-        try {
-          const b64 = await compressImage(file)
-          return { dataUrl: b64 }
-        } catch (_) { return null }
-      }))
-      setPendingImages(p => [...p, ...results.filter(Boolean)])
-    } finally { setAttaching(false) }
+      const compressed = await Promise.all(files.map(f => compressImage(f)))
+      setPendingImages(p => [...p, ...compressed.map(d => ({ dataUrl: d }))])
+    } catch (_) { /* 单张失败忽略 */ } finally { setAttaching(false) }
   }
 
-  // 点发送后才并行识图；等所有图识图完成再组装消息发出
+  const removePending = (i) => setPendingImages(p => p.filter((_, idx) => idx !== i))
+
+  // 发送：并行识图 → 组装消息（描述仅给 AI，不进气泡）
   const send = async () => {
     const t = text.trim()
     if ((!t && pendingImages.length === 0) || loading || sending) return
-    const imgsToSend = pendingImages
-    const hasImgs = imgsToSend.length > 0
-    if (!t && !hasImgs) return
     setSending(true)
+    let imgs = []
     try {
-      const imgs = hasImgs
-        ? await Promise.all(imgsToSend.map(async (it) => {
-            let desc = ''
-            try {
-              const res = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'describe_image', arguments: { image: it.dataUrl } }, id: 1 }) })
-              const d = await res.json()
-              desc = d.result?.content?.[0]?.text || d.error?.message || ''
-            } catch (_) { desc = '' }
-            return { dataUrl: it.dataUrl, desc: desc || '（这张图我可能看不太清）' }
-          }))
-        : []
+      if (pendingImages.length) {
+        imgs = await Promise.all(pendingImages.map(async (it) => {
+          try {
+            const res = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'describe_image', arguments: { image: it.dataUrl } }, id: 1 }) })
+            const d = await res.json()
+            const desc = d.result?.content?.[0]?.text || d.error?.message || ''
+            return { dataUrl: it.dataUrl, desc }
+          } catch (_) { return { dataUrl: it.dataUrl, desc: '' } }
+        }))
+      }
       onSend(t, quote, imgs)
       setText('')
       setPendingImages([])
-      onClearQuote?.()
+      if (onClearQuote) onClearQuote()
       if (inputRef.current) inputRef.current.style.height = 'auto'
     } finally { setSending(false) }
   }
 
   return (
-    <div className="chat-input-bar" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+    <div className="chat-input-bar" style={{ alignItems: 'flex-end' }}>
       {quote && (
         <div className="chat-quote-preview">
-          <span className="chat-quote-preview__bar" />
-          <div className="chat-quote-preview__body">
-            <div className="chat-quote-preview__who">{quote.isSelf ? '泠泠' : '钟泽'}</div>
-            <div className="chat-quote-preview__text">{quote.text}</div>
+          <div className="chat-quote-preview-text">
+            <span className="chat-quote-who">{quote.isSelf ? '泠泠' : '钟泽'}</span>
+            <span className="chat-quote-snippet">{quote.text}</span>
           </div>
-          <button className="chat-quote-preview__close" onClick={onClearQuote} aria-label="取消引用">×</button>
+          <button className="chat-quote-close" onClick={onClearQuote} title="取消引用">×</button>
         </div>
       )}
-      {pendingImages.map((img, i) => (
-        <div className="chat-img-preview" key={i}>
-          <img className="chat-img-preview__thumb" src={img.dataUrl} alt="待发送图片" />
-          <span className="chat-img-preview__tag">{pendingImages.length > 1 ? `图片 ${i + 1}/${pendingImages.length}` : '图片'}</span>
-          <button className="chat-img-preview__close" onClick={() => setPendingImages(p => p.filter((_, j) => j !== i))} aria-label="移除图片">×</button>
+      {pendingImages.length > 0 && (
+        <div className="chat-img-previews">
+          {pendingImages.map((img, i) => (
+            <div className="chat-img-preview" key={i}>
+              <img className="chat-img-thumb" src={img.dataUrl} alt="待发图片" />
+              <span className="chat-img-tag">图片</span>
+              <button className="chat-img-remove" onClick={() => removePending(i)} title="移除">×</button>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching} title="添加图片">{attaching ? '⏳' : '＋'}</button>
+        <button className="btn-attach" onClick={() => setAttachOpen(o => !o)} disabled={loading || attaching || sending} title="添加图片">{attaching ? '⏳' : '＋'}</button>
         {attachOpen && (
           <div className="attach-menu">
             <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
@@ -127,14 +122,12 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
         placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
         value={text}
         onChange={(e) => { setText(e.target.value); resize(e.target) }}
-        disabled={loading}
+        disabled={loading || sending}
         style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
       />
       {loading
-        ? <button className="chat-stop-btn" onClick={onStop} aria-label="停止生成"><span className="chat-stop-icon" /><span>停止</span></button>
-        : sending
-          ? <button className="btn" disabled aria-label="正在处理图片">处理图片…</button>
-          : <button className="btn" onClick={send} disabled={!text.trim() && pendingImages.length === 0}>发送</button>}
+        ? <button className="btn" onClick={onStop} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
+        : <button className="btn" onClick={send} disabled={loading || sending || (!text.trim() && pendingImages.length === 0)}>{sending ? '处理图片…' : '发送'}</button>}
     </div>
   )
 }

@@ -1,15 +1,9 @@
 // src/components/Markdown.jsx
 // AI 回复的 markdown 渲染组件（react-markdown 封装）
-import { useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { applyTwemoji } from '../utils/emoji'
 
-const Markdown = ({ children }) => {
-  const ref = useRef(null)
-  // 渲染后把 emoji 换成 Twemoji 彩色 SVG（消息气泡内的 emoji 统一质感）
-  useEffect(() => { applyTwemoji(ref.current) }, [children])
-  return (
-  <div className="md-body" ref={ref}>
+const Markdown = ({ children }) => (
+  <div className="md-body">
     <ReactMarkdown
       components={{
         p: ({ children }) => <p style={{ margin: '6px 0' }}>{children}</p>,
@@ -43,7 +37,6 @@ const Markdown = ({ children }) => {
       {children}
     </ReactMarkdown>
   </div>
-  )
-}
+)
 
 export default Markdown

@@ -323,3 +323,20 @@ img.emoji {
 }
 .chat-tool-btn:hover { background: rgba(145, 107, 78, 0.12); color: var(--color-primary); }
 .chat-tool-btn:active { background: rgba(145, 107, 78, 0.18); }
+/* 聊天间距 / 心声加宽 / 段落呼吸 —— 组件级覆盖，不改动 theme.css 全局配色 */
+
+/* 对话行之间更透气（原 8px 偏挤） */
+.msg-row { margin-bottom: 14px; }
+.msg-row:last-child { margin-bottom: 4px; }
+
+/* 心声便签加宽（原 max-width 68%） */
+.inner-thought { max-width: 82%; }
+
+/* 段落呼吸：单气泡内分段落，逐段轻轻浮起 */
+.breath-para { margin: 0 0 9px; line-height: 1.72; }
+.breath-para:last-child { margin-bottom: 0; }
+@keyframes breathIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+.breath-para { animation: breathIn 0.42s ease both; }

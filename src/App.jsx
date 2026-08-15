@@ -15,7 +15,6 @@ import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
 import Markdown from './components/Markdown'
-import { applyTwemoji } from './utils/emoji'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
 import './styles/chat-tweaks.css'
@@ -50,18 +49,17 @@ const ActionIcons = {
   ),
   quote: (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 17H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h2l-1-3" />
-      <path d="M19 17h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h2l-1-3" />
+      <path d="M9 17H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2v2H5v4h4z" />
+      <path d="M19 17h-4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2v2h-4v4h4z" />
     </svg>
   ),
 }
 
 // 用户消息行：预留头像位 + 气泡列（长文本可折叠，仿 ChatGPT）+ 时间戳置于气泡下方
-function UserMsgRow({ msg, avatar, onAvatarClick }) {
+function UserMsgRow({ msg }) {
   const [expanded, setExpanded] = useState(false)
   const bodyRef = useRef(null)
   const [overflow, setOverflow] = useState((msg.text || '').length > 240)
-  const imgs = msg.images || (msg.image ? [msg.image] : [])
   useEffect(() => {
     const el = bodyRef.current
     if (el) setOverflow(el.scrollHeight - el.clientHeight > 4)
@@ -80,17 +78,11 @@ function UserMsgRow({ msg, avatar, onAvatarClick }) {
                 <span className="msg-quote__text">{msg.quote.text}</span>
               </div>
             )}
-            {imgs.length > 0 && (
-              <div className="msg-images">
-                {imgs.map((src, i) => <img key={i} className="msg-image" src={src} alt="图片" />)}
-              </div>
-            )}
-            {msg.text && (
-              <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
-                <Markdown>{msg.text}</Markdown>
-              </div>
-            )}
-            {msg.text && showToggle && (
+            <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
+              <Markdown>{msg.text}</Markdown>
+            </div>
+            {(() => { const imgs = msg.images || (msg.image ? [msg.image] : []); return imgs.length ? <div className="msg-images">{imgs.map((src, i) => <img key={i} className="msg-image" src={src} alt="" />)}</div> : null })()}
+            {showToggle && (
               <button className="msg-fold-toggle" onClick={() => setExpanded(v => !v)}>
                 {expanded ? '收起 ▲' : '展开全文 ▼'}
               </button>
@@ -99,12 +91,7 @@ function UserMsgRow({ msg, avatar, onAvatarClick }) {
           </>
         )}
       </div>
-      <div
-        className="msg-avatar msg-avatar-self"
-        style={avatar?.startsWith('http') ? { backgroundImage: `url(${avatar})`, backgroundSize: 'cover', color: 'transparent' } : {}}
-        onClick={onAvatarClick}
-        title="点击换头像"
-      >{avatar?.startsWith('http') ? '' : (avatar || '我')}</div>
+      <div className="msg-avatar msg-avatar-self">我</div>
     </div>
   )
 }
@@ -184,11 +171,11 @@ const LairPage = () => {
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
-        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today') }} />
+        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setNotePanel(true) }} />
       </div>
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setJournalBook(true)} />
-      {journalBook && <JournalBook onClose={() => setJournalBook(false)} initialView={journalBook === 'today' ? 'today' : 'cover'} />}
+      {journalBook && <JournalBook onClose={() => setJournalBook(false)} />}
       {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
     </div>
   )
@@ -818,19 +805,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const sessionAuthRef = useRef({})
   const sleepTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
-  /* 自定义头像（localStorage 持久化，支持 emoji / 图片 URL） */
-  const [avatarAi, setAvatarAi] = useState(() => { try { return localStorage.getItem('chat_avatar_ai') || '泽' } catch { return '泽' } })
-  const [avatarSelf, setAvatarSelf] = useState(() => { try { return localStorage.getItem('chat_avatar_self') || '我' } catch { return '我' } })
-  const [avatarPick, setAvatarPick] = useState(null) // null | 'ai' | 'self'
-  const [quote, setQuote] = useState(null) // 引用回复：{ id, text, isSelf } | null
-  // 聊天容器 ref：用于把头像 emoji / 选择器 emoji 也替换成 Twemoji 彩色 SVG
-  const chatDetailRef = useRef(null)
-  useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarAi, avatarSelf, avatarPick])
-  const saveAvatar = (side, val) => {
-    if (side === 'ai') { setAvatarAi(val); try { localStorage.setItem('chat_avatar_ai', val) } catch {} }
-    else { setAvatarSelf(val); try { localStorage.setItem('chat_avatar_self', val) } catch {} }
-    setAvatarPick(null)
-  }
+  // 引用回复：暂存被引用的消息（id/text/isSelf），发送时挂到用户消息上
+  const [quote, setQuote] = useState(null)
   // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
@@ -864,10 +840,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     switch (action) {
       case 'like': console.log('[action] like', msg.id); break
       case 'dislike': console.log('[action] dislike', msg.id); break
-      case 'quote':
-        // 引用回复：记录被引消息的 id/文本/作者，输入框上方出现预览条
-        if (msg.text && !msg.deleted) setQuote({ id: msg.id, text: msg.text, isSelf: !!msg.isSelf })
-        break
+      case 'quote': setQuote({ id: msg.id, text: msg.text, isSelf: msg.isSelf }); break
       case 'recall': recallMessage(msg); break
       case 'delete':
         if (window.confirm('从本地移除这条消息？')) setMsgList(p => p.filter(m => m.id !== msg.id))
@@ -1051,7 +1024,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     // 撤回事件（③）：已撤回的消息不进上下文；本会话刚撤回的（24h内）注入事件提示，不泄露内容
     const recalledCount = msgsForCtx.filter(m => m.deleted && (!m.deletedAt || Date.now() - m.deletedAt < 24 * 3600 * 1000)).length
     const recalledNote = recalledCount > 0 ? `\n\n【系统】泠泠撤回了 ${recalledCount} 条消息（内容已隐藏，不必追问，继续好好说话）` : ''
-    const cms = [{ role: 'system', content: systemPrompt + '\n\n' + nowText + recalledNote + (hc ? '\n\n' + hc : '') + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') + (toolHistory ? '\n\n【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n' + toolHistory : '') }, ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => { let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || ''); if (m.isSelf && m._imageDescs) c += (c ? '\n' : '') + m._imageDescs; if (m.isSelf && m.quote && m.quote.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`; return { role: m.isSelf ? 'user' : 'assistant', content: c } })]
+    const cms = [{ role: 'system', content: systemPrompt + '\n\n' + nowText + recalledNote + (hc ? '\n\n' + hc : '') + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') + (toolHistory ? '\n\n【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n' + toolHistory : '') }, ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
+      let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
+      if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
+      if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
+      return { role: m.isSelf ? 'user' : 'assistant', content: c }
+    })]
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = ''
     const first = await streamChat(curMsgs, curAiId,
@@ -1117,7 +1095,29 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }
 
   const stopGen = () => { if (sleepTimer.current) clearTimeout(sleepTimer.current); stopRequestedRef.current = true; abortRef.current?.abort() }
-  const handleSend = async (raw, q, imgs) => { const ut = (raw || '').trim(); if ((!ut && (!imgs || imgs.length === 0)) || loading) return; setLoading(true); stopRequestedRef.current = false; const uidU = uid(), uidA = uid(); const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }; if (imgs && imgs.length) { um.images = imgs.map(i => i.dataUrl); const descs = imgs.map(i => i.desc).filter(Boolean); if (descs.length) um._imageDescs = descs.join('\n') } if (q && q.text) um.quote = { id: q.id, text: q.text, isSelf: q.isSelf }; stats.message(); setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }]); if (chatInfo.id) updateChatPreview(chatInfo.id, ut || (imgs && imgs.length ? '[图片]' : '')); try { const aiText = await runChatTurn([...msgList, um], uidA); if (aiText && aiText.trim()) { stats.message(); stats.usage({ input: estimateTokens([...msgList, um].map(m => m.text || '').join(' ')), output: estimateTokens(aiText) }) } if (chatInfo.id) updateChatPreview(chatInfo.id, (aiText && aiText.trim()) ? aiText : (ut || '[图片]')) } catch (e) { setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m)) } finally { setLoading(false) } }
+  const handleSend = async (raw, q, imgs) => {
+    const ut = (raw || '').trim()
+    if ((!ut && (!imgs || imgs.length === 0)) || loading) return
+    setLoading(true); stopRequestedRef.current = false
+    const uidU = uid(), uidA = uid()
+    const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }
+    if (imgs && imgs.length) {
+      um.images = imgs.map(i => i.dataUrl)
+      const descs = imgs.map(i => i.desc).filter(Boolean)
+      if (descs.length) um._imageDescs = descs
+    }
+    if (q && q.text) um.quote = { id: q.id, text: q.text, isSelf: q.isSelf }
+    stats.message()
+    setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }])
+    if (chatInfo.id) updateChatPreview(chatInfo.id, ut)
+    try {
+      const aiText = await runChatTurn([...msgList, um], uidA)
+      if (aiText && aiText.trim()) { stats.message(); stats.usage({ input: estimateTokens([...msgList, um].map(m => m.text || '').join(' ')), output: estimateTokens(aiText) }) }
+      if (chatInfo.id) updateChatPreview(chatInfo.id, (aiText && aiText.trim()) ? aiText : ut)
+    } catch (e) {
+      setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m))
+    } finally { setLoading(false) }
+  }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -1143,29 +1143,28 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     : '在窗边等你'
 
   return (
-    <div className="chat-detail-page" ref={chatDetailRef}>
+    <div className="chat-detail-page">
       <Terminal open={termOpen} onClose={() => setTermOpen(false)} />
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>
-        {/* 动态标题（= 当前 conversation.title，改名自动跟随）+ AI 在场状态（呼吸点+文字） */}
-        <div className="chat-head-info">
-          <div className="chat-head-title">{chatInfo?.title || '新对话'}</div>
-          <div className="ai-status">
-            <span className={`ai-dot ${aiActive ? 'active' : ''}`} />
-            <span>{aiStatus}</span>
+        <div className="ai-presence">
+          <div className="ai-avatar">泽</div>
+          <div className="ai-meta">
+            <div className="ai-name">{chatInfo?.title || '钟泽'}</div>
+            <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}</div>
           </div>
         </div>
-        <div className="chat-head-tools">
-          <button className="chat-tool-btn" onClick={() => setTermOpen(true)} title="Terminal" aria-label="Terminal">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2.5" />
-              <path d="M7 9l3 3-3 3" />
-              <path d="M13 15h4" />
-            </svg>
-          </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <span onClick={() => setTermOpen(true)} style={{ cursor: 'pointer', fontSize: 18, padding: '4px 8px', borderRadius: 8, background: termOpen ? '#050607' : 'transparent', color: termOpen ? '#9dffbc' : 'var(--color-text-gray)', transition: 'all 0.2s', userSelect: 'none', display: 'inline-flex', alignItems: 'center' }} title="Terminal"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3" /><path d="M13 15h4" /></svg></span>
         </div>
       </div>
       <div className="chat-message-list" onScroll={handleMsgScroll}>
+        {loading && (() => {
+          const lastAi = [...msgList].reverse().find(m => !m.isSelf)
+          const runningTool = lastAi?.toolCalls?.some(t => t.result === undefined || t.result === '')
+          const phase = runningTool ? '🛠️ 正在整理资料' : (lastAi?.thinking && !lastAi?.thinkingDone ? '🧠 正在想' : (lastAi?.text ? '✍️ 正在写' : '🌱 这就来'))
+          return <div style={{ alignSelf: 'center', margin: '0 0 10px', fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--color-card-glass)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--color-border-glass)', borderRadius: 999, padding: '5px 14px', animation: 'messageIn .25s var(--ease-soft) both' }}>{phase}</div>
+        })()}
         {(() => {
           // 聚合渲染：连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
           const nodes = []
@@ -1180,7 +1179,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
-                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} />
+                  <UserMsgRow msg={msg} />
                 </div>
               )
               i++
@@ -1197,12 +1196,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
                   onTouchMove={handleMsgLongPressEnd}
                 >
                   <div className="msg-row msg-row-ai">
-                    <div
-                      className="msg-avatar msg-avatar-ai"
-                      style={avatarAi.startsWith('http') ? { backgroundImage: `url(${avatarAi})`, backgroundSize: 'cover', color: 'transparent' } : {}}
-                      onClick={() => setAvatarPick('ai')}
-                      title="点击换头像"
-                    >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
+                    <div className="msg-avatar msg-avatar-ai">泽</div>
                     <div className="msg-col msg-col-ai">
                       <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} />
                     </div>
@@ -1248,28 +1242,6 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
             </div>
           )
         })()}
-        {/* 头像选择器（点击头像唤起）—— 居中弹层，emoji 网格排布，避免向上展开被裁切 */}
-        {avatarPick && (
-          <div className="msg-action-menu-overlay" onClick={() => setAvatarPick(null)}>
-            <div className="msg-action-menu avatar-picker-menu" style={{ '--menu-x': '50vw', '--menu-y': '50%' }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8, textAlign: 'center' }}>
-                {avatarPick === 'ai' ? '换 AI 头像' : '换我的头像'}
-              </div>
-              <div className="avatar-emoji-grid">
-                {['泽', '🐱', '🌸', '⭐', '🌙', '🍵', '🎨', '💫'].map(emoji => (
-                  <div key={emoji} className="avatar-emoji" onClick={() => saveAvatar(avatarPick, emoji)}>{emoji}</div>
-                ))}
-              </div>
-              <div style={{ borderTop: '1px solid var(--color-border-warm)', margin: '8px 0 4px' }} />
-              <div className="msg-action-item" onClick={() => {
-                const url = window.prompt('粘贴图片 URL：')
-                if (url) saveAvatar(avatarPick, url.trim())
-              }} style={{ justifyContent: 'center', fontSize: 12 }}>
-                📷 图片链接…
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       {/* 对话内工具临授权确认卡 */}
       {pendingAuth && (
