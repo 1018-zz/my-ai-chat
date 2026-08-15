@@ -405,3 +405,79 @@
       14px;
   }
 }
+
+/* =========================================================
+   可复用纸张材质 · 公共层
+   供首页模块 / 未来新增模块共用，统一纸感（"以后还会加东西"也不重复造轮子）
+   用法：<div className="paper-surface paper-surface--inner">…</div>
+   颜色修饰：--note / --journal / --inner / --memory / --record
+   胶带：<span className="paper-tape" style={{ '--tape': 'var(--accent-xxx)' }} />
+   ========================================================= */
+
+.paper-surface {
+  --paper-bg: var(--paper-journal);
+  position: relative;
+  box-sizing: border-box;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80, 60, 40, .010) 6px
+    ),
+    var(--paper-bg);
+  border: 1px solid rgba(100, 80, 60, .035);
+  border-radius: 2px 3px 2px 4px;
+  box-shadow: var(--shadow-paper);
+}
+
+/* 纸张微纹理（噪点） */
+.paper-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: .025;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 纸张边缘极轻高光 */
+.paper-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+  opacity: .7;
+}
+
+.paper-surface--note    { --paper-bg: var(--paper-note); }
+.paper-surface--journal { --paper-bg: var(--paper-journal); }
+.paper-surface--inner   { --paper-bg: var(--paper-inner); }
+.paper-surface--memory  { --paper-bg: var(--paper-memory); }
+.paper-surface--record  { --paper-bg: var(--paper-record); }
+
+/* 胶带（可着色：传 --tape 变量；默认米黄半透，像和纸胶带） */
+.paper-tape {
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  left: 50%;
+  width: 64px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-1.4deg);
+  background: color-mix(in srgb, var(--tape, #e1d2a5) 62%, transparent);
+  box-shadow: 0 1px 2px rgba(80, 60, 40, .04);
+  pointer-events: none;
+}
+.paper-tape::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 1px;
+  background: rgba(130, 110, 80, .06);
+}

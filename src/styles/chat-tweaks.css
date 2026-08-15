@@ -340,3 +340,45 @@ img.emoji {
   to { opacity: 1; transform: none; }
 }
 .breath-para { animation: breathIn 0.42s ease both; }
+
+/* —— + 号菜单 · 模型切换（不碰只读 theme.css，样式走 chat-tweaks） —— */
+.attach-model-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+.attach-model-label { flex-shrink: 0; }
+.attach-model-current {
+  font-size: 11px;
+  color: var(--color-primary);
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attach-caret { font-size: 9px; color: var(--color-text-gray); flex-shrink: 0; }
+.model-submenu {
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-glass);
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.model-option:active { background: rgba(255, 255, 255, 0.06); }
+.model-option.selected { background: rgba(192, 139, 114, 0.14); }
+.model-option-main { display: flex; flex-direction: column; min-width: 0; }
+.model-option-label { font-size: 12.5px; color: var(--color-text-dark); }
+.model-option-desc { font-size: 10.5px; color: var(--color-text-gray); margin-top: 1px; }
+.model-option-check { color: var(--color-primary); font-size: 13px; flex-shrink: 0; }

@@ -8,12 +8,20 @@ import { useRef, useState } from 'react'
 const MCP_URL = 'https://my-ai-chat-4zy.pages.dev/api/mcp-proxy'
 const NL = String.fromCharCode(10)
 
-export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quote, onClearQuote }) {
+// 可选模型列表（后续接入新模型：往这里加一项即可；需 deepseek 端点真支持该模型名）
+export const MODELS = [
+  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', desc: '默认 · 响应快' },
+]
+export const DEFAULT_MODEL = MODELS[0].id
+
+export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quote, onClearQuote, model = DEFAULT_MODEL, onSelectModel }) {
   const [text, setText] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [pendingImages, setPendingImages] = useState([]) // [{ dataUrl }]
   const [sending, setSending] = useState(false)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const currentModelLabel = (MODELS.find(m => m.id === model) || {}).label || model
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -111,6 +119,28 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
           <div className="attach-menu">
             <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
             <div className="attach-item attach-disabled">📎 文件（开发中）</div>
+            <div className="attach-item attach-model-item" onClick={() => setModelMenuOpen(o => !o)}>
+              <span className="attach-model-label">🤖 模型</span>
+              <span className="attach-model-current">{currentModelLabel}</span>
+              <span className="attach-caret">{modelMenuOpen ? '▴' : '▾'}</span>
+            </div>
+            {modelMenuOpen && (
+              <div className="model-submenu">
+                {MODELS.map(m => (
+                  <div
+                    key={m.id}
+                    className={`model-option ${model === m.id ? 'selected' : ''}`}
+                    onClick={() => { onSelectModel?.(m.id); setModelMenuOpen(false); setAttachOpen(false) }}
+                  >
+                    <span className="model-option-main">
+                      <span className="model-option-label">{m.label}</span>
+                      {m.desc && <span className="model-option-desc">{m.desc}</span>}
+                    </span>
+                    {model === m.id && <span className="model-option-check">✓</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={pickImage} />

@@ -12,6 +12,7 @@ dist
 dist-ssr
 build-check
 .tmp-build
+.tmp-*
 *.local
 
 # Editor directories and files

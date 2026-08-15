@@ -2,7 +2,7 @@ import { fetchConversations, createConversation, deleteConversation, fetchMessag
 import { normalizeMessage } from './utils/normalize'
 import { fmtMsgTime } from './utils/time'
 import RunCard from './components/RunCard'
-import ChatInputBar from './components/ChatInputBar'
+import ChatInputBar, { DEFAULT_MODEL } from './components/ChatInputBar'
 import StatisticsPage from './components/StatisticsPage'
 import { stats, estimateTokens } from './utils/stats'
 import HomeWidgets, { widgets } from './components/HomeWidgets'
@@ -171,7 +171,7 @@ const LairPage = () => {
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
-        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setNotePanel(true) }} />
+        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today') }} />
       </div>
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setJournalBook(true)} />
@@ -791,6 +791,25 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   }, [])
   // （输入框状态已内聚到 ChatInputBar）
   const [loading, setLoading] = useState(false)
+  // —— 每聊模型选择（localStorage 按 chatId 存，零后端改动）——
+  const [model, setModel] = useState(() => (chatInfo?.id && localStorage.getItem('chat_model_' + chatInfo.id)) || DEFAULT_MODEL)
+  const selectModel = (m) => {
+    setModel(m)
+    if (chatInfo?.id) localStorage.setItem('chat_model_' + chatInfo.id, m)
+  }
+  const prevChatIdRef = useRef(chatInfo?.id)
+  useEffect(() => {
+    const id = chatInfo?.id
+    // 从「一个已存在的聊天」切到「另一个已存在的聊天」时，加载目标聊天的模型
+    if (id && prevChatIdRef.current && id !== prevChatIdRef.current) {
+      setModel(localStorage.getItem('chat_model_' + id) || DEFAULT_MODEL)
+    }
+    prevChatIdRef.current = id
+  }, [chatInfo?.id])
+  // 模型或聊天 id 变化时持久化（新聊天首次拿到 id 后也会落盘）
+  useEffect(() => {
+    if (chatInfo?.id) localStorage.setItem('chat_model_' + chatInfo.id, model)
+  }, [chatInfo?.id, model])
   // —— MCP 工具授权（逐项 + 对话内临授权）：localStorage 为唯一真源，跨组件用事件同步 ——
   const [mcpAuth, setMcpAuth] = useState(loadMcpAuth)
   const mcpAuthRef = useRef(mcpAuth)
@@ -931,7 +950,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     abortRef.current = controller
     const timer = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model: 'deepseek-v4-flash', conversationId: chatInfo?.id || null, skipSave }), signal: controller.signal })
+      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave }), signal: controller.signal })
       if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
       const reader = res.body.getReader(); const decoder = new TextDecoder()
       let ft = '', buf = '', tcs = [], th = ''
@@ -1255,7 +1274,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           </div>
         </div>
       )}
-      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} />
+      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} model={model} onSelectModel={selectModel} />
     </div>
   )
 }
