@@ -1,0 +1,1001 @@
+/* 「我们的手账」册 · OUR LITTLE JOURNAL
+   三层视图：封面 → 月份 → 日期
+   视觉系统与 JournalPaper 统一 */
+
+:root {
+  /* 与 JournalPaper 共享纸张语义 */
+  --journal-bg: #eee8de;
+  --journal-paper: var(--paper-journal, #f7f2e8);
+  --journal-paper-light: var(--paper-inner, #faf7f0);
+
+  --journal-ink: var(--ink, #574a3f);
+  --journal-soft: var(--ink-soft, #8c7d70);
+  --journal-faint: var(--ink-faint, #b2a69a);
+
+  --journal-line: rgba(105, 88, 70, 0.12);
+  --journal-shadow: 0 10px 28px rgba(70, 55, 40, 0.08);
+  --journal-ease: var(--ease-paper, cubic-bezier(.22, .8, .25, 1));
+}
+
+/* =========================================================
+   页面基础
+   ========================================================= */
+
+.journal-book-page,
+.journal-timeline-page {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  min-width: 0; /* flex 子项默认 min-width:auto 会撑破容器；归零后才能在窄/桌面端正确收缩 */
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 20px 20px 100px;
+  box-sizing: border-box;
+  color: var(--journal-ink);
+
+  overflow-x: hidden; /* 兜底：内部任何元素横向溢出时裁掉，不撑大遮罩 */
+
+  isolation: isolate;
+}
+
+/* =========================================================
+   翻页动画
+   ========================================================= */
+
+.journal-view {
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(.22, .61, .36, 1);
+  animation-fill-mode: both;
+}
+
+.journal-view--forward {
+  animation-name: journal-page-forward;
+}
+
+.journal-view--back {
+  animation-name: journal-page-back;
+}
+
+@keyframes journal-page-forward {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(18px)
+      rotate(0.45deg);
+    filter: drop-shadow(
+      -4px 6px 12px rgba(70, 55, 40, 0)
+    );
+  }
+
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: drop-shadow(
+      -1px 3px 8px rgba(70, 55, 40, 0)
+    );
+  }
+}
+
+@keyframes journal-page-back {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(-14px)
+      rotate(-0.35deg);
+  }
+
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* =========================================================
+   顶部栏
+   ========================================================= */
+
+.journal-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  /* 负边距让吸顶栏背景铺满纸张宽度，滚动时盖住下方内容 */
+  margin: 0 -20px 24px;
+  padding: 10px 20px 12px;
+  background: var(--journal-bg);
+  box-shadow: 0 6px 14px -10px rgba(70, 55, 40, 0.35);
+}
+
+.journal-header h1 {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+
+.journal-back,
+.journal-more {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  background: rgba(255, 255, 255, .38);
+  color: var(--journal-soft);
+  border-radius: 50%;
+  font-size: 23px;
+  cursor: pointer;
+  transition:
+    transform .3s var(--journal-ease),
+    background .3s ease,
+    box-shadow .3s ease;
+}
+
+.journal-back:hover {
+  transform: translateX(-2px);
+  background: rgba(255, 255, 255, .58);
+}
+
+.journal-back:active,
+.journal-more:active {
+  transform: scale(.94);
+}
+
+.journal-more {
+  font-size: 18px;
+}
+
+.journal-more:hover {
+  background: rgba(255, 255, 255, .6);
+}
+
+/* =========================================================
+   手账封面
+   ========================================================= */
+
+.journal-cover {
+  position: relative;
+  width: min(100%, 370px);
+  margin: 8px auto 28px;
+  padding: 52px 28px 46px;
+
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80, 60, 40, .010) 6px
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, .48),
+      rgba(255, 255, 255, 0) 48%
+    ),
+    var(--paper-journal, #f7f2e8);
+
+  border: 1px solid rgba(100, 80, 60, .055);
+  border-radius: 4px 7px 5px 3px;
+
+  box-shadow:
+    0 14px 38px rgba(65, 50, 35, .11),
+    0 2px 4px rgba(65, 50, 35, .035);
+
+  transform: rotate(-0.6deg);
+  transform-origin: center center;
+
+  overflow: visible;
+
+  transition:
+    transform .45s var(--journal-ease),
+    box-shadow .45s var(--journal-ease);
+}
+
+/* 纸张细噪点 */
+.journal-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  border-radius: inherit;
+
+  opacity: .028;
+
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 纸张横纹 */
+.journal-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  opacity: .035;
+
+  border-radius: inherit;
+
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 4px,
+      rgba(70, 50, 30, .18) 5px
+    );
+}
+
+/* 封面 hover：只抬一点，不放大 */
+.journal-cover:hover {
+  transform:
+    translateY(-2px)
+    rotate(-0.35deg);
+
+  box-shadow:
+    0 18px 42px rgba(65, 50, 35, .13),
+    0 3px 6px rgba(65, 50, 35, .04);
+}
+
+/* =========================================================
+   胶带
+   ========================================================= */
+
+.journal-tape {
+  position: absolute;
+  z-index: 3;
+
+  width: 92px;
+  height: 23px;
+
+  top: -9px;
+  left: 50%;
+
+  transform:
+    translateX(-50%)
+    rotate(-2deg);
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(216, 201, 164, .30),
+      rgba(216, 201, 164, .50),
+      rgba(216, 201, 164, .36)
+    );
+
+  box-shadow:
+    0 1px 3px rgba(60, 50, 40, .05);
+
+  opacity: .9;
+}
+
+/* 胶带中间很淡的折痕 */
+.journal-tape::after {
+  content: "";
+  position: absolute;
+
+  top: 0;
+  bottom: 0;
+  left: 50%;
+
+  width: 1px;
+
+  background: rgba(130, 110, 80, .07);
+
+  transform: rotate(.6deg);
+}
+
+/* =========================================================
+   装订孔
+   ========================================================= */
+
+.journal-binding {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+
+  height: 104px;
+
+  transform: translateY(-50%);
+}
+
+.journal-binding span {
+  position: relative;
+
+  width: 10px;
+  height: 10px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(90, 70, 50, .20);
+
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, .65),
+      rgba(255, 255, 255, .16) 55%,
+      rgba(90, 70, 50, .04)
+    );
+
+  box-shadow:
+    inset 0 1px 1px rgba(70, 50, 30, .06),
+    0 1px 1px rgba(255, 255, 255, .35);
+}
+
+/* =========================================================
+   封面文字
+   ========================================================= */
+
+.journal-cover-inner {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.journal-kicker {
+  margin: 0 0 18px;
+
+  font-size: 9px;
+  letter-spacing: .2em;
+
+  color: var(--journal-faint);
+}
+
+.journal-cover-inner h2 {
+  margin: 0;
+
+  font-family:
+    var(--font-hand),
+    "LXGW WenKai",
+    "Kaiti SC",
+    cursive;
+
+  font-size: 31px;
+  font-weight: 400;
+  letter-spacing: .10em;
+
+  color: var(--journal-ink);
+
+  transform: rotate(-0.4deg);
+}
+
+.journal-line {
+  width: 52px;
+  height: 1px;
+
+  margin: 22px auto;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      var(--journal-line),
+      transparent
+    );
+}
+
+.journal-year {
+  margin: 0;
+
+  font-family: Georgia, serif;
+  font-size: 16px;
+  letter-spacing: .12em;
+
+  color: var(--journal-soft);
+}
+
+.journal-names {
+  margin: 28px 0 0;
+
+  font-family: var(--font-hand);
+  font-size: 13px;
+
+  color: var(--journal-faint);
+
+  transform: rotate(-1deg);
+}
+
+/* =========================================================
+   月份入口
+   ========================================================= */
+
+.journal-months {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.journal-month {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+
+  padding: 17px 18px;
+
+  border: 1px solid rgba(100, 80, 60, .08);
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, .32),
+      rgba(255, 255, 255, .08)
+    ),
+    rgba(255, 253, 248, .45);
+
+  color: var(--journal-ink);
+
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+
+  box-shadow:
+    0 1px 2px rgba(70, 55, 40, .025);
+
+  transition:
+    transform .35s var(--journal-ease),
+    background .35s ease,
+    box-shadow .35s ease;
+}
+
+.journal-month:hover {
+  transform: translateX(3px);
+
+  background:
+    rgba(255, 253, 248, .76);
+
+  box-shadow:
+    var(--journal-shadow);
+}
+
+.journal-month:active {
+  transform:
+    translateX(2px)
+    scale(.992);
+}
+
+.journal-month strong {
+  display: block;
+
+  font-family:
+    Georgia,
+    "Noto Serif SC",
+    serif;
+
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.journal-month span {
+  display: block;
+
+  margin-top: 4px;
+
+  font-size: 11px;
+
+  color: var(--journal-faint);
+}
+
+.journal-arrow {
+  margin: 0 !important;
+
+  font-size: 20px !important;
+
+  color: var(--journal-faint) !important;
+
+  transition:
+    transform .25s var(--journal-ease),
+    color .25s ease;
+}
+
+.journal-month:hover .journal-arrow {
+  transform: translateX(3px);
+  color: var(--journal-soft) !important;
+}
+
+/* =========================================================
+   空状态
+   ========================================================= */
+
+.journal-cover__empty {
+  text-align: center;
+
+  padding: 40px 0 20px;
+
+  color: var(--journal-faint);
+
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.journal-empty-mark {
+  margin-bottom: 10px;
+
+  font-family: Georgia, serif;
+  font-size: 18px;
+
+  color: rgba(157, 148, 138, .55);
+
+  animation: journal-empty-float 3.5s ease-in-out infinite;
+}
+
+.journal-cover__empty p {
+  margin: 0;
+}
+
+@keyframes journal-empty-float {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: .65;
+  }
+
+  50% {
+    transform: translateY(-2px);
+    opacity: .9;
+  }
+}
+
+/* =========================================================
+   封面提示
+   ========================================================= */
+
+.journal-hint {
+  text-align: center;
+
+  font-size: 11px;
+  color: var(--journal-faint);
+
+  margin: -10px 0 18px;
+
+  letter-spacing: .03em;
+}
+
+/* =========================================================
+   月份标题
+   ========================================================= */
+
+.journal-month-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.journal-month-title span {
+  font-size: 9px;
+  letter-spacing: .15em;
+  color: var(--journal-faint);
+}
+
+.journal-month-title strong {
+  margin-top: 2px;
+
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+/* =========================================================
+   时间轴
+   ========================================================= */
+
+.journal-timeline {
+  position: relative;
+  margin-top: 14px;
+}
+
+.journal-timeline::before {
+  content: "";
+
+  position: absolute;
+
+  left: 43px;
+  top: 16px;
+  bottom: 16px;
+
+  width: 1px;
+
+  background:
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--journal-line) 7%,
+      var(--journal-line) 93%,
+      transparent
+    );
+}
+
+.journal-entry {
+  position: relative;
+
+  display: grid;
+
+  grid-template-columns: 55px 18px 1fr;
+
+  gap: 7px;
+
+  min-height: 88px;
+
+  cursor: pointer;
+}
+
+.journal-date {
+  text-align: right;
+  padding-top: 4px;
+}
+
+.journal-date strong {
+  display: block;
+
+  font-family: Georgia, serif;
+
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.journal-date span {
+  display: block;
+
+  margin-top: 2px;
+
+  font-size: 9px;
+
+  color: var(--journal-faint);
+}
+
+.journal-dot {
+  position: relative;
+  z-index: 2;
+
+  width: 7px;
+  height: 7px;
+
+  margin-top: 10px;
+
+  border-radius: 50%;
+
+  background: var(--journal-paper);
+
+  border: 1px solid rgba(120, 100, 80, .28);
+
+  box-shadow:
+    0 0 0 3px rgba(247, 242, 232, .38);
+
+  transition:
+    transform .3s var(--journal-ease),
+    box-shadow .3s ease;
+}
+
+.journal-entry-content {
+  position: relative;
+
+  margin-bottom: 12px;
+
+  padding: 13px 34px 14px 15px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, .22),
+      rgba(255, 255, 255, 0)
+    ),
+    rgba(250, 247, 240, .56);
+
+  border: 1px solid rgba(100, 80, 60, .065);
+
+  border-radius: 4px 7px 5px 3px;
+
+  box-shadow:
+    0 3px 12px rgba(70, 55, 40, .035);
+
+  transform-origin: left center;
+
+  transition:
+    transform .35s var(--journal-ease),
+    background .35s ease,
+    box-shadow .35s ease;
+}
+
+.journal-entry:hover .journal-entry-content {
+  transform:
+    translateX(3px)
+    rotate(.15deg);
+
+  background:
+    rgba(250, 247, 240, .86);
+
+  box-shadow:
+    0 5px 15px rgba(70, 55, 40, .055);
+}
+
+.journal-entry:hover .journal-dot {
+  transform: scale(1.18);
+
+  box-shadow:
+    0 0 0 3px rgba(247, 242, 232, .65);
+}
+
+.journal-entry:active .journal-entry-content {
+  transform:
+    translateX(2px)
+    rotate(.15deg)
+    scale(.994);
+}
+
+.journal-entry-meta {
+  margin-bottom: 5px;
+
+  font-size: 10px;
+  color: var(--journal-faint);
+}
+
+.journal-entry-content p {
+  margin: 0;
+
+  font-size: 13px;
+  line-height: 1.8;
+
+  color: var(--journal-ink);
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+
+.journal-entry-count {
+  display: inline-block;
+
+  margin-top: 6px;
+
+  font-size: 10px;
+
+  color: var(--journal-faint);
+
+  font-style: italic;
+}
+
+.journal-entry-arrow {
+  position: absolute;
+
+  right: 13px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  font-size: 18px;
+
+  color: var(--journal-faint);
+
+  transition:
+    transform .25s var(--journal-ease),
+    color .25s ease;
+}
+
+.journal-entry:hover .journal-entry-arrow {
+  transform:
+    translate(2px, -50%);
+
+  color: var(--journal-soft);
+}
+
+/* =========================================================
+   日期详情
+   ========================================================= */
+
+.journal-papers-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  margin-top: 14px;
+}
+
+/* =========================================================
+   375px
+   ========================================================= */
+
+@media (max-width: 375px) {
+  .journal-book-page,
+  .journal-timeline-page {
+    padding:
+      16px
+      14px
+      90px;
+  }
+
+  .journal-header {
+    margin: 0 -14px 18px;
+    padding: 10px 14px 12px;
+  }
+
+  .journal-header h1 {
+    font-size: 18px;
+  }
+
+  .journal-back,
+  .journal-more {
+    width: 36px;
+    height: 36px;
+  }
+
+  .journal-cover {
+    width: calc(100% - 4px);
+
+    padding:
+      44px
+      22px
+      38px;
+  }
+
+  .journal-cover-inner h2 {
+    font-size: 26px;
+    letter-spacing: .08em;
+  }
+
+  .journal-tape {
+    width: 82px;
+    height: 21px;
+  }
+
+  .journal-binding {
+    left: 8px;
+    height: 92px;
+  }
+
+  .journal-binding span {
+    width: 9px;
+    height: 9px;
+  }
+
+  .journal-month {
+    padding:
+      14px
+      14px;
+  }
+
+  .journal-month strong {
+    font-size: 15px;
+  }
+
+  .journal-timeline::before {
+    left: 39px;
+  }
+
+  .journal-entry {
+    grid-template-columns:
+      48px
+      16px
+      minmax(0, 1fr);
+  }
+
+  .journal-date strong {
+    font-size: 18px;
+  }
+
+  .journal-entry-content {
+    padding:
+      11px
+      30px
+      12px
+      13px;
+  }
+
+  .journal-entry-content p {
+    font-size: 12px;
+  }
+
+  .journal-entry-count {
+    font-size: 9px;
+  }
+}
+
+/* =========================================================
+   减少动画偏好
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-view,
+  .journal-cover,
+  .journal-month,
+  .journal-entry-content,
+  .journal-dot,
+  .journal-entry-arrow,
+  .journal-empty-mark {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* =========================================================
+   右上角三点菜单（日期页操作）
+   ========================================================= */
+
+.journal-menu {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+
+  min-width: 130px;
+
+  background: var(--paper-journal, #f7f2e8);
+  border: 1px solid rgba(100, 85, 70, .12);
+  border-radius: var(--radius-md, 10px);
+  box-shadow:
+    0 4px 14px rgba(70, 55, 40, .10),
+    0 1px 3px rgba(70, 55, 40, .06);
+
+  padding: 5px 0;
+
+  z-index: 20;
+
+  animation: journal-menu-in .18s var(--ease-soft);
+}
+
+@keyframes journal-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(.97);
+  }
+}
+
+.journal-menu__item {
+  display: block;
+
+  width: 100%;
+  padding: 9px 16px;
+
+  border: 0;
+  background: transparent;
+
+  color: var(--color-text-dark);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  text-align: left;
+
+  cursor: pointer;
+
+  transition: background .15s ease;
+}
+
+.journal-menu__item:hover {
+  background: rgba(100, 85, 70, .06);
+}
+
+.journal-menu__item:active {
+  background: rgba(100, 85, 70, .10);
+}
+
+.journal-menu__item--danger {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.journal-menu__item--danger:hover {
+  background: rgba(192, 57, 43, .07);
+}
+
+.journal-menu__item--danger:active {
+  background: rgba(192, 57, 43, .12);
+}

@@ -1,0 +1,325 @@
+/* 聊天间距 / 心声加宽 / 段落呼吸 / 气泡分割 / 头像放大
+   —— 组件级覆盖，不改动 theme.css 全局配色 */
+
+/* ═══ 彩色 emoji：把系统彩色 emoji 字体置于 CJK 字体之前，
+   避免 Noto Sans SC 的单色 emoji 字形“抢走”彩色渲染（修复 🐋 等变单色描边） ═══ */
+body {
+  font-family: system-ui, -apple-system,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    "PingFang SC", "Noto Sans SC", sans-serif;
+}
+
+/* 对话行之间更透气（原 8px 偏挤） */
+.msg-row { margin-bottom: 14px; }
+.msg-row:last-child { margin-bottom: 4px; }
+
+/* 心声便签加宽（原 max-width 68%） */
+.inner-thought { max-width: 82%; }
+
+/* ═══ 按呼吸节奏拆分气泡（每段独立气泡，像微信逐条发送） ═══ */
+/* 分割气泡之间加大间距——呼吸停顿感 */
+.msg-left .msg-bubble--split + .msg-bubble--split {
+  margin-top: 12px;
+}
+/* 分割气泡内的段落不再需要额外下边距（气泡本身已提供间隔） */
+.msg-bubble--split .breath-para { margin-bottom: 0; }
+
+/* 段落呼吸动画：逐段轻轻浮起 */
+@keyframes breathIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+.breath-para {
+  margin: 0;
+  line-height: 1.72;
+  animation: breathIn 0.42s ease both;
+}
+
+/* ═══ 头像加大（微信级别） ═══ */
+.msg-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  font-size: 14px !important;
+}
+
+/* ═══ ④ 停止按钮：暖灰低存在感胶囊，去掉红色警报感 ═══ */
+.chat-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(90, 75, 60, .12);
+  border-radius: 999px;
+  background: rgba(247, 242, 233, .82);
+  color: var(--color-text-dark);
+  box-shadow: 0 3px 10px rgba(70, 55, 40, .06);
+  cursor: pointer;
+  transition: transform .2s var(--ease-soft), background .2s ease, box-shadow .2s ease;
+}
+.chat-stop-btn:hover {
+  background: rgba(255, 252, 246, .96);
+  box-shadow: 0 5px 14px rgba(70, 55, 40, .08);
+  transform: translateY(-1px);
+}
+.chat-stop-btn:active { transform: scale(.92); }
+.chat-stop-icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-text-gray);
+}
+
+/* ═══ 头像选择器：居中弹层（覆盖 .msg-action-menu 的向上展开，避免高菜单被裁切） ═══ */
+.msg-action-menu.avatar-picker-menu {
+  transform: translate(-50%, -50%) scale(0.95);
+  transform-origin: center center;
+  padding: 12px;
+  animation: menuPopInCenter .2s var(--ease-soft) both;
+}
+@keyframes menuPopInCenter {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.88); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.avatar-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  justify-items: center;
+}
+.avatar-emoji {
+  width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+  user-select: none; -webkit-user-select: none;
+}
+.avatar-emoji:hover { background: var(--color-primary-light); }
+.avatar-emoji:active { background: var(--color-primary-light); transform: scale(.92); }
+
+/* ═══ Twemoji：替换后的彩色 emoji 图片尺寸（对标文字，呼吸感一致） ═══ */
+img.emoji {
+  height: 1.15em;
+  width: 1.15em;
+  margin: 0 .03em;
+  vertical-align: -0.18em;
+  display: inline-block;
+}
+
+/* ═══ 引用回复：用户气泡上方的被引片段 ═══ */
+.msg-quote {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  max-width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--color-primary, #c08b72);
+  border-radius: 0 10px 10px 0;
+  background: rgba(192, 139, 114, 0.10);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text-gray);
+}
+.msg-quote__who {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--color-primary, #c08b72);
+}
+.msg-quote__text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* ═══ 引用回复：输入框上方的预览条 ═══ */
+.chat-quote-preview {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-warm, rgba(201,184,166,0.5));
+  background: var(--color-card-glass, rgba(255,255,255,0.06));
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: var(--shadow-soft);
+  max-width: 100%;
+}
+.chat-quote-preview__bar {
+  flex-shrink: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--color-primary, #c08b72);
+}
+.chat-quote-preview__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-quote-preview__who {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-primary, #c08b72);
+}
+.chat-quote-preview__text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text-gray);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.chat-quote-preview__close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-gray);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s;
+}
+.chat-quote-preview__close:hover { background: rgba(0,0,0,0.08); }
+
+/* ═══ 图片直发（路径B·纯前端）：待发图片预览 + 消息内图片 ═══ */
+.chat-img-preview {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-warm, rgba(201,184,166,0.5));
+  background: var(--color-card-glass, rgba(255,255,255,0.06));
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: var(--shadow-soft);
+  max-width: 100%;
+}
+.chat-img-preview__thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.06);
+}
+.chat-img-preview__tag {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-img-preview__close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-gray);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s;
+}
+.chat-img-preview__close:hover { background: rgba(0,0,0,0.08); }
+
+/* 消息内的图片（自己发出的图，在自己这边显示为图片气泡） */
+.msg-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+  max-width: 232px;
+}
+.msg-image {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 6px;
+  box-shadow: var(--shadow-soft);
+}
+.msg-images .msg-image {
+  width: 100%;
+  height: 100px;
+  max-height: none;
+  margin-bottom: 0;
+}
+
+/* ═══ 聊天头部：半透明纸感（非卡片），动态标题 + 状态圆点 + 隐形工具按钮 ═══ */
+.chat-detail-header {
+  background: rgba(255, 249, 239, 0.55);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid rgba(201, 184, 166, 0.35);
+  box-shadow: 0 2px 10px rgba(120, 95, 68, 0.06);
+  gap: 10px;
+}
+.chat-head-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.chat-head-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.chat-head-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 隐形工具按钮：交互区存在，但视觉上尽量无形（无边框/无底色，hover 才轻轻浮起） */
+.chat-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-gray);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.chat-tool-btn:hover { background: rgba(145, 107, 78, 0.12); color: var(--color-primary); }
+.chat-tool-btn:active { background: rgba(145, 107, 78, 0.18); }

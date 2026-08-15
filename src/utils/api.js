@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = 'https://my-ai-chat-server-production.up.railway.app'
+const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
 
 export const MODELS = [
   { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', desc: '快速响应' },

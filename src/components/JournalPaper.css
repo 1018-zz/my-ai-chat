@@ -1,0 +1,483 @@
+/* =========================================================
+   自托管字体：本地 woff2，彻底不依赖外部 CDN
+   字体文件见 public/fonts/（Noto Serif SC 三字重 + LXGW WenKai 子集由 index.html 引入）
+   ========================================================= */
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/NotoSerifSC-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/NotoSerifSC-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/NotoSerifSC-600.woff2') format('woff2');
+}
+
+/* =========================================================
+   手账纸张组件 · 设计系统
+   JournalPaper / JournalBook 共用纸张语言
+   ========================================================= */
+
+:root {
+  --paper-note: #F3EBDD;
+  --paper-journal: #F7F2E8;
+  --paper-inner: #FAF7F0;
+  --paper-memory: #E6E9DC;
+  --paper-record: #ECE8DE;
+
+  --ink: #574A3F;
+  --ink-soft: #8C7D70;
+  --ink-faint: #B2A69A;
+
+  --sage: #AAB7A0;
+  --terracotta: #B78368;
+  --pencil: #9D948A;
+
+  --shadow-paper:
+    0 4px 14px rgba(70, 55, 40, .07);
+
+  --shadow-float:
+    0 8px 24px rgba(70, 55, 40, .10);
+
+  --ease-paper:
+    cubic-bezier(.22, .8, .25, 1);
+
+  --font-serif:
+    "Noto Serif SC",
+    "Source Han Serif SC",
+    "Noto Serif CJK SC",
+    "Noto Serif",
+    "Songti SC",
+    "STSong",
+    "SimSun",
+    serif;
+
+  --font-hand:
+    "LXGW WenKai",
+    "Kaiti SC",
+    "STKaiti",
+    "KaiTi",
+    cursive;
+}
+
+/* =========================================================
+   基础纸张
+   ========================================================= */
+
+.journal-paper {
+  position: relative;
+
+  width: min(86vw, 460px);
+
+  padding:
+    36px
+    30px
+    32px;
+
+  box-sizing: border-box;
+
+  color: var(--ink);
+
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80, 60, 40, .010) 6px
+    ),
+    var(--paper-note);
+
+  border:
+    1px solid rgba(100, 80, 60, .035);
+
+  box-shadow:
+    var(--shadow-paper);
+
+  border-radius:
+    2px 3px 2px 4px;
+
+  overflow: visible;
+
+  transition:
+    transform .45s var(--ease-paper),
+    box-shadow .45s var(--ease-paper);
+}
+
+/* =========================================================
+   纸张微纹理
+   ========================================================= */
+
+.journal-paper::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  border-radius: inherit;
+
+  opacity: .025;
+
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 纸张边缘的极轻高光 */
+.journal-paper::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  border-radius: inherit;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .16);
+
+  opacity: .7;
+}
+
+/* =========================================================
+   三态
+   ========================================================= */
+
+.journal-paper--mode-today {
+  transform: rotate(-0.5deg);
+}
+
+.journal-paper--mode-today:hover {
+  transform:
+    rotate(0deg)
+    translateY(-1px);
+
+  box-shadow:
+    var(--shadow-float);
+}
+
+.journal-paper--mode-full {
+  transform: none;
+  box-shadow: var(--shadow-paper);
+}
+
+.journal-paper--mode-preview {
+  width: 100%;
+
+  padding:
+    18px
+    18px
+    16px;
+
+  box-shadow:
+    0 2px 8px rgba(70, 55, 40, .04);
+}
+
+.journal-paper--mode-preview
+.journal-paper__title {
+  margin:
+    6px
+    0
+    10px;
+
+  font-size: 17px;
+}
+
+.journal-paper--mode-preview
+.journal-paper__body {
+  font-size: 13px;
+  line-height: 1.7;
+
+  -webkit-line-clamp: 3;
+
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+
+.journal-paper--mode-preview
+.journal-paper__signature {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+/* =========================================================
+   胶带
+   ========================================================= */
+
+.journal-paper__tape {
+  position: absolute;
+
+  z-index: 2;
+
+  top: -10px;
+  left: 50%;
+
+  width: 80px;
+  height: 22px;
+
+  transform:
+    translateX(-50%)
+    rotate(-1.2deg);
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(225, 210, 165, .34),
+      rgba(225, 210, 165, .48),
+      rgba(225, 210, 165, .38)
+    );
+
+  box-shadow:
+    0 1px 2px rgba(80, 60, 40, .04);
+}
+
+.journal-paper__tape::after {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  bottom: 0;
+  left: 50%;
+
+  width: 1px;
+
+  background:
+    rgba(130, 110, 80, .06);
+}
+
+/* =========================================================
+   内容
+   ========================================================= */
+
+.journal-paper__date {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.journal-paper__title {
+  margin:
+    12px
+    0
+    22px;
+
+  font-family: var(--font-serif);
+
+  font-size: 25px;
+  font-weight: 500;
+
+  letter-spacing: -.01em;
+
+  color: var(--ink);
+}
+
+.journal-paper__body {
+  font-size: 15px;
+  line-height: 2;
+
+  color: var(--ink);
+
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.journal-paper__signature {
+  margin-top: 24px;
+
+  text-align: right;
+
+  font-family: var(--font-hand);
+
+  font-size: 15px;
+
+  color: var(--ink-soft);
+
+  transform: rotate(-2deg);
+}
+
+/* =========================================================
+   纸张变体
+   ========================================================= */
+
+.journal-paper--note {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80,60,40,.010) 6px
+    ),
+    var(--paper-note);
+}
+
+.journal-paper--journal {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80,60,40,.010) 6px
+    ),
+    var(--paper-journal);
+}
+
+.journal-paper--inner {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80,60,40,.010) 6px
+    ),
+    var(--paper-inner);
+}
+
+.journal-paper--memory {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80,60,40,.010) 6px
+    ),
+    var(--paper-memory);
+}
+
+.journal-paper--record {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80,60,40,.010) 6px
+    ),
+    var(--paper-record);
+}
+
+/* =========================================================
+   375px
+   ========================================================= */
+
+@media (max-width: 375px) {
+  .journal-paper {
+    width: 88vw;
+    max-width: 100%;
+
+    padding:
+      28px
+      20px
+      26px;
+  }
+
+  .journal-paper__title {
+    font-size: 22px;
+    margin:
+      10px
+      0
+      18px;
+  }
+
+  .journal-paper__body {
+    font-size: 14px;
+    line-height: 1.9;
+  }
+
+  .journal-paper--mode-preview {
+    padding:
+      16px
+      16px
+      14px;
+  }
+}
+
+/* =========================================================
+   可复用纸张材质 · 公共层
+   供首页模块 / 未来新增模块共用，统一纸感（"以后还会加东西"也不重复造轮子）
+   用法：<div className="paper-surface paper-surface--inner">…</div>
+   颜色修饰：--note / --journal / --inner / --memory / --record
+   胶带：<span className="paper-tape" style={{ '--tape': 'var(--accent-xxx)' }} />
+   ========================================================= */
+
+.paper-surface {
+  --paper-bg: var(--paper-journal);
+  position: relative;
+  box-sizing: border-box;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      rgba(80, 60, 40, .010) 6px
+    ),
+    var(--paper-bg);
+  border: 1px solid rgba(100, 80, 60, .035);
+  border-radius: 2px 3px 2px 4px;
+  box-shadow: var(--shadow-paper);
+}
+
+/* 纸张微纹理（噪点） */
+.paper-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: .025;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 纸张边缘极轻高光 */
+.paper-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+  opacity: .7;
+}
+
+.paper-surface--note    { --paper-bg: var(--paper-note); }
+.paper-surface--journal { --paper-bg: var(--paper-journal); }
+.paper-surface--inner   { --paper-bg: var(--paper-inner); }
+.paper-surface--memory  { --paper-bg: var(--paper-memory); }
+.paper-surface--record  { --paper-bg: var(--paper-record); }
+
+/* 胶带（可着色：传 --tape 变量；默认米黄半透，像和纸胶带） */
+.paper-tape {
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  left: 50%;
+  width: 64px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-1.4deg);
+  background: color-mix(in srgb, var(--tape, #e1d2a5) 62%, transparent);
+  box-shadow: 0 1px 2px rgba(80, 60, 40, .04);
+  pointer-events: none;
+}
+.paper-tape::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 1px;
+  background: rgba(130, 110, 80, .06);
+}

@@ -3,8 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>my-ai-chat</title>
+    <!-- 自托管字体（public/fonts/）：彻底不依赖外部 CDN，手机端首次即出手写/衬线感 -->
+    <link rel="stylesheet" href="/fonts/lxgwwenkai-regular.css" />
+    <!-- Twemoji：把 Unicode emoji 替换为跨平台一致的彩色 SVG（微信级质感，消除豆腐块）。
+         资源自托管在 /emoji/（脚本 + svg 图集），彻底不依赖外部 CDN（国内网络稳定离线可用）。 -->
+    <script src="/emoji/twemoji.min.js"></script>
   </head>
   <body>
     <div id="root"></div>

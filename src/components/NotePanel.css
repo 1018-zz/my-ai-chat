@@ -1,0 +1,175 @@
+/* 整理面板 · 手账化重构（替代 legacy 黄便利贴 .sticky-note）
+   复用 JournalPaper 的 paper/ink token + NoteCard 的 .note-mask / .note-pop */
+
+/* —— 纸张容器：米白手账纸 + 细胶带 —— */
+.note-panel {
+  position: relative;
+  width: min(88vw, 440px);
+  max-height: 76vh;
+  overflow-y: auto;
+  padding: 40px 30px 28px;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 5px, rgba(80, 60, 40, .010) 6px),
+    var(--paper-journal);
+  box-shadow: 0 18px 46px rgba(60, 45, 30, .18);
+  border-radius: 3px 5px 3px 5px;
+  transform: rotate(-0.4deg);
+  animation: note-pop 0.35s var(--ease-soft);
+}
+.note-panel__tape {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 88px;
+  height: 24px;
+  transform: translateX(-50%) rotate(-1.4deg);
+  background: rgba(216, 201, 164, .48);
+  box-shadow: 0 1px 3px rgba(60, 50, 40, .05);
+}
+
+/* —— 标题栏 —— */
+.note-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.note-panel__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--ink);
+}
+.note-panel__close {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 17px;
+  color: var(--ink-soft);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transition: background .2s;
+}
+.note-panel__close:hover { background: rgba(120, 100, 80, .08); }
+.note-panel__sub {
+  margin: 8px 0 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+/* —— tab 切换：纸标签胶囊，无数字 —— */
+.note-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(120, 100, 80, .06);
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.note-tab {
+  flex: 1;
+  border: 0;
+  cursor: pointer;
+  padding: 7px 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  font-family: inherit;
+  transition: background .2s, color .2s;
+}
+.note-tab.is-active {
+  background: rgba(255, 255, 255, .8);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(70, 55, 40, .08);
+}
+
+/* —— 纸条列表 —— */
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.note-list-card {
+  padding: 14px 16px;
+  border-radius: 4px 7px 4px 6px;
+  border: 1px solid rgba(100, 80, 60, .08);
+  background: var(--paper-note); /* 待处理：桌面纸条（暖米） */
+  box-shadow: 0 3px 12px rgba(70, 55, 40, .05);
+}
+.note-list-card--saved { background: var(--paper-journal); }     /* 已收下：手账米白 */
+.note-list-card--discarded { background: var(--paper-record); }  /* 飘走：淡灰记录纸 */
+.note-list-meta {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  letter-spacing: .02em;
+}
+.note-list-body {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.note-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.note-list-hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-right: auto;
+}
+.note-list-hint--kept { color: var(--terracotta); }
+
+/* —— 操作按钮：墨色纸胶囊 —— */
+.note-tag-btn {
+  border: 1px solid rgba(100, 80, 60, .16);
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(247, 242, 233, .7);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s;
+}
+.note-tag-btn:hover { background: rgba(247, 242, 233, .95); box-shadow: 0 2px 8px rgba(70, 55, 40, .08); }
+.note-tag-btn--solid { background: var(--terracotta); color: #fff; border-color: transparent; }
+.note-tag-btn--solid:hover { background: #a6735a; box-shadow: none; }
+.note-tag-btn--ghost { color: var(--ink-soft); }
+.note-tag-btn--danger { color: #b0513c; border-color: rgba(176, 81, 60, .35); }
+
+/* —— 空状态 / 底部 —— */
+.note-panel__empty {
+  padding: 32px 8px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink-soft);
+}
+.note-panel__foot {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: .03em;
+}
+
+/* —— 响应式 375px —— */
+@media (max-width: 375px) {
+  .note-panel { width: 90vw; padding: 36px 20px 24px; }
+  .note-panel__title { font-size: 21px; }
+  .note-list-card { padding: 12px 14px; }
+  .note-list-body { font-size: 13px; line-height: 1.7; }
+}
