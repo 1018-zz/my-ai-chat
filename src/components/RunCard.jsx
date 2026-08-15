@@ -73,7 +73,7 @@ function RevealCard({ parts, live }) {
     if (!paras.length) return null
     return (
       <div key={si} className="msg-bubble">
-        {paras.map((t, pi) => <p key={pi} className="breath-para"><Markdown>{t}</Markdown></p>)}
+        {paras.map((t, pi) => <div key={pi} className="breath-para"><Markdown>{t}</Markdown></div>)}
       </div>
     )
   })
