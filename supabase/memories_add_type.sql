@@ -6,6 +6,9 @@
 -- ⚠️ content 列是治本改造新增的核心正文列：老表只有 summary（把标题+正文塞在一个字符串里），
 --    新代码（project.js / search.js / mcp.js / compression.js）全部直接读写 content，
 --    必须先用本文件加列，否则部署新 functions 后会 400 报错。
+-- ⚠️ created_at 列：原 memories 表由手工建表、没有 created_at（老 GET 只 select id,summary，故未暴露）。
+--    但新代码（project.js / search.js / mcp.js）均 `select=...created_at...&order=created_at.desc`，
+--    列不存在部署后直接 400。故此处一并补 created_at / updated_at，并回填旧行。
 
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS content text;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS type text DEFAULT 'moment';
@@ -13,6 +16,11 @@ ALTER TABLE memories ADD COLUMN IF NOT EXISTS title text;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS keywords text DEFAULT '';
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS importance real DEFAULT 0.5;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+-- 旧行（加列前已有的）created_at 为 NULL，回填为 now() 以保证排序/召回可用
+UPDATE memories SET created_at = now() WHERE created_at IS NULL;
 
 -- 加速按 type 分组/过滤（新代码核心访问模式：前端按 moment/note/compressed 分组展示）
 CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type);
