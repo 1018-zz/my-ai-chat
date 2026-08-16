@@ -31,7 +31,7 @@ export function buildToolSummary(tools) {
   for (const t of tools) counts[t.name] = (counts[t.name] || 0) + 1
   return Object.entries(counts).map(([name, n]) => {
     const meta = TOOL_META[name]
-    const label = meta ? `${meta.icon} ${meta.label}` : `⚙️ ${name}`
+    const label = meta ? meta.label : name
     return n > 1 ? `${label} ${n} 次` : label
   }).join(' · ')
 }

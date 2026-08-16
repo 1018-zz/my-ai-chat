@@ -118,6 +118,87 @@
 }
 
 /* 旅行相册：钟泽出门寄回的明信片墙（glassCard 风，不碰主题色） */
+/* —— 入口卡片：和「我的空间」那三张纸卡同款外观，但在正常流里（非绝对定位） —— */
+.album-entry {
+  position: relative;
+  width: 124px;
+  margin: 4px 0 14px;
+  transform: rotate(-1.6deg);
+}
+.album-entry .app-icon-tile {
+  --paper-bg: rgba(225, 240, 224, 0.86); /* 淡绿 · 记忆便签，区分其他纸 */
+  min-height: 102px;
+  padding: 21px 16px 14px;
+}
+.album-entry .paper-tape { width: 54px; }
+.album-entry:hover { z-index: 10; filter: brightness(1.01); }
+.album-entry:hover .app-icon-tile {
+  transform: translateY(-3px) rotate(0.2deg);
+  box-shadow: 0 10px 28px rgba(70, 55, 40, 0.14), 0 3px 8px rgba(70, 55, 40, 0.08);
+}
+.album-entry:active .app-icon-tile { transform: translateY(1px) scale(0.97); }
+
+/* —— 相册浮层（仿小纸条 mask + sheet 范式） —— */
+.travel-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 33, 26, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: safe center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 800;
+  animation: note-fade 0.25s var(--ease-soft);
+}
+.travel-sheet {
+  width: min(92vw, 520px);
+  margin: 24px 0;
+  background: var(--color-paper, #fff);
+  border: 1px solid var(--color-border-glass, rgba(201, 184, 166, 0.4));
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft, 0 8px 28px rgba(70, 55, 40, 0.14));
+  padding: 16px;
+  animation: note-pop 0.35s var(--ease-soft);
+}
+.travel-sheet__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.travel-sheet__title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.travel-sheet__hint {
+  font-size: 11px;
+  color: var(--color-text-gray);
+  margin-top: 2px;
+}
+.travel-sheet__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-glass, rgba(201, 184, 166, 0.4));
+  background: rgba(247, 242, 233, 0.72);
+  color: #594d43;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.2s var(--ease-soft);
+}
+.travel-sheet__close:hover { background: rgba(247, 242, 233, 0.95); }
+
+/* 灯箱层级抬到相册浮层之上（sheet 800 → lightbox 860） */
+.travel-lightbox { z-index: 860; }
+
+/* legacy 容器（已不再使用，保留无害） */
 .travel-album {
   margin-top: 16px;
   background: var(--color-card-glass);
@@ -149,6 +230,17 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+.travel-album__empty {
+  padding: 18px 14px;
+  margin: 4px 0 2px;
+  border-radius: 12px;
+  background: var(--color-card-glass, rgba(255,255,255,0.5));
+  border: 1px dashed var(--color-border-glass, rgba(201,184,166,0.4));
+  color: var(--color-text-gray, #8a7d6d);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.6;
 }
 .travel-album__cell {
   padding: 0;

@@ -1,6 +1,7 @@
 // src/components/Cards.jsx
 // 思考卡 + 工具卡（P0.7a 从 App.jsx 抽出，供 RunCard 与未来 BlockRenderer 复用）
 import { useState, useEffect } from 'react'
+import { ToolTypeIcon, StatusIcon, SproutIcon, LightbulbIcon, Copy } from './icons'
 
 export const glassCard = {
   borderRadius: 'var(--radius-lg)',
@@ -13,13 +14,13 @@ export const glassCard = {
   maxWidth: '75%',
 }
 
-// 韩系手帐纸感卡片：暖纸渐变 + 双层阴影 + 暖色描边（与 ToolGroupCard 一致）
+// 韩系手帐纸感卡片：暖纸渐变 + 单层柔和阴影 + 暖色描边（与 ToolGroupCard 一致，已收紧）
 export const paperCard = {
   maxWidth: '75%',
-  borderRadius: 12,
-  border: '1px solid rgba(201,184,166,0.4)',
+  borderRadius: 10,
+  border: '1px solid rgba(201,184,166,0.35)',
   background: 'linear-gradient(180deg, #FFF9EF 0%, #F6EDDA 100%)',
-  boxShadow: '0 4px 14px rgba(80,60,40,0.08), 0 1px 3px rgba(80,60,40,0.10)',
+  boxShadow: '0 2px 8px rgba(80,60,40,0.08)',
 }
 
 // —— 思考卡片（暖纸手帐风）：运行中一行状态（不预览内容），完成后收起成一行，点击展开 ——
@@ -30,8 +31,8 @@ export const ThinkingCard = ({ text, done, dur }) => {
   return (
     <div style={paperCard} className="tool-card status-thinking">
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}>
-        <span style={{ fontSize: 13 }}>💡</span>
-        <span>{done ? (dur ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '深度思考') : <span>🌱 正在整理想法<span className="thinking-dot" /></span>}</span>
+        <span style={{ fontSize: 14, color: 'var(--color-primary)', display: 'inline-flex' }}><LightbulbIcon /></span>
+        <span>{done ? (dur ? `深度思考 · ${(dur / 1000).toFixed(1)}s` : '深度思考') : <span><SproutIcon style={{ fontSize: 13, marginRight: 3 }} />正在整理想法<span className="thinking-dot" /></span>}</span>
         <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>{done ? (open ? '▲' : '▼') : ''}</span>
       </div>
       {showBody && (
@@ -45,29 +46,89 @@ export const ThinkingCard = ({ text, done, dur }) => {
   )
 }
 
+// 由文件路径后缀推断语言标签（用于代码块右上角徽标）
+const CODE_LANG = {
+  js: 'JS', jsx: 'JSX', ts: 'TS', tsx: 'TSX', mjs: 'JS', cjs: 'JS',
+  py: 'PY', pyw: 'PY', rb: 'RB', go: 'GO', rs: 'RS',
+  java: 'JAVA', c: 'C', h: 'C', cpp: 'C++', cc: 'C++', hpp: 'C++',
+  css: 'CSS', scss: 'SCSS', less: 'LESS', html: 'HTML', htm: 'HTML', vue: 'VUE', svelte: 'SVELTE',
+  json: 'JSON', md: 'MD', markdown: 'MD', sql: 'SQL', sh: 'SH', bash: 'SH', zsh: 'SH',
+  yml: 'YAML', yaml: 'YAML', toml: 'TOML', xml: 'XML', svg: 'SVG', txt: 'TXT', log: 'LOG',
+}
+function langFromPath(path) {
+  if (!path) return ''
+  const m = String(path).toLowerCase().match(/\.([a-z0-9]+)$/)
+  if (!m) return ''
+  return CODE_LANG[m[1]] || m[1].toUpperCase()
+}
+
 // —— 工具卡片（暖白饱和玻璃）：运行中只显头部状态，完成后自动折叠，点击展开详情 ——
+// 读写代码（read_file/write_file）结果用深色等宽代码块渲染，默认展开、不折行、可横向滚动
 export const ToolCard = ({ tool, result }) => {
-  const [open, setOpen] = useState(false)
   const isError = !!result && String(result).startsWith('执行失败')
   const isRunning = result === undefined || result === ''
-  const icon = tool.name === 'read_file' ? '📖' : tool.name === 'write_file' ? '✏️' : tool.name === 'list_files' ? '📁' : tool.name === 'read_memories' ? '🧠' : tool.name === 'write_memory' ? '📝' : '⚙️'
+  const isCode = tool.name === 'read_file' || tool.name === 'write_file'
+  const lang = isCode ? langFromPath(tool.arguments?.path) : ''
+  const [open, setOpen] = useState(isCode)
+  const [copied, setCopied] = useState(false)
   const showBody = open
+
+  // 复制代码块内容（含降级方案，兼容非 https 部署环境）
+  const handleCopy = async () => {
+    if (!result) return
+    const text = String(result)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch (e) {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch (_) { /* 忽略降级失败 */ }
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
   return (
     <div style={{ ...paperCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isError ? 'status-err' : 'status-ok'}`}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
-        <span className="tool-icon" style={{ fontSize: 13 }}>{icon}</span>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
+        <ToolTypeIcon name={tool.name} className="tool-icon" style={{ fontSize: 14 }} />
         <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>{tool.name}</span>
         {tool.arguments?.path && <span style={{ color: 'var(--color-text-gray)', fontSize: 11 }}>{tool.arguments.path}</span>}
-        <span style={{ marginLeft: 'auto', fontSize: 12 }}>
-          {isRunning ? <span style={{ color: '#C08B5E' }}>⏳</span> : isError ? <span style={{ color: '#D97777' }}>❌</span> : <span style={{ color: '#7D9B76' }}>✅</span>}
+        <span style={{ marginLeft: 'auto' }}>
+          <StatusIcon status={isRunning ? 'running' : isError ? 'err' : 'ok'} style={{ fontSize: 14 }} />
         </span>
       </div>
       {showBody && (
-        <div style={{
-          padding: '0 14px 10px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
-          color: isError ? 'var(--color-danger)' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
-          borderTop: '1px solid var(--color-border-glass)', opacity: isRunning ? 0.7 : 1,
-        }}>{result || '执行中…'}</div>
+        isCode
+          ? (
+            <div className="tool-code-wrap">
+              {!isRunning && (
+                <div className="tool-code-bar">
+                  {lang && <span className="tool-code-lang">{lang}</span>}
+                  <button
+                    type="button"
+                    className={`tool-copy-btn${copied ? ' copied' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); handleCopy() }}
+                    title="复制代码"
+                  >
+                    <Copy style={{ fontSize: 11, marginRight: 3 }} />
+                    {copied ? '已复制' : '复制'}
+                  </button>
+                </div>
+              )}
+              <pre className="tool-code">{result || '执行中…'}</pre>
+            </div>
+          )
+          : <div style={{
+              padding: '0 12px 8px', maxHeight: 220, overflowY: 'auto', fontSize: 11, lineHeight: 1.7,
+              color: isError ? 'var(--color-danger)' : 'var(--color-text-gray)', whiteSpace: 'pre-wrap',
+              borderTop: '1px solid var(--color-border-glass)', opacity: isRunning ? 0.7 : 1,
+            }}>{result || '执行中…'}</div>
       )}
     </div>
   )

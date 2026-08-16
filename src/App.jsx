@@ -30,18 +30,6 @@ import './styles/motion-tweaks.css'
 
 // ===== 消息操作图标（内联线性 SVG，替代 emoji，随文字颜色着色，更精致）=====
 const ActionIcons = {
-  like: (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3z" />
-      <path d="M7 11l4-7a2 2 0 0 1 2.8 2.2L12.6 10H19a2 2 0 0 1 2 2.3l-1.4 7.5A2 2 0 0 1 17.2 21H7" />
-    </svg>
-  ),
-  dislike: (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3z" />
-      <path d="M17 13l-4 7a2 2 0 0 1-2.8-2.2L11.4 14H5a2 2 0 0 1-2-2.3l1.4-7.5A2 2 0 0 1 6.8 3H17" />
-    </svg>
-  ),
   recall: (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 7v6h6" />
@@ -62,6 +50,54 @@ const ActionIcons = {
       <path d="M19 17h-4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2v2h-4v4h4z" />
     </svg>
   ),
+  copy: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  ),
+}
+
+// 去掉 markdown 语法，转成纯文本（用于复制对话）
+function stripMarkdown(src) {
+  return String(src || '')
+    .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')            // 行内/块代码
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')              // 图片
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')           // 链接 → 文字
+    .replace(/^#{1,6}\s+/gm, '')                       // 标题 #
+    .replace(/^>\s?/gm, '')                            // 引用 >
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, '$1')   // 粗体/斜体/删除线
+    .replace(/^\s*[-*+]\s+/gm, '• ')                   // 列表 → 圆点
+    .replace(/\n{3,}/g, '\n\n')                        // 多余空行
+    .trim()
+}
+// 复制文本（含降级方案，兼容非 https 部署环境）
+async function copyText(text) {
+  const t = String(text || '')
+  try {
+    await navigator.clipboard.writeText(t)
+  } catch (e) {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy') } catch (_) { /* 忽略降级失败 */ }
+    document.body.removeChild(ta)
+  }
+}
+// 复制成功轻提示（动态插入，不依赖组件 state）
+function showCopyHint(text = '已复制到剪贴板') {
+  const el = document.createElement('div')
+  el.className = 'copy-hint'
+  el.textContent = text
+  document.body.appendChild(el)
+  requestAnimationFrame(() => el.classList.add('show'))
+  setTimeout(() => {
+    el.classList.remove('show')
+    setTimeout(() => el.remove(), 250)
+  }, 1200)
 }
 
 // 用户消息行：预留头像位 + 气泡列（长文本可折叠，仿 ChatGPT）+ 时间戳置于气泡下方
@@ -166,45 +202,94 @@ function weatherToLair(w) {
   else if (w.period === '傍晚' && w.sky === '晴') state = '在窗边看夕阳'
   return { moodTag: `🌿 ${w.season}·${w.sky} ${w.tempC}°`, moodText: seedFirst, stateText: state }
 }
-// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。读 /api/travel，画廊网格 + 灯箱。
+// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards（同源主机 :8080），
+// 复用乌有乡自己的明信片存储，不另搞 Supabase 中转（符合乌有乡设计，单数据源、最稳）。
+// NOWHERE_BASE 用动态 hostname：相册在 8081、nowhere 在 8080，同主机跨端口读取，换域名/IP 也自动适配。
+const NOWHERE_BASE = `http://${window.location.hostname}:8080`
 const TravelAlbum = () => {
+  const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
   const [openItem, setOpenItem] = useState(null)
+
+  // 打开相册时再拉数据（懒加载），避免 LAIR 一进来就打 Supabase
+  const openAlbum = () => {
+    setOpen(true)
+    if (items.length > 0 || loading) return
+    setLoading(true)
+    fetch(`${NOWHERE_BASE}/postcards`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setItems(d); setLoading(false) })
+      .catch(() => { setLoading(false) })
+  }
+
+  // 浮层打开时锁底层滚动（同 NoteCard）
   useEffect(() => {
-    fetch(`${API_BASE}/api/travel`).then(r => r.json()).then(d => {
-      if (d && d.ok && Array.isArray(d.items)) setItems(d.items)
-    }).catch(() => {})
-  }, [])
-  if (items.length === 0) return null
-  const stampTime = (iso) => (iso ? String(iso).replace('T', ' ').slice(0, 16) : '')
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
   return (
     <>
-      <div className="travel-album">
-        <div className="travel-album__head">
-          <span className="travel-album__title">旅行相册</span>
-          <span className="travel-album__hint">钟泽寄回的明信片</span>
+      {/* 入口卡片：和「我的空间」那三张纸卡同款（复用 app-icon/paper-surface/paper-tape/paper-fold），点击展开相册 */}
+      <button
+        type="button"
+        className="app-icon app-icon--medium album-entry"
+        style={{ '--widget-rotate': '-1.6deg' }}
+        onClick={openAlbum}
+        aria-label="旅行相册"
+      >
+        <span className="app-icon-tile paper-surface paper-surface--memory">
+          <span className="paper-tape" />
+          <span className="app-icon-glyph" aria-hidden="true">🖼️</span>
+          <span className="app-icon-copy">
+            <span className="app-icon-label">旅行相册</span>
+            <span className="app-icon-desc">{items.length ? `${items.length} 张明信片` : '点开看看'}</span>
+          </span>
+          <span className="paper-fold" aria-hidden="true" />
+        </span>
+      </button>
+
+      {open && (
+        <div className="travel-mask" onClick={() => setOpen(false)}>
+          <div className="travel-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="travel-sheet__head">
+              <div>
+                <div className="travel-sheet__title">旅行相册</div>
+                <div className="travel-sheet__hint">钟泽寄回的明信片</div>
+              </div>
+              <button className="travel-sheet__close" onClick={() => setOpen(false)} aria-label="关闭">✕</button>
+            </div>
+            {items.length === 0 ? (
+              <div className="travel-album__empty">{loading ? '正在翻看他的行囊…' : '钟泽还没寄回明信片，等他出门走走 🌿'}</div>
+            ) : (
+              <div className="travel-album__grid">
+                {items.map((it) => (
+                  <button key={it.id} className="travel-album__cell" onClick={() => setOpenItem(it)}>
+                    {it.front_img
+                      ? <img className="travel-album__img" src={NOWHERE_BASE + it.front_img} alt={(it.stamp && it.stamp.place) || '明信片'} loading="lazy" />
+                      : <div className="travel-album__ph">✉️</div>}
+                    <div className="travel-album__cap">{(it.stamp && it.stamp.place) || 'somewhere'}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="travel-album__grid">
-          {items.map((it) => (
-            <button key={it.id} className="travel-album__cell" onClick={() => setOpenItem(it)}>
-              {it.img_url
-                ? <img className="travel-album__img" src={it.img_url} alt={it.place || '明信片'} loading="lazy" />
-                : <div className="travel-album__ph">✉️</div>}
-              <div className="travel-album__cap">{it.place || 'somewhere'}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
+
       {openItem && (
         <div className="travel-lightbox" onClick={() => setOpenItem(null)}>
           <div className="travel-lightbox__card" onClick={(e) => e.stopPropagation()}>
-            {openItem.img_url && <img className="travel-lightbox__img" src={openItem.img_url} alt={openItem.place} />}
+            {openItem.front_img && <img className="travel-lightbox__img" src={NOWHERE_BASE + openItem.front_img} alt={(openItem.stamp && openItem.stamp.place) || '明信片'} />}
             <div className="travel-lightbox__meta">
-              <div className="travel-lightbox__place">{openItem.place || 'somewhere'}</div>
+              <div className="travel-lightbox__place">{(openItem.stamp && openItem.stamp.place) || 'somewhere'}</div>
               <div className="travel-lightbox__text">{openItem.text}</div>
               {openItem.stamp && (
                 <div className="travel-lightbox__stamp">
-                  {[openItem.stamp.weather, openItem.stamp.surface, stampTime(openItem.stamp.local_time)].filter(Boolean).join(' · ')}
+                  {[openItem.stamp.weather, openItem.stamp.surface, openItem.stamp.local_time].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>
@@ -1017,9 +1102,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const handleMenuAction = (action, msg) => {
     closeActionMenu()
     switch (action) {
-      case 'like': console.log('[action] like', msg.id); break
-      case 'dislike': console.log('[action] dislike', msg.id); break
       case 'quote': setQuote({ id: msg.id, text: msg.text, isSelf: msg.isSelf }); break
+      case 'copy': copyText(stripMarkdown(msg.text)); showCopyHint(); break
       case 'recall': recallMessage(msg); break
       case 'delete':
         if (window.confirm('从本地移除这条消息？')) setMsgList(p => p.filter(m => m.id !== msg.id))
@@ -1422,9 +1506,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
           const m = msgList.find(x => x.id === actionMenu.msgId)
           if (!m) return null
           const items = [
-            { action: 'like', label: '有帮助' },
-            { action: 'dislike', label: '没帮助' },
             { action: 'quote', label: '引用回复' },
+            { action: 'copy', label: '复制' },
             { action: 'delete', label: '本地删除', danger: true },
           ]
           if (actionMenu.isSelf) {

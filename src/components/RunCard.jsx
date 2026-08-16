@@ -7,6 +7,7 @@ import Markdown from './Markdown'
 import { ThinkingCard, ToolCard, paperCard } from './Cards'
 import { fmtMsgTime } from '../utils/time'
 import { buildToolSummary } from './ToolGroupCard'
+import { SproutIcon, WrenchIcon, LightbulbIcon } from './icons'
 
 // 心声标记（[心里嘀咕：...] 或 <!-- 心声：... -->）
 const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]/g
@@ -121,12 +122,12 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
       {/* 运行中：轻量工作台状态条（像翻开工作台，不是服务器日志） */}
       {running && (hasThinking || hasTools) && (
         <div
-          style={{ ...paperCard, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}
+          style={{ ...paperCard, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}
         >
           <span style={{ lineHeight: 1.6 }}>
-            {hasThinking && <span>🌱 正在整理想法<span className="thinking-dot" /></span>}
+            {hasThinking && <span><SproutIcon style={{ fontSize: 13, marginRight: 3 }} />正在整理想法<span className="thinking-dot" /></span>}
             {hasThinking && hasTools && <span style={{ opacity: 0.5 }}> · </span>}
-            {hasTools && <span>🛠 {summary}</span>}
+            {hasTools && <span><WrenchIcon style={{ fontSize: 13, marginRight: 3 }} />{summary}</span>}
           </span>
           <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.5 }}>…</span>
         </div>
@@ -135,12 +136,12 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
       {canFold && !running && (
         <div
           onClick={() => onToggle(msgs[0]?.id)}
-          style={{ ...paperCard, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}
+          style={{ ...paperCard, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', userSelect: 'none' }}
         >
           <span style={{ opacity: 0.9, lineHeight: 1.6 }}>
-            {hasThinking && `🧠 思考 ${durText || '…'}`}
+            {hasThinking && <><LightbulbIcon style={{ fontSize: 13, marginRight: 3 }} />思考 {durText || '…'}</>}
             {hasThinking && hasTools && <span style={{ opacity: 0.5 }}> · </span>}
-            {hasTools && `🛠 ${summary}`}
+            {hasTools && <><WrenchIcon style={{ fontSize: 13, marginRight: 3 }} />{summary}</>}
           </span>
           <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.6 }}>{isCollapsed ? '▸' : '▾'}</span>
         </div>

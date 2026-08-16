@@ -804,6 +804,90 @@ body[data-time='night']::before { background: radial-gradient(circle at 75% 15%,
   padding-top: 8px; margin: 0 14px;
 }
 
+/* 工具结果里的代码块（read_file/write_file）：深色等宽、不折行、可横向滚动 */
+.tool-code {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 360px;
+  overflow: auto;
+  background: #0d0f12;
+  color: #e6e6e6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+  border-top: 1px solid var(--color-border-glass);
+}
+
+/* 代码块语言徽标条（紧贴代码块顶部，深色同色系） */
+.tool-code-bar {
+  background: #0d0f12;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tool-code-lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: #cfd3da;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+/* 代码块复制按钮（与语言徽标同行的胶囊） */
+.tool-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  color: #cfd3da;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.tool-copy-btn:hover { background: rgba(255, 255, 255, 0.18); }
+.tool-copy-btn.copied {
+  color: #8fd29a;
+  border-color: rgba(143, 210, 154, 0.45);
+  background: rgba(143, 210, 154, 0.12);
+}
+
+/* 复制成功轻提示（底部居中玻璃胶囊，动态插入 body） */
+.copy-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translate(-50%, 8px);
+  background: rgba(40, 34, 28, 0.92);
+  color: #fff;
+  font-size: 12px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s, transform .2s;
+  z-index: 9999;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.copy-hint.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* 运行中状态图标旋转 */
+.tool-spin { animation: toolspin 1.1s linear infinite; transform-origin: 50% 50%; }
+@keyframes toolspin { to { transform: rotate(360deg); } }
+
 /* Tool Card 状态色（韩系柔和版） */
 .tool-card.status-thinking { border-color: rgba(143, 184, 222, 0.30); }
 .tool-card.status-thinking .tool-icon { color: var(--status-thinking); }
