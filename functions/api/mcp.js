@@ -3,6 +3,7 @@
 // 记忆工具：read_memories / write_memory（Supabase memories 表，全端共享的记忆中心）
 
 import { getWeather } from '../lib/weather.js'
+import { saveMemory } from '../lib/memoryWriter.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -217,13 +218,13 @@ export async function onRequestPost(context) {
       if (name === 'write_memory') {
         const content = String(args.content || '').trim()
         if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required' } }), { status: 400, headers });
-        const payload = { summary: content, type: 'note', title: null, content, source: 'ai_write', importance: 0.6 }
-        let res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(payload) })
-        // 容错：新列未建时退回只写 summary
-        if (!res.ok && payload.type !== undefined) {
-          res = await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: content }) })
+        // 统一走 saveMemory：写入前去重，避免回声环反复记同一条
+        const result = await saveMemory({ summary: content, type: 'note', title: null, content, importance: 0.6, source: 'ai_write', env })
+        if (!result.saved) {
+          if (result.reason === 'duplicate') return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '这条我记得过了，没重复记～' }] } }), { headers });
+          if (result.reason === 'empty') return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required' } }), { status: 400, headers });
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${result.reason}]` } }), { status: 500, headers });
         }
-        if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `supabase [${res.status}]` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '✅ 已记住' }] } }), { headers });
       }
       if (name === 'write_insight') {

@@ -1,6 +1,7 @@
 // stream-run.js — SSE 流解析 + tool_calls 收集 + thinking 收集 + <think> 标签剥离 + 消息存储 + 摘要/压缩触发
 import { trySummarize } from './stream-summarize.js'
 import { tryCompressConversation } from './stream-compress.js'
+import { saveMemory } from '../lib/memoryWriter.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -230,7 +231,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           await fetch(`${SUPABASE}/messages`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(saveBody) })
           await fetch(`${SUPABASE}/conversations?id=eq.${convId}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify({ updated_at: new Date().toISOString() }) })
           const mm = fullContent.match(/<!--\s*记住[：:]\s*(.+?)\s*-->/)
-          if (mm) await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: mm[1].trim() }) })
+          if (mm) await saveMemory({ summary: mm[1].trim(), type: 'note', source: 'remember_tag', env })
           trySummarize(env, convId)
           tryCompressConversation(env, convId)
         }

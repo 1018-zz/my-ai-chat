@@ -129,7 +129,7 @@ export async function onRequestPost(context) {
               parts.push(`【家里最近】（家感知层）\n${lines.join('\n')}\n${awareness.instruction}`)
             }
           } catch (_) {}
-          if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n${parts.map(p => `• ${p}`).join('\n')}`
+          if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n以下内容是你已经拥有的长期记忆与家里近况，不是新发生的事。不要因为看到它们而再次写入记忆库；只有当泠泠说出全新的、尚未记录的重要事实时，才考虑调用 write_memory。\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
         const orig = messages[sysIdx].content
         messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
