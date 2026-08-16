@@ -116,3 +116,128 @@
   background: var(--weather-tint, transparent);
   transition: background 900ms ease;
 }
+
+/* 旅行相册：钟泽出门寄回的明信片墙（glassCard 风，不碰主题色） */
+.travel-album {
+  margin-top: 16px;
+  background: var(--color-card-glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid var(--color-border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+.travel-album__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.travel-album__title {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+.travel-album__hint {
+  font-size: 11px;
+  color: var(--color-text-gray);
+  letter-spacing: .04em;
+}
+.travel-album__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.travel-album__cell {
+  padding: 0;
+  border: none;
+  background: var(--color-paper);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+}
+.travel-album__img {
+  width: 100%;
+  height: 84px;
+  object-fit: cover;
+  display: block;
+}
+.travel-album__ph {
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: var(--color-paper);
+}
+.travel-album__cap {
+  font-size: 11px;
+  padding: 4px 6px;
+  color: var(--color-text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 明信片灯箱 */
+.travel-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.travel-lightbox__card {
+  position: relative;
+  max-width: 340px;
+  width: 100%;
+  background: var(--color-paper);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.travel-lightbox__img {
+  width: 100%;
+  display: block;
+}
+.travel-lightbox__meta {
+  padding: 14px;
+}
+.travel-lightbox__place {
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+.travel-lightbox__text {
+  font-size: 13px;
+  color: var(--color-text-dark);
+  margin-top: 6px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.travel-lightbox__stamp {
+  font-size: 11px;
+  color: var(--color-text-gray);
+  margin-top: 8px;
+}
+.travel-lightbox__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+@media (max-width: 375px) {
+  .travel-album__grid { grid-template-columns: repeat(2, 1fr); }
+}

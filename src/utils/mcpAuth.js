@@ -19,12 +19,14 @@ export const MCP_TOOLS = [
   { key: 'decide_note', label: '看纸条' },
   { key: 'leave_note', label: '留纸条' },
   { key: 'write_diary', label: '写日记' },
+  { key: 'go_travel', label: '出门走走' },
+  { key: 'travel_postcard', label: '寄明信片' },
 ]
 
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
 // 默认始终允许（DEFAULT_ALWAYS），避免晚安写日记 / 留碎片时被授权弹窗打断。
 // 若用户在设置页显式设为 never，仍尊重用户选择。
-const DEFAULT_ALWAYS = ['write_diary', 'leave_note']
+const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [

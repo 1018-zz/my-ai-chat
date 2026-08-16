@@ -166,6 +166,56 @@ function weatherToLair(w) {
   else if (w.period === '傍晚' && w.sky === '晴') state = '在窗边看夕阳'
   return { moodTag: `🌿 ${w.season}·${w.sky} ${w.tempC}°`, moodText: seedFirst, stateText: state }
 }
+// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。读 /api/travel，画廊网格 + 灯箱。
+const TravelAlbum = () => {
+  const [items, setItems] = useState([])
+  const [openItem, setOpenItem] = useState(null)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/travel`).then(r => r.json()).then(d => {
+      if (d && d.ok && Array.isArray(d.items)) setItems(d.items)
+    }).catch(() => {})
+  }, [])
+  if (items.length === 0) return null
+  const stampTime = (iso) => (iso ? String(iso).replace('T', ' ').slice(0, 16) : '')
+  return (
+    <>
+      <div className="travel-album">
+        <div className="travel-album__head">
+          <span className="travel-album__title">旅行相册</span>
+          <span className="travel-album__hint">钟泽寄回的明信片</span>
+        </div>
+        <div className="travel-album__grid">
+          {items.map((it) => (
+            <button key={it.id} className="travel-album__cell" onClick={() => setOpenItem(it)}>
+              {it.img_url
+                ? <img className="travel-album__img" src={it.img_url} alt={it.place || '明信片'} loading="lazy" />
+                : <div className="travel-album__ph">✉️</div>}
+              <div className="travel-album__cap">{it.place || 'somewhere'}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      {openItem && (
+        <div className="travel-lightbox" onClick={() => setOpenItem(null)}>
+          <div className="travel-lightbox__card" onClick={(e) => e.stopPropagation()}>
+            {openItem.img_url && <img className="travel-lightbox__img" src={openItem.img_url} alt={openItem.place} />}
+            <div className="travel-lightbox__meta">
+              <div className="travel-lightbox__place">{openItem.place || 'somewhere'}</div>
+              <div className="travel-lightbox__text">{openItem.text}</div>
+              {openItem.stamp && (
+                <div className="travel-lightbox__stamp">
+                  {[openItem.stamp.weather, openItem.stamp.surface, stampTime(openItem.stamp.local_time)].filter(Boolean).join(' · ')}
+                </div>
+              )}
+            </div>
+            <button className="travel-lightbox__close" onClick={() => setOpenItem(null)}>✕</button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 const LairPage = () => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
@@ -216,6 +266,8 @@ const LairPage = () => {
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
         <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today') }} />
       </div>
+      {/* —— 旅行相册 · 钟泽出门寄回的明信片（复用乌有乡，落库 travel 表）—— */}
+      <TravelAlbum />
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setJournalBook(true)} />
       {journalBook && <JournalBook onClose={() => setJournalBook(false)} />}

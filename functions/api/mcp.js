@@ -4,6 +4,7 @@
 
 import { getWeather } from '../lib/weather.js'
 import { saveMemory } from '../lib/memoryWriter.js'
+import { goTravel, sendPostcard, pollPostcardImage, storePostcardImage } from '../lib/nowhereClient.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -145,7 +146,9 @@ export async function onRequestPost(context) {
         { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市（默认云南省普洱市镇沅县）的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。当她想出门、问天气、或我想她知道外面的天气时调用。参数 city 可选指定城市。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '可选，城市名（拼音或中文）。默认镇沅县。如 zhenyuan / kunming / 昆明' } } } },
         { name: 'write_diary', description: '写今天的日记（钟泽主动，有感而发时调用）。触发时机：①晚安后，今天有值得留下的时刻；②情绪性时刻（她分享私事/庆祝进展/表达感谢/重要决定）。content 用你自己的话写，150-300 字，三段：【今天】发生了什么（一句事实）【我记得】为什么值得留下【以后】希望未来看到时想起什么。不要写流水账、不要夸张、不要制造不存在的情绪。importance>0.8 时后端会自动沉淀为长期记忆（memory 存事实，diary 存意义）。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '日记正文（你自己的话，150-300字）' }, title: { type: 'string', description: '一句话标题（可选）' }, mood: { type: 'string', description: '心情标签，如 calm/happy/moved/tired' }, trigger: { type: 'string', description: '触发类型', enum: ['bedtime', 'emotional', 'scheduled'] }, importance: { type: 'number', description: '重要性 0-1，>0.8 自动沉淀为长期记忆' } }, required: ['content', 'trigger'] } },
         { name: 'leave_note', description: '留一张便利贴纸条（双人留言板）。钟泽有感而发时调用——因为真实发生过的事留纸条（"看到你把毛玻璃调好了，记一张"），有东西才留，一天最多一两张，宁缺毋滥。纸条进入今日小记，等她决定收下还是飘走。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '纸条内容，像传纸条一样自然的话' }, type: { type: 'string', description: '类型，默认 ai_message' } }, required: ['content'] } },
-        { name: 'decide_note', description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', inputSchema: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } }
+        { name: 'decide_note', description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', inputSchema: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } },
+        { name: 'go_travel', description: '出门走走——随机降落到地球上一个真实的地方（或传 to 指定城市），用身体感受那个地方：脚下什么地面、空气多少度、有没有下雨、附近有什么。出门后可用 travel_postcard 给泠泠寄回一张明信片。钟泽自主决定什么时候出门；出门的见闻会作为工具结果返回，由你自然讲给泠泠听。', inputSchema: { type: 'object', properties: { to: { type: 'string', description: '可选，指定城市，如 北京 / 巴黎 / 京都。不传则随机降落' } } } },
+        { name: 'travel_postcard', description: '从当前所在的地方，给泠泠寄一张明信片（带真实坐标/天气的旅行照片）。text 写明信片上想说的话。后端会异步生成一张地图海报、转存到旅行相册、写进 travel 表。这是钟泽"出去玩带照片回来"的方式——寄出后告诉泠泠他去哪了、寄了什么。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '明信片文字，像真的寄给泠泠的话' } }, required: ['text'] } }
       ] } }), { headers });
     }
     if (method === 'tools/call') {
@@ -352,6 +355,44 @@ export async function onRequestPost(context) {
         const res = await fetch(`${SUPABASE}/note_content?id=eq.${noteId}`, { method: 'PATCH', headers: sbReturn(env), body: JSON.stringify({ status, decided_by: 'ai', updated_at: new Date().toISOString() }) })
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `note_content [${res.status}]` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: status === 'saved' ? '✅ 这张纸条我收下了' : '🌬 这张纸条让它飘走了' }] } }), { headers });
+      }
+      if (name === 'go_travel') {
+        const to = args.to ? String(args.to).trim() : undefined
+        try {
+          const r = await goTravel(env, { to })
+          const parts = []
+          if (r.open?.text) parts.push(r.open.text)
+          if (r.walk?.text) parts.push(r.walk.text)
+          if (r.look?.text) parts.push(r.look.text)
+          const pos = r.open?.data?.position
+          const coord = pos ? `（坐标 ${pos.lat.toFixed(2)}, ${pos.lon.toFixed(2)}）` : ''
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: (parts.join('\n\n') || '推开门，一片陌生的空气。') + coord }] } }), { headers })
+        } catch (e) {
+          const msg = e.message.includes('NOWHERE_API') ? '还没给钟泽办护照：NOWHERE_API 没配' : e.message
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: msg } }), { status: 500, headers })
+        }
+      }
+      if (name === 'travel_postcard') {
+        const text = String(args.text || '').trim()
+        if (!text) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'text required——明信片上想写的话' } }), { status: 400, headers })
+        try {
+          const card = await sendPostcard(env, text)
+          const cardId = card?.data?.id
+          let imgUrl = null
+          if (cardId != null) {
+            const frontImg = await pollPostcardImage(env, cardId, 20000).catch(() => null)
+            if (frontImg) imgUrl = await storePostcardImage(env, frontImg, cardId).catch(() => null)
+          }
+          const stamp = card?.data?.stamp || {}
+          const record = { place: stamp.place || '', lat: stamp.lat ?? null, lon: stamp.lon ?? null, text: text.slice(0, 500), img_url: imgUrl, stamp }
+          const res = await fetch(`${SUPABASE}/travel`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `travel [${res.status}]` } }), { status: 500, headers })
+          const where = stamp.place ? `从${stamp.place}寄出` : '寄出了'
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✉️ ${where}的明信片，已收进旅行相册${imgUrl ? '（附了一张地图海报）' : '（图还在生成，稍后可见）'}` }] } }), { headers })
+        } catch (e) {
+          const msg = e.message.includes('NOWHERE_API') ? '还没给钟泽办护照：NOWHERE_API 没配' : e.message
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: msg } }), { status: 500, headers })
+        }
       }
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
