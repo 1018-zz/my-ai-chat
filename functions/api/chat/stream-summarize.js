@@ -3,7 +3,7 @@
 //   - 增量游标：用 summary_anchors.last_message_id 记录断点，每次只摘锚点之后的新消息（天然增量，不重复摘）
 //   - 空闲触发：仅在每轮对话流结束（finally）后调用，不打断进行中的问答
 //   - 先落盘再清内存：本模块把原子记忆写入 memories 表（落盘），而"清内存"由 stream.js 发送时 token 预算裁剪负责；库内消息全量落盘、永不丢失，比小克"重铸会话ID"更安全
-import { saveMemory } from '../lib/memoryWriter.js'
+import { saveMemory } from '../../lib/memoryWriter.js'
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const SUMMARY_MIN_MESSAGES = 15  // 增量游标阈值：锚点之后新增消息达 15 条才触发摘要。对齐小克「游标滞后条数触发」思路；值偏小是为避免频繁摘要烧 token（真清内存交给 stream.js 预算裁剪）
 const SUMMARIES_IN_FLIGHT = new Set()

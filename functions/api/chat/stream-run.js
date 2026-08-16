@@ -1,7 +1,7 @@
 // stream-run.js — SSE 流解析 + tool_calls 收集 + thinking 收集 + <think> 标签剥离 + 消息存储 + 摘要/压缩触发
 import { trySummarize } from './stream-summarize.js'
 import { tryCompressConversation } from './stream-compress.js'
-import { saveMemory } from '../lib/memoryWriter.js'
+import { saveMemory } from '../../lib/memoryWriter.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
