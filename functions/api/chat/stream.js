@@ -138,6 +138,10 @@ export async function onRequestPost(context) {
       }
     } catch (_) {}
 
+    // 历史 token 预算裁剪（长会话不再无限堆历史，避免超出模型上下文）
+    // 参考 chuan-101/Hamster-Nest 的 resolveHistoryTokenBudget + selectNewestContextWindow
+    try { messages = trimHistoryByBudget(messages, env) } catch (_) {}
+
     const dsBody = { messages, model, temperature: 0.7, stream: true, max_tokens: 8192 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
 
@@ -157,3 +161,70 @@ export async function onRequestPost(context) {
 
 function json(status, body) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }) }
 export async function onRequestOptions() { return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) }
+
+// ---- 历史 token 预算裁剪 ----
+// 本地启发式分词，不调 API：CJK * 1.7 + 拉丁连续段 * 1.1 + 其他符号 * 0.3
+function countTokens(str) {
+  if (!str) return 0
+  let cjk = 0, latin = 0, other = 0
+  for (const ch of str) {
+    const c = ch.codePointAt(0)
+    if (c >= 0x4e00 && c <= 0x9fff) { cjk++; }
+    else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39)) { latin++; }
+    else if (ch === ' ' || ch === '\n' || ch === '\t') { /* 分隔，不计入 */ }
+    else { other++; }
+  }
+  return Math.ceil(cjk * 1.7 + latin * 1.1 + other * 0.3)
+}
+
+function messageTokens(m) {
+  let t = countTokens(typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p.text || '').join(' ') : ''))
+  if (Array.isArray(m.tool_calls)) {
+    for (const tc of m.tool_calls) {
+      t += countTokens(tc?.function?.name || '')
+      t += countTokens(typeof tc?.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc?.function?.arguments || ''))
+    }
+  }
+  return t
+}
+
+// 贪心保留最新消息，直到触及 token 预算；system 始终保留并优先扣预算
+function trimHistoryByBudget(messages, env = {}) {
+  if (!Array.isArray(messages) || messages.length <= 1) return messages
+  const MAX_CTX = Number(env.CONTEXT_MAX_TOKENS) || 60000
+  const OUTPUT_RESERVE = Number(env.CONTEXT_OUTPUT_RESERVE) || 9000
+  const SAFETY = Number(env.CONTEXT_SAFETY_MARGIN) || 2000
+  const sysIdx = messages.findIndex(m => m.role === 'system')
+  const system = sysIdx >= 0 ? messages[sysIdx] : null
+  const rest = sysIdx >= 0 ? messages.filter((_, i) => i !== sysIdx) : messages
+  if (rest.length === 0) return messages
+
+  const systemTokens = system ? messageTokens(system) : 0
+  const budget = MAX_CTX - OUTPUT_RESERVE - SAFETY - systemTokens
+  if (budget <= 0) return system ? [system, ...rest.slice(-1)] : rest.slice(-1)
+
+  const kept = []
+  let spent = 0
+  for (let i = rest.length - 1; i >= 0; i--) {
+    const t = messageTokens(rest[i])
+    if (spent + t > budget && kept.length > 0) break
+    kept.unshift(rest[i])
+    spent += t
+  }
+
+  // 保护工具调用链完整性：窗口最老一条若是 tool / 带 tool_calls 的 assistant，
+  // 往前补齐其所属链（最多 12 条），避免 tool 结果找不到对应 tool_calls 而报错
+  let startIdx = rest.length - kept.length
+  let guard = 0
+  while (startIdx > 0 && guard < 12) {
+    const first = kept[0]
+    const needPrev = first.role === 'tool' || (first.role === 'assistant' && Array.isArray(first.tool_calls) && first.tool_calls.length > 0)
+    if (!needPrev) break
+    kept.unshift(rest[startIdx - 1])
+    startIdx--
+    guard++
+  }
+
+  if (kept.length === 0) kept.push(rest[rest.length - 1])
+  return system ? [system, ...kept] : kept
+}
