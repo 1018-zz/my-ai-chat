@@ -2,12 +2,20 @@
 -- 执行位置：Supabase 控制台 → SQL Editor → 运行本文件
 -- 目的：给混装的 memories 表加 type 分类 + 结构化字段，取代"家·标题] 内容"/"[压缩提取]"字符串前缀 hack
 -- 兼容：保留已有 summary 列（旧数据由 functions/api/memories/migrate.js 回填结构化列）
+--
+-- ⚠️ content 列是治本改造新增的核心正文列：老表只有 summary（把标题+正文塞在一个字符串里），
+--    新代码（project.js / search.js / mcp.js / compression.js）全部直接读写 content，
+--    必须先用本文件加列，否则部署新 functions 后会 400 报错。
 
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS content text;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS type text DEFAULT 'moment';
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS title text;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS keywords text DEFAULT '';
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS importance real DEFAULT 0.5;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+
+-- 加速按 type 分组/过滤（新代码核心访问模式：前端按 moment/note/compressed 分组展示）
+CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type);
 
 -- type 取值约定：
 --   'moment'     手动"不能丢的时刻"（带 title），source = 'manual' / 'builtin'
