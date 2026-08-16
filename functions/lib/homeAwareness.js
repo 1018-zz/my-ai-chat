@@ -68,3 +68,52 @@ export async function getHomeAwareness({ since, env }) {
 
   return { events, hasImportant: false, instruction }
 }
+
+// 相对时间标签（北京时间）：今天傍晚 / 昨天 / 3天前 / 7月17日
+// 单一数据源：stream.js 的聊天感知与 /api/home/awareness 的页面展示都从这里取，
+// 避免两处各自算时间导致「刚留的」被说成陈年旧事。
+export function noteTimeLabel(iso) {
+  if (!iso) return ''
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000) // 转北京时间
+  if (isNaN(t.getTime())) return ''
+  const nowBJ = new Date(Date.now() + 8 * 3600 * 1000)
+  const tDay = new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())
+  const nDay = new Date(nowBJ.getUTCFullYear(), nowBJ.getUTCMonth(), nowBJ.getUTCDate())
+  const dayDiff = Math.round((nDay - tDay) / 86400000)
+  const h = t.getUTCHours()
+  let period = '凌晨'
+  if (h >= 6 && h < 9) period = '早上'
+  else if (h >= 9 && h < 12) period = '上午'
+  else if (h >= 12 && h < 14) period = '中午'
+  else if (h >= 14 && h < 17) period = '下午'
+  else if (h >= 17 && h < 19) period = '傍晚'
+  else if (h >= 19 && h < 22) period = '晚上'
+  else if (h >= 22) period = '夜里'
+  if (dayDiff <= 0) return `今天${period}`
+  if (dayDiff === 1) return `昨天${period}`
+  if (dayDiff < 7) return `${dayDiff}天前${period}`
+  return `${t.getUTCMonth() + 1}月${t.getUTCDate()}日`
+}
+
+// 展示用：最近发生的家事（纸条 全部状态 + 双方日记），按时间倒序。
+// 与 getHomeAwareness（聊天感知）用途不同——这里是给用户在 LAIR 页看的「最近的小事」，
+// 不是喂给 AI 的感知内容，所以不含 waiting / instruction 等聊天语义，也不受 awarenessSince 限制。
+export async function getRecentHomeEvents({ env, limit = 8 }) {
+  const headers = sbHeaders(env)
+  const events = []
+  try {
+    const nUrl = `${SUPABASE}/note_content?select=id,content,source,status,created_at&order=created_at.desc&limit=${limit}`
+    const nRes = await fetch(nUrl, { headers })
+    const nRows = await nRes.json()
+    for (const n of (Array.isArray(nRows) ? nRows : [])) events.push(noteEvent(n))
+    const dUrl = `${SUPABASE}/diaries?select=content,author,date,created_at&order=created_at.desc&limit=${limit}`
+    const dRes = await fetch(dUrl, { headers })
+    const dRows = await dRes.json()
+    for (const d of (Array.isArray(dRows) ? dRows : [])) {
+      const iso = d.created_at || `${String(d.date).slice(0, 10)}T12:00:00+08:00`
+      events.push({ type: d.author === 'user' ? 'user_diary' : 'ai_diary', state: 'saved', preview: String(d.content || '').slice(0, 80), createdAt: iso })
+    }
+  } catch (_) {}
+  events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+  return events.slice(0, limit)
+}

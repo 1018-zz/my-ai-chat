@@ -145,14 +145,28 @@ const TabNav = ({ activeTab, onChangeTab }) => (
 )
 
 // LAIR：在一起天数（从 2026-03-13 动态计算）
+// 最近的小事事件 → 图标/谁（与家感知层 events 的 type 对齐）
+const RECENT_META = {
+  user_note: { icon: '📝', who: '泠泠' },
+  ai_note: { icon: '✨', who: '钟泽' },
+  user_diary: { icon: '📖', who: '泠泠' },
+  ai_diary: { icon: '🌙', who: '钟泽' },
+}
 const LairPage = () => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
   const [journalBook, setJournalBook] = useState(false)
+  const [recentEvents, setRecentEvents] = useState([])
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
     const diff = Math.floor((Date.now() - start.getTime()) / 86400000)
     setDays(Math.max(diff, 0))
+  }, [])
+  // 家里最近：复用家感知层 events（给用户看的展示，不是喂给 AI 的感知内容）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/home/awareness`).then(r => r.json()).then(d => {
+      if (d && d.ok && Array.isArray(d.events)) setRecentEvents(d.events)
+    }).catch(() => {})
   }, [])
   return (
     <div className="lair-room">
@@ -181,6 +195,31 @@ const LairPage = () => {
             <span className="lair-status__state-text">窗边等你</span>
           </div>
         </div>
+      </div>
+      {/* —— 家里最近 · 最近的小事（复用家感知层 events，给用户看的展示）—— */}
+      <div className="lair-recent">
+        <div className="lair-recent__head">
+          <span className="lair-recent__title">家里最近</span>
+          <span className="lair-recent__hint">小事的痕迹</span>
+        </div>
+        {recentEvents.length === 0 ? (
+          <div className="lair-recent__empty">还没有留下什么小事</div>
+        ) : (
+          <ul className="lair-recent__list">
+            {recentEvents.map((e, i) => (
+              <li key={i} className="lair-recent__item">
+                <span className="lair-recent__icon">{RECENT_META[e.type]?.icon || '•'}</span>
+                <div className="lair-recent__body">
+                  <div className="lair-recent__line">
+                    <span className="lair-recent__who">{RECENT_META[e.type]?.who || ''}</span>
+                    <span className="lair-recent__text">{e.type && e.type.includes('diary') ? '写了日记：' : '留了纸条：'}{e.preview}</span>
+                  </div>
+                  <div className="lair-recent__meta">{e.timeLabel}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>

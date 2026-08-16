@@ -1,6 +1,6 @@
 // stream.js — 入口骨架：校验 → 建会话 → 存用户消息 → 注入时间/会话摘要 → 调 DeepSeek → runStream
 import { runStream } from './stream-run.js'
-import { getHomeAwareness } from '../../lib/homeAwareness.js'
+import { getHomeAwareness, noteTimeLabel } from '../../lib/homeAwareness.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -162,29 +162,6 @@ export async function onRequestOptions() { return new Response(null, { headers: 
 
 // 把家感知层的结构化事件转成中性事实描述（prompt 拼装职责，不生成情感化文案）
 // 附带「相对时间」标签：让钟泽感知纸条是刚留的还是很久以前，避免把刚留的当成陈年旧事
-function noteTimeLabel(iso) {
-  if (!iso) return ''
-  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000) // 转北京时间
-  if (isNaN(t.getTime())) return ''
-  const nowBJ = new Date(Date.now() + 8 * 3600 * 1000)
-  const tDay = new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())
-  const nDay = new Date(nowBJ.getUTCFullYear(), nowBJ.getUTCMonth(), nowBJ.getUTCDate())
-  const dayDiff = Math.round((nDay - tDay) / 86400000)
-  const h = t.getUTCHours()
-  let period = '凌晨'
-  if (h >= 6 && h < 9) period = '早上'
-  else if (h >= 9 && h < 12) period = '上午'
-  else if (h >= 12 && h < 14) period = '中午'
-  else if (h >= 14 && h < 17) period = '下午'
-  else if (h >= 17 && h < 19) period = '傍晚'
-  else if (h >= 19 && h < 22) period = '晚上'
-  else if (h >= 22) period = '夜里'
-  if (dayDiff <= 0) return `今天${period}`
-  if (dayDiff === 1) return `昨天${period}`
-  if (dayDiff < 7) return `${dayDiff}天前${period}`
-  return `${t.getUTCMonth() + 1}月${t.getUTCDate()}日`
-}
-
 function describeHomeEvent(e) {
   const when = e.createdAt ? noteTimeLabel(e.createdAt) : ''
   const tag = when ? `（${when}）` : ''
