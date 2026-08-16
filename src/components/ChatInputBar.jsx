@@ -164,7 +164,7 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
         style={{ resize: 'none', overflowY: 'auto', lineHeight: 1.5, maxHeight: 120, width: '100%', boxSizing: 'border-box', wordBreak: 'break-word', fontFamily: 'inherit' }}
       />
       {loading
-        ? <button className="btn" onClick={onStop} style={{ background: 'var(--color-danger)', whiteSpace: 'nowrap' }}>⏹ 停止</button>
+        ? <button className="chat-stop-btn" onClick={onStop}><span className="chat-stop-icon" />停止</button>
         : <button className="btn" onClick={send} disabled={loading || sending || (!text.trim() && pendingImages.length === 0)}>{sending ? '处理图片…' : '发送'}</button>}
     </div>
   )

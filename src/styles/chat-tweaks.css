@@ -48,8 +48,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 38px;
-  padding: 0 13px;
+  height: 44px;
+  padding: 0 16px;
   border: 1px solid rgba(90, 75, 60, .12);
   border-radius: 999px;
   background: rgba(247, 242, 233, .82);
