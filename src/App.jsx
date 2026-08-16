@@ -152,11 +152,28 @@ const RECENT_META = {
   user_diary: { icon: '📖', who: '泠泠' },
   ai_diary: { icon: '🌙', who: '钟泽' },
 }
+// 天气 → 状态牌「此刻的家」：真实天气+时段驱动的呼吸话（不瞎编情绪，无独立数据源时回退写死文案）
+const WEATHER_STATE = {
+  雨: '在窗边听雨', 雪: '在窗边看雪', 雷: '在窗边看雨', 雾: '在雾里发呆',
+  晴: '在晒太阳', 多云: '窝在沙发上', 阴: '窝在沙发上',
+}
+function weatherToLair(w) {
+  if (!w || !w.season) return null
+  let seedFirst = (w.seed || '').split(/[。.！!？?]/)[0].trim()
+  if (seedFirst.length > 14) seedFirst = seedFirst.slice(0, 14) + '…'
+  if (!seedFirst) seedFirst = '平静温暖'
+  let state = WEATHER_STATE[w.sky] || '在窗边发呆'
+  if (w.period === '深夜') state = '还没睡，在灯下坐着'
+  else if (w.period === '夜晚' && w.sky !== '晴') state = '在灯下发呆'
+  else if (w.period === '傍晚' && w.sky === '晴') state = '在窗边看夕阳'
+  return { moodTag: `🌿 ${w.season}·${w.sky} ${w.tempC}°`, moodText: seedFirst, stateText: state }
+}
 const LairPage = () => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
   const [journalBook, setJournalBook] = useState(false)
   const [recentEvents, setRecentEvents] = useState([])
+  const [weather, setWeather] = useState(null)
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
     const diff = Math.floor((Date.now() - start.getTime()) / 86400000)
@@ -168,6 +185,13 @@ const LairPage = () => {
       if (d && d.ok && Array.isArray(d.events)) setRecentEvents(d.events)
     }).catch(() => {})
   }, [])
+  // 钟泽此刻的状态牌：真实天气 + 时段驱动（呈现层，失败回退写死文案）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
+      if (d && d.ok) setWeather(d)
+    }).catch(() => {})
+  }, [])
+  const lair = weatherToLair(weather)
   return (
     <div className="lair-room">
       <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
@@ -187,12 +211,12 @@ const LairPage = () => {
         <div className="lair-status__body">
           <div className="lair-status__name">钟泽</div>
           <div className="lair-status__mood">
-            <span className="lair-status__mood-tag">🌿 今天</span>
-            <span className="lair-status__mood-text">平静温暖</span>
+            <span className="lair-status__mood-tag">{lair ? lair.moodTag : '🌿 今天'}</span>
+            <span className="lair-status__mood-text">{lair ? lair.moodText : '平静温暖'}</span>
           </div>
           <div className="lair-status__state">
             <span className="lair-status__state-label">正在</span>
-            <span className="lair-status__state-text">窗边等你</span>
+            <span className="lair-status__state-text">{lair ? lair.stateText : '窗边等你'}</span>
           </div>
         </div>
       </div>
