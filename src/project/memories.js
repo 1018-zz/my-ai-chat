@@ -125,12 +125,33 @@ export async function deleteProjectMemory(id) {
   }
 }
 
-// 将项目记忆注入对话上下文（需要时调用）
-export async function injectMemoriesToPrompt() {
-  const memories = await getProjectMemories()
-  if (memories.length === 0) return ''
-  return [
-    '【以下是泠泠和钟泽之间不能丢的时刻，如果有需要可以参考】',
-    ...memories.map(m => `- [${m.title}] ${m.content}`),
-  ].join('\n')
+// 记忆注入：分层，不全量（解决"聊一句也注入整本回忆录"的 token 浪费）
+//  - 常驻锚点：10 条起源时刻（压缩版），每轮必注，给他"在场感"与身份
+//  - 近期窗口：云端按 created_at 倒序前 N 条（后端已排序），不注入全部
+//  - 其余记忆靠 read_memories 工具按需检索（见 instructions.js）
+// 注：以前这段是全量注入 146 条且从未被调用（死代码），现改为分层并可被 App.jsx 复用
+const RECENT_LIMIT = 3
+function compactText(text, max = 70) {
+  const t = (text || '').replace(/\s+/g, ' ').trim()
+  return t.length > max ? t.slice(0, max) + '…' : t
+}
+
+export async function injectMemoriesToPrompt(prefetched) {
+  // 1) 常驻锚点：10 条起源时刻（压缩版），每轮必注
+  const anchor = builtInMemories.map(m => `- 【${m.title}】${compactText(m.content)}`)
+  // 2) 近期窗口：云端前 N 条（去重锚点），不全量
+  let recent = []
+  let total = 0
+  try {
+    const all = Array.isArray(prefetched) ? prefetched : await getProjectMemories()
+    total = all.length
+    const seen = new Set(builtInMemories.map(m => m.title))
+    recent = all
+      .filter(m => m && m.title && !seen.has(m.title))
+      .slice(0, RECENT_LIMIT)
+      .map(m => `- 【${m.title}】${compactText(m.content)}`)
+  } catch (_) {}
+  const lines = [...anchor, ...recent]
+  if (lines.length === 0) return ''
+  return `【泠泠和钟泽之间不能丢的时刻（节选，记忆库共 ${total} 条，更多让我回忆）】\n` + lines.join('\n')
 }

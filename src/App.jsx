@@ -16,7 +16,7 @@ import WallpaperSettings from './components/WallpaperSettings'
 import ModelManager from './components/ModelManager'
 import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
-import { getProjectMemories, addProjectMemory, deleteProjectMemory } from './project/memories'
+import { getProjectMemories, addProjectMemory, deleteProjectMemory, injectMemoriesToPrompt } from './project/memories'
 import Markdown from './components/Markdown'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
@@ -1118,7 +1118,8 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       if (projData) {
         const [mems, inf] = projData
         const parts = []
-        if (mems.length > 0) parts.push('【不能丢的时刻】\n' + mems.slice(0, 3).map(m => `[${m.title}] ${m.content.slice(0, 120)}`).join('\n'))
+        const memBlock = await injectMemoriesToPrompt(mems)
+        if (memBlock) parts.push(memBlock)
         if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) }
         pc = parts.join('\n\n')
       }
