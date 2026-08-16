@@ -25,7 +25,10 @@ build-check
 *.njsproj
 *.sln
 *.sw?
-".env" 
+# 密钥 / 环境变量：绝不入库（防止 API key 泄漏）
+.env
+.env.*
+!.env.example
 
 # Agent private memory / runtime
 .workbuddy/
