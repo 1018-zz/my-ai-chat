@@ -21,7 +21,7 @@ function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authoriza
 function noteEvent(n) {
   const preview = String(n.content || '').slice(0, 50)
   const type = n.source === 'user' ? 'user_note' : 'ai_note'
-  return { type, state: n.status || 'pending', preview }
+  return { type, state: n.status || 'pending', preview, createdAt: n.created_at }
 }
 
 export async function getHomeAwareness({ since, env }) {
@@ -32,7 +32,7 @@ export async function getHomeAwareness({ since, env }) {
 
   try {
     // ① 当前仍 pending（等待处理）的重要事项——无论什么时候写的，只要还没了结就报
-    const wUrl = `${SUPABASE}/note_content?select=id,content,source,status&status=eq.pending&order=id.desc&limit=3`
+    const wUrl = `${SUPABASE}/note_content?select=id,content,source,status,created_at&status=eq.pending&order=id.desc&limit=3`
     const wRes = await fetch(wUrl, { headers })
     const wRows = await wRes.json()
     for (const n of (Array.isArray(wRows) ? wRows : [])) {
@@ -42,7 +42,7 @@ export async function getHomeAwareness({ since, env }) {
 
     // ② since 之后的新变动（created_at > since）——只报「上次相遇后」发生的事
     if (sinceDate && !isNaN(sinceDate)) {
-      const fUrl = `${SUPABASE}/note_content?select=id,content,source,status&created_at=gt.${encodeURIComponent(sinceDate.toISOString())}&order=created_at.desc&limit=10`
+      const fUrl = `${SUPABASE}/note_content?select=id,content,source,status,created_at&created_at=gt.${encodeURIComponent(sinceDate.toISOString())}&order=created_at.desc&limit=10`
       const fRes = await fetch(fUrl, { headers })
       const fRows = await fRes.json()
       for (const n of (Array.isArray(fRows) ? fRows : [])) {

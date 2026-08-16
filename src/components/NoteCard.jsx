@@ -32,6 +32,9 @@ export default function NoteCard({ onOpenPanel }) {
 
   const latest = notes[0]
   const pendingCount = counts.pending || 0
+  // 迷你入口只关心「等泠泠决定的纸条」（钟泽留的、待处理）；她自己留的 pending 等钟泽看，不触发提醒
+  const pendingForHer = notes.filter(n => n.source === 'ai' && n.status === 'pending')
+  const alertNote = pendingForHer[0]
 
   const decide = async (id, status) => {
     await fetch(`${API_BASE}/api/notes`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, decided_by: 'user' }) })
@@ -51,13 +54,13 @@ export default function NoteCard({ onOpenPanel }) {
     <>
       {/* 首页 · 便利贴入口（有待处理=醒目 / 没有=安静小纸片） */}
       <div
-        className={`sticky-note-mini ${pendingCount > 0 ? 'is-new' : 'is-quiet'}`}
+        className={`sticky-note-mini ${alertNote ? 'is-new' : 'is-quiet'}`}
         onClick={() => setOpen(true)}
       >
-        {pendingCount > 0 ? (
+        {alertNote ? (
           <>
             <span className="mini-pin">📎</span>
-            <span>{latest && latest.source === 'user' ? '泠泠留了一张纸条 ✨' : '钟泽留了一张纸条 ✨'}</span>
+            <span>钟泽留了一张纸条 ✨</span>
           </>
         ) : (
           <>

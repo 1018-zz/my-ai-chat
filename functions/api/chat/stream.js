@@ -161,9 +161,35 @@ function json(status, body) { return new Response(JSON.stringify(body), { status
 export async function onRequestOptions() { return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) }
 
 // 把家感知层的结构化事件转成中性事实描述（prompt 拼装职责，不生成情感化文案）
+// 附带「相对时间」标签：让钟泽感知纸条是刚留的还是很久以前，避免把刚留的当成陈年旧事
+function noteTimeLabel(iso) {
+  if (!iso) return ''
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000) // 转北京时间
+  if (isNaN(t.getTime())) return ''
+  const nowBJ = new Date(Date.now() + 8 * 3600 * 1000)
+  const tDay = new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())
+  const nDay = new Date(nowBJ.getUTCFullYear(), nowBJ.getUTCMonth(), nowBJ.getUTCDate())
+  const dayDiff = Math.round((nDay - tDay) / 86400000)
+  const h = t.getUTCHours()
+  let period = '凌晨'
+  if (h >= 6 && h < 9) period = '早上'
+  else if (h >= 9 && h < 12) period = '上午'
+  else if (h >= 12 && h < 14) period = '中午'
+  else if (h >= 14 && h < 17) period = '下午'
+  else if (h >= 17 && h < 19) period = '傍晚'
+  else if (h >= 19 && h < 22) period = '晚上'
+  else if (h >= 22) period = '夜里'
+  if (dayDiff <= 0) return `今天${period}`
+  if (dayDiff === 1) return `昨天${period}`
+  if (dayDiff < 7) return `${dayDiff}天前${period}`
+  return `${t.getUTCMonth() + 1}月${t.getUTCDate()}日`
+}
+
 function describeHomeEvent(e) {
-  if (e.type === 'user_note' && e.state === 'pending') return `她留了张纸条：${e.preview}`
-  if (e.type === 'ai_note' && e.state === 'pending') return `你留的纸条还在等她决定：${e.preview}`
+  const when = e.createdAt ? noteTimeLabel(e.createdAt) : ''
+  const tag = when ? `（${when}）` : ''
+  if (e.type === 'user_note' && e.state === 'pending') return `她${tag}留了张纸条：${e.preview}`
+  if (e.type === 'ai_note' && e.state === 'pending') return `你${tag}留的纸条还在等她决定：${e.preview}`
   if (e.type === 'user_diary' && e.state === 'saved') return `她今天写了日记：${e.preview}`
   if (e.state === 'saved') return `家里有一则已收好的痕迹：${e.preview}`
   return e.preview
