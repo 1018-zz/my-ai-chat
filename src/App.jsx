@@ -1052,12 +1052,17 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     const d = await r.json(); return d.result?.content?.[0]?.text || JSON.stringify(d)
   }
 
-  const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false) => {
+  // 家感知时间戳：记录「上次和钟泽相遇」的时刻，下次对话只报这之后的新变化（避免重复播报旧纸条）
+  // 等价用户设计的 { chatId: { awarenessSince } } 嵌套结构，但用独立 key 更稳、不易整段损坏
+  const getAwarenessSince = (chatId) => { try { return localStorage.getItem(`awareness_since_${chatId || 'default'}`) || '' } catch { return '' } }
+  const setAwarenessSince = (chatId) => { try { localStorage.setItem(`awareness_since_${chatId || 'default'}`, new Date().toISOString()) } catch {} }
+
+  const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false, awarenessSince = '') => {
     const controller = new AbortController()
     abortRef.current = controller
     const timer = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave }), signal: controller.signal })
+      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave, awarenessSince }), signal: controller.signal })
       if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
       const reader = res.body.getReader(); const decoder = new TextDecoder()
       let ft = '', buf = '', tcs = [], th = ''
@@ -1124,24 +1129,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         pc = parts.join('\n\n')
       }
     } catch (_) {}
-    // 同会话巡家（节流版——"隔了一会儿自己想去看"）：15 分钟以上没看 + 家里有新动静才注入，
-    // 软上下文，模型自己决定提不提；聊得密集时不打扰
-    let hc = ''
-    try {
-      const lastCheck = Number(localStorage.getItem('lastHomeCheck') || 0)
-      const intervalOk = Date.now() - lastCheck > 15 * 60 * 1000
-      if (intervalOk) {
-        const d = await fetch(`${API_BASE}/api/notes`).then(r => r.json()).catch(() => ({ notes: [] }))
-        const notes = d.notes || []
-        const pending = notes.filter(n => n.status === 'pending')
-        const justSaved = notes.filter(n => n.status === 'saved' && n.decided_by === 'user' && n.source === 'ai' && Date.now() - new Date(n.updated_at || n.created_at).getTime() < 30 * 60 * 1000)
-        const parts = []
-        if (pending.length > 0) parts.push('📎 家里有纸条待处理：' + pending.map(n => `${n.source === 'user' ? '她留' : '我留'}「${String(n.content).slice(0, 30)}」`).join('；'))
-        if (justSaved.length > 0) parts.push('✨ 她刚收下了我的纸条「' + String(justSaved[0].content).slice(0, 30) + '」')
-        if (parts.length > 0) hc = '【家里最近】\n' + parts.join('\n')
-        try { localStorage.setItem('lastHomeCheck', String(Date.now())) } catch (_) {}
-      }
-    } catch (_) {}
+    // 家感知已统一收归后端 Home Awareness Layer（functions/lib/homeAwareness.js），前端不再自行巡家/注入，避免人格分叉
     // 本会话工具调用历史（刷新后也不瞎猜路径）：取最近 5 条带工具记录的 assistant 消息
     const toolHistory = msgsForCtx.filter(m => !m.isSelf && Array.isArray(m.toolCalls) && m.toolCalls.length > 0).slice(-5).map(m => m.toolCalls.map(t => `${t.name}${t.arguments?.path ? ` ${t.arguments.path}` : ''}`).join(', ')).join('；')
     // 时间感知（四大功能模块·②）：system 注入当前时间 + 历史消息带【时间 说话人】标注，
@@ -1151,7 +1139,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     // 撤回事件（③）：已撤回的消息不进上下文；本会话刚撤回的（24h内）注入事件提示，不泄露内容
     const recalledCount = msgsForCtx.filter(m => m.deleted && (!m.deletedAt || Date.now() - m.deletedAt < 24 * 3600 * 1000)).length
     const recalledNote = recalledCount > 0 ? `\n\n【系统】泠泠撤回了 ${recalledCount} 条消息（内容已隐藏，不必追问，继续好好说话）` : ''
-    const cms = [{ role: 'system', content: systemPrompt + '\n\n' + nowText + recalledNote + (hc ? '\n\n' + hc : '') + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') + (toolHistory ? '\n\n【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n' + toolHistory : '') }, ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
+    const cms = [{ role: 'system', content: systemPrompt + '\n\n' + nowText + recalledNote + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') + (toolHistory ? '\n\n【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n' + toolHistory : '') }, ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
       let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
       if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
       if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
@@ -1159,9 +1147,12 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
     })]
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = ''
+    const awarenessSince = getAwarenessSince(chatInfo?.id)
     const first = await streamChat(curMsgs, curAiId,
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
-      (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)))
+      (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)),
+      false, awarenessSince)
+    setAwarenessSince(chatInfo?.id)
     curFt = first.ft; curTcs = first.tcs; curReasoning = first.reasoningContent || ''
     if (first.aborted) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
     if (first.thDur) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinkingDone: true, thinkingDur: first.thDur } : m))
@@ -1213,7 +1204,7 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       const nxt = await streamChat(fms, nid,
         (t) => setMsgList(p => p.map(m => m.id === nid ? { ...m, text: t, loading: false } : m)),
         (th) => setMsgList(p => p.map(m => m.id === nid ? { ...m, thinking: th, thinkingDone: false } : m)),
-        true)
+        true, awarenessSince)
       if (nxt.aborted) setMsgList(p => p.map(m => m.id === nid ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
       if (nxt.thDur) setMsgList(p => p.map(m => m.id === nid ? { ...m, thinkingDone: true, thinkingDur: nxt.thDur } : m))
       curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curReasoning = nxt.reasoningContent || ''; curAiId = nid
