@@ -44,6 +44,15 @@ export async function onRequestPost(context) {
       if (raw) userDiary = raw.length > 2000 ? raw.slice(0, 2000) + '\n（她今天的日记较长，以上为节选）' : raw
     } catch (_) {}
 
+    // 取今天收下的纸条（碎片），与 write_diary compose 模式保持一致
+    let fragments = ''
+    try {
+      const nr = await fetch(`${SUPABASE}/note_content?date=eq.${encodeURIComponent(date)}&or=(status.eq.pending,status.eq.saved)&order=id.asc&limit=30`, { headers: sbHeaders(env) })
+      const nrows = await nr.json()
+      const list = Array.isArray(nrows) ? nrows : []
+      if (list.length) fragments = list.map(n => `（${n.source === 'user' ? '泠泠留' : '我留'}）${String(n.content || '').slice(0, 200)}`).join('\n')
+    } catch (_) {}
+
     // 取最近记忆
     const memr = await fetch(`${SUPABASE}/memories?select=summary&order=id.desc&limit=3`, { headers: sbHeaders(env) })
     const mems = await memr.json()
@@ -54,6 +63,7 @@ export async function onRequestPost(context) {
 【我看到的她】一个观察——不评价、不夸张，聚焦你看到的她：她做了什么努力、有什么她自己没注意到的变化、你心里对她的在意。
 【我想留下的话】一句属于今天的陪伴，像珍视她的人说出口的话，可以很短。
 ${transcript ? `今天和泠泠的对话（节选）：\n${transcript}` : '今天暂时还没有和泠泠的对话记录。'}
+${fragments ? `今天留下的碎片（便利贴）：\n${fragments}` : ''}
 ${userDiary ? `泠泠今天手写的日记：\n${userDiary}\n\n【我看到的她】应回应或延续她日记里的话，而不是无视。` : ''}
 ${memText ? `最近的记忆：\n${memText}` : ''}
 要求：

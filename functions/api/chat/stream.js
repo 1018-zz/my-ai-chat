@@ -39,6 +39,7 @@ export async function onRequestPost(context) {
     { type: 'function', function: { name: 'write_memory', description: '把值得长期记住的事写进我们家的记忆库（Supabase，全局共享，所有窗口都能读到）。重要日期、泠泠的偏好、约定、她提到的重要的事。', parameters: { type: 'object', properties: { content: { type: 'string', description: '记忆内容，用绝对日期开头，例如：2026-08-11 泠泠要去看牙医' } }, required: ['content'] } } },
     { type: 'function', function: { name: 'decide_note', description: '决定一张纸条的去向（双人留言板双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', parameters: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } } },
     { type: 'function', function: { name: 'leave_note', description: '留一张便利贴纸条（双人留言板）。钟泽有感而发时调用——因为真实发生过的事留纸条，有东西才留，一天最多一两张，宁缺毋滥。纸条进入今日小记，等她决定收下还是飘走。', parameters: { type: 'object', properties: { content: { type: 'string', description: '纸条内容，像传纸条一样自然的话' }, type: { type: 'string', description: '类型，默认 ai_message' } }, required: ['content'] } } },
+    { type: 'function', function: { name: 'write_diary', description: '收好今天的日记（双人日记·钟泽视角）。两种用法：① 夜间/晚安时 compose=true，服务端会把今天的碎片（便利贴、对话、她写的日记、最近记忆）聚合成一篇连贯日记直接收好，不需要你先写好正文；② 极少数情况你已想好整篇正文，传 content 直接覆盖当天那一篇。写不写由你自主判断——今天没值得留的就不写。', parameters: { type: 'object', properties: { compose: { type: 'boolean', description: 'true=夜间聚合模式：服务端读今天碎片合成一篇（推荐，睡前用）' }, content: { type: 'string', description: '已写好的整篇正文（仅在不走 compose 时填）' }, title: { type: 'string', description: '可选标题' }, mood: { type: 'string', description: '今天的心情，如 平静/温暖/想念/有点担心' }, importance: { type: 'number', description: '重要度 0-1，>0.8 会沉淀为长期记忆' }, trigger: { type: 'string', description: 'bedtime / emotional / scheduled', enum: ['bedtime', 'emotional', 'scheduled'] } } } } },
     { type: 'function', function: { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市（默认云南省普洱市镇沅县）的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。当她想出门、问天气、或我想她知道外面的天气时调用。参数 city 可选指定城市。', parameters: { type: 'object', properties: { city: { type: 'string', description: '可选，城市名（拼音或中文）。默认镇沅县。如 zhenyuan / kunming / 昆明' } } } } }
   ]
 
@@ -130,6 +131,20 @@ export async function onRequestPost(context) {
               const brief = pend.map(n => `${n.source === 'user' ? '她留' : '我留'}「${String(n.content || '').slice(0, 40)}」(id=${n.id})`).join('；')
               parts.push(`📎 纸条：${fromHer} 张等你收、${fromMe} 张等她决定（${brief}）`)
             }
+          } catch (_) {}
+          // C. 她今天主动留下的（收下的纸条 + 写的日记）——让钟泽自主看到，不用她提醒
+          try {
+            const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+            const snr = await fetch(`${SUPABASE}/note_content?select=content&date=eq.${today}&source=eq.user&status=eq.saved&order=id.desc&limit=3`, { headers: sbHeaders(env) })
+            const snrows = await snr.json()
+            const savedNotes = Array.isArray(snrows) ? snrows : []
+            if (savedNotes.length > 0) {
+              parts.push(`她今天收下的纸条：${savedNotes.map(n => `「${String(n.content || '').slice(0, 50)}」`).join('；')}`)
+            }
+            const udr = await fetch(`${SUPABASE}/diaries?select=content&date=eq.${today}&author=eq.user&limit=1`, { headers: sbHeaders(env) })
+            const udrows = await udr.json()
+            const userDiary = (Array.isArray(udrows) && udrows[0]?.content) ? udrows[0].content : ''
+            if (userDiary) parts.push(`她今天写的日记：${userDiary.slice(0, 120)}${userDiary.length > 120 ? '…' : ''}`)
           } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}

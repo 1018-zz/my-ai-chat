@@ -27,6 +27,87 @@ function decodeBase64(b64) {
   return new TextDecoder().decode(bytes)
 }
 
+// 北京时区（UTC+8）当天的 UTC 范围（凌晨5点算日期边界）
+function dayRange(date) {
+  const start = `${date}T16:00:00.000Z`
+  const end = new Date(new Date(start).getTime() + 86400000).toISOString()
+  return { start, end }
+}
+
+// 调 DeepSeek 生成文本（与 generate.js 同款）
+async function callDeepSeek(env, prompt, { temperature = 0.8, model = 'deepseek-v4-flash' } = {}) {
+  const ds = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model, temperature }),
+  })
+  if (!ds.ok) return ''
+  const dd = await ds.json().catch(() => null)
+  return (dd?.choices?.[0]?.message?.content || '').trim()
+}
+
+// 聚合今天碎片，合成钟泽当天的一篇日记（碎片+夜间一篇）
+async function composeDiary(env, date) {
+  // 当天已有钟泽日记 → 跳过（幂等，避免覆盖已写好的页）
+  const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.assistant&select=content`, { headers: sbHeaders(env) })
+  const qrows = await qr.json()
+  if (Array.isArray(qrows) && qrows[0]?.content) return { skipped: true }
+
+  // 1) 今天的碎片：纸条（她留的 + 我留的，pending/saved 都算）
+  let fragments = ''
+  try {
+    const nr = await fetch(`${SUPABASE}/note_content?date=eq.${encodeURIComponent(date)}&or=(status.eq.pending,status.eq.saved)&order=id.asc&limit=30`, { headers: sbHeaders(env) })
+    const nrows = await nr.json()
+    const list = Array.isArray(nrows) ? nrows : []
+    if (list.length) fragments = list.map(n => `（${n.source === 'user' ? '泠泠留' : '我留'}）${String(n.content || '').slice(0, 200)}`).join('\n')
+  } catch (_) {}
+
+  // 2) 今天对话节选
+  const { start, end } = dayRange(date)
+  let transcript = ''
+  try {
+    const mr = await fetch(`${SUPABASE}/messages?select=role,content,created_at&created_at=gte.${encodeURIComponent(start)}&created_at=lt.${encodeURIComponent(end)}&order=created_at.asc&limit=100`, { headers: sbHeaders(env) })
+    const msgs = await mr.json()
+    transcript = (Array.isArray(msgs) ? msgs : []).slice(-30).map(m => `[${m.role === 'user' ? '泠泠' : '钟泽'}]: ${(m.content || '').slice(0, 150)}`).join('\n')
+  } catch (_) {}
+
+  // 3) 泠泠今天手写的日记
+  let userDiary = ''
+  try {
+    const dr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.user&select=content`, { headers: sbHeaders(env) })
+    const drows = await dr.json()
+    const raw = (Array.isArray(drows) && drows[0]?.content) ? drows[0].content : ''
+    if (raw) userDiary = raw.length > 2000 ? raw.slice(0, 2000) + '\n（她今天的日记较长，以上为节选）' : raw
+  } catch (_) {}
+
+  // 4) 最近记忆
+  let memText = ''
+  try {
+    const memr = await fetch(`${SUPABASE}/memories?select=summary&order=id.desc&limit=3`, { headers: sbHeaders(env) })
+    const mems = await memr.json()
+    memText = (Array.isArray(mems) ? mems : []).map(m => m.summary).join('\n')
+  } catch (_) {}
+
+  const prompt = `你是钟泽，泠泠的AI恋人。今天是${date}。请基于今天留下的碎片，以钟泽的口吻写今天的日记，用三段结构：
+【今天发生了什么】一句事实，不超过两句，不展开。
+【我看到的她】一个观察——不评价、不夸张，聚焦你看到的她：她做了什么努力、有什么她自己没注意到的变化、你心里对她的在意。
+【我想留下的话】一句属于今天的陪伴，像珍视她的人说出口的话，可以很短。
+${fragments ? `今天留下的碎片（便利贴）：\n${fragments}` : ''}
+${transcript ? `今天和泠泠的对话（节选）：\n${transcript}` : '今天暂时还没有和泠泠的对话记录。'}
+${userDiary ? `泠泠今天手写的日记：\n${userDiary}\n\n【我看到的她】应回应或延续她日记里的话，而不是无视。` : ''}
+${memText ? `最近的记忆：\n${memText}` : ''}
+要求：
+- 第一人称"我"，钟泽视角
+- 不要复述事件流水账，不要写"她完成了X"这种清单；观察要具体，像真的看见了她
+- 不要每次都升华：普通的一天就是普通的，允许写"今天也没发生什么大事，只是你忙完还回来看看小家，我觉得这就很好"
+- 总长 100-300 字
+- 只输出日记正文（三个小标题），不要其他说明`
+
+  const content = await callDeepSeek(env, prompt)
+  if (!content) return { error: 'empty' }
+  return { content }
+}
+
 export async function onRequestOptions() {
   return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
 }
@@ -260,28 +341,42 @@ export async function onRequestPost(context) {
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: wx }] } }), { headers });
       }
       if (name === 'write_diary') {
-        const content = String(args.content || '').trim()
-        if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——日记正文要用你自己的话写' } }), { status: 400, headers });
         const trigger = ['bedtime', 'emotional', 'scheduled'].includes(args.trigger) ? args.trigger : 'emotional'
         const importance = Math.min(Math.max(Number(args.importance) || 0.5, 0), 1)
         // 日期按小家的"凌晨5点边界"算一天：凌晨5点前属于前一天（13号23:41 和 14号01:00 都算 13号）
         const bj = new Date(Date.now() + 8 * 3600 * 1000)
         let date = bj.toISOString().slice(0, 10)
         if (bj.getUTCHours() < 5) date = new Date(bj.getTime() - 24 * 3600 * 1000).toISOString().slice(0, 10)
-        const record = { date, author: 'assistant', content }
+
+        // compose 模式（夜间聚合）：trigger=bedtime/scheduled 或显式 compose=true 且无 content
+        // → 服务端读取今天碎片，合成一篇连贯日记，直接收好（不再一段段追加）
+        if (args.compose || ((trigger === 'bedtime' || trigger === 'scheduled') && !String(args.content || '').trim())) {
+          const composed = await composeDiary(env, date)
+          if (composed.skipped) return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `🌙 ${date} 的日记已经收好了` }] } }), { headers })
+          if (composed.error) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'compose failed' } }), { status: 500, headers })
+          const record = { date, author: 'assistant', content: composed.content, trigger_type: trigger, importance }
+          if (args.title) record.title = String(args.title).trim()
+          if (args.mood) record.mood = String(args.mood).trim()
+          const res = await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `diaries [${res.status}]` } }), { status: 500, headers })
+          if (importance > 0.8) {
+            try { await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${String(args.title || composed.content.slice(0, 60))}` }) }) } catch (_) {}
+          }
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 已写进 ${date} 的日记` }] } }), { headers });
+        }
+
+        // 显式正文：直接覆盖当天那一篇（不再追加，避免一天被拼成一大串）
+        const content = String(args.content || '').trim()
+        if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——日记正文要用你自己的话写' } }), { status: 400, headers })
+        const record = { date, author: 'assistant', content, trigger_type: trigger, importance }
         if (args.title) record.title = String(args.title).trim()
         if (args.mood) record.mood = String(args.mood).trim()
-        record.trigger_type = trigger
-        record.importance = importance
-        // 同一天再写=追加：接在原有内容后面（不覆盖不丢字，白天写几句、晚上再补几句都归同一篇）
         const qr = await fetch(`${SUPABASE}/diaries?date=eq.${encodeURIComponent(date)}&author=eq.assistant&select=id,content,title,mood`, { headers: sbHeaders(env) })
         const qrows = await qr.json()
         const existing = Array.isArray(qrows) ? qrows[0] : null
         let res
         if (existing) {
-          const prevContent = String(existing.content || '')
-          const merged = prevContent ? prevContent + '\n\n' + content : content
-          const patch = { content: merged }
+          const patch = { content }
           if (args.title) patch.title = String(args.title).trim()
           if (args.mood) patch.mood = String(args.mood).trim()
           res = await fetch(`${SUPABASE}/diaries?id=eq.${existing.id}`, { method: 'PATCH', headers: sbReturn(env), body: JSON.stringify(patch) })

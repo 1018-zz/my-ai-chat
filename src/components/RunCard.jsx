@@ -5,7 +5,6 @@
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import Markdown from './Markdown'
 import { ThinkingCard, ToolCard, paperCard } from './Cards'
-import DiaryConfirmCard from './DiaryConfirmCard'
 import { fmtMsgTime } from '../utils/time'
 import { buildToolSummary } from './ToolGroupCard'
 
@@ -101,15 +100,6 @@ function splitVoiceParts(text) {
   return items
 }
 
-function extractDiaryDraft(text) {
-  const m = String(text || '').match(/<!--\s*diary-draft:\s*(\{[\s\S]*?\})\s*-->/)
-  if (!m) return { draft: null, text: text || '' }
-  try {
-    const draft = JSON.parse(m[1])
-    return { draft, text: String(text).replace(m[0], '').trim() }
-  } catch (_) { return { draft: null, text: text || '' } }
-}
-
 function RunCard({ msgs, showThinking, expanded, onToggle }) {
   const tools = msgs.flatMap(m => (m.toolCalls || []).filter(t => t.name))
   // 挂载时是否正在流式生成：本次生成 → 逐句浮现；历史消息 → 直接全显示
@@ -182,8 +172,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
       )}
       {/* 正文：每条 assistant 消息在单卡片内按 \n\n 分段落呼吸浮现，心声单独成便签 */}
       {msgs.map((m) => {
-        const { draft, text: textNoDraft } = extractDiaryDraft(m.text)
-        const parts = splitVoiceParts(textNoDraft)
+        const parts = splitVoiceParts(m.text)
         const fullText = parts.map(p => p.text).join('').trim()
         return (
           <Fragment key={m.id}>
@@ -192,7 +181,6 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
               : parts.length > 0
                 ? <RevealCard parts={parts} live={live} />
                 : null}
-            {draft && <DiaryConfirmCard draft={draft} msgId={m.id} />}
           </Fragment>
         )
       })}

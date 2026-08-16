@@ -18,12 +18,18 @@ export const MCP_TOOLS = [
   { key: 'describe_image', label: '看图片' },
   { key: 'decide_note', label: '看纸条' },
   { key: 'leave_note', label: '留纸条' },
+  { key: 'write_diary', label: '写日记' },
 ]
+
+// 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
+// 默认始终允许（DEFAULT_ALWAYS），避免晚安写日记 / 留碎片时被授权弹窗打断。
+// 若用户在设置页显式设为 never，仍尊重用户选择。
+const DEFAULT_ALWAYS = ['write_diary', 'leave_note']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
   { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'read_memories', 'describe_image'] },
-  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'decide_note', 'leave_note'] },
+  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'decide_note', 'leave_note', 'write_diary'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
 ]
 
@@ -48,11 +54,13 @@ export function loadMcpAuth() {
       const obj = JSON.parse(saved)
       const out = {}
       for (const t of MCP_TOOLS) out[t.key] = normalizeMode(obj[t.key])
+      // 写入类自主动作默认始终允许（用户放权、无需批准）；仅当用户显式设过才尊重其选择
+      for (const k of DEFAULT_ALWAYS) if (out[k] === undefined || out[k] === 'ask') out[k] = 'always'
       return out
     }
     const legacy = localStorage.getItem('mcp_enabled') === 'true'
     const seed = {}
-    for (const t of MCP_TOOLS) seed[t.key] = legacy ? 'always' : 'ask'
+    for (const t of MCP_TOOLS) seed[t.key] = DEFAULT_ALWAYS.includes(t.key) ? 'always' : (legacy ? 'always' : 'ask')
     return seed
   } catch {
     return {}
