@@ -107,104 +107,6 @@
   .lair-status__mood-text { font-size: 13px; }
 }
 
-/* =========================================================
-   家里最近 · 最近的小事（复用家感知层 events，给用户看的展示）
-   glassCard 风 + 衬线标题，和上方状态牌同源，不碰主题色。
-   ========================================================= */
-.lair-recent {
-  margin-top: 16px;
-  background: var(--color-card-glass);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border: 1px solid var(--color-border-glass);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  padding: 16px;
-}
-
-.lair-recent__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.lair-recent__title {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-dark);
-}
-
-.lair-recent__hint {
-  font-size: 11px;
-  color: var(--color-text-gray);
-  letter-spacing: .04em;
-}
-
-.lair-recent__empty {
-  font-size: 13px;
-  color: var(--color-text-light);
-  padding: 8px 0;
-  text-align: center;
-}
-
-.lair-recent__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.lair-recent__item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.lair-recent__icon {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--color-paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  box-shadow: var(--shadow-soft);
-}
-
-.lair-recent__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.lair-recent__line {
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--color-text-dark);
-  word-break: break-word;
-}
-
-.lair-recent__who {
-  font-weight: 600;
-  margin-right: 4px;
-  color: var(--color-primary);
-}
-
-.lair-recent__text {
-  color: var(--color-text-dark);
-}
-
-.lair-recent__meta {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--color-text-gray);
-}
-
 /* 天气氛围层：房间随真实天气呼吸（很淡，叠在壁纸之上、内容之下；由 --weather-tint 驱动） */
 .weather-aura {
   position: fixed;
@@ -213,10 +115,4 @@
   pointer-events: none;
   background: var(--weather-tint, transparent);
   transition: background 900ms ease;
-}
-
-/* 375px：最近小事略微收紧 */
-@media (max-width: 375px) {
-  .lair-recent { padding: 14px; }
-  .lair-recent__line { font-size: 12.5px; }
 }
