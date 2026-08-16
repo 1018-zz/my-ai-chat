@@ -157,6 +157,11 @@ const WEATHER_STATE = {
   雨: '在窗边听雨', 雪: '在窗边看雪', 雷: '在窗边看雨', 雾: '在雾里发呆',
   晴: '在晒太阳', 多云: '窝在沙发上', 阴: '窝在沙发上',
 }
+// 天气氛围层色调：很淡，叠在壁纸之上、内容之下，给房间一面墙染上呼吸感
+const WEATHER_TINT = {
+  雨: 'rgba(86,104,132,0.16)', 雪: 'rgba(202,222,240,0.13)', 雾: 'rgba(198,200,205,0.15)',
+  雷: 'rgba(72,72,98,0.20)', 晴: 'rgba(255,226,160,0.11)', 多云: 'rgba(182,184,190,0.10)', 阴: 'rgba(120,126,138,0.15)',
+}
 function weatherToLair(w) {
   if (!w || !w.season) return null
   let seedFirst = (w.seed || '').split(/[。.！!？?]/)[0].trim()
@@ -1495,6 +1500,15 @@ export default function App() {
       root.style.setProperty('--wallpaper-darken', dk)
     } catch (_) {}
   }, [])
+  // 天气氛围层：真实天气给房间染上呼吸感（很淡，叠在壁纸之上；失败则无染色）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
+      if (d && d.ok && d.sky) {
+        const tint = WEATHER_TINT[d.sky] || 'rgba(180,180,185,0.08)'
+        document.documentElement.style.setProperty('--weather-tint', tint)
+      }
+    }).catch(() => {})
+  }, [])
   const [currentChat, setCurrentChat] = useState(() => {
     try { return JSON.parse(localStorage.getItem('current_chat') || 'null') } catch { return null }
   })
@@ -1549,6 +1563,7 @@ export default function App() {
     <div className="page-wrap">
       {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
       <div className="wallpaper-layer" />
+      <div className="weather-aura" />
       <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat

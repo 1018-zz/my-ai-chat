@@ -205,6 +205,16 @@
   color: var(--color-text-gray);
 }
 
+/* 天气氛围层：房间随真实天气呼吸（很淡，叠在壁纸之上、内容之下；由 --weather-tint 驱动） */
+.weather-aura {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--weather-tint, transparent);
+  transition: background 900ms ease;
+}
+
 /* 375px：最近小事略微收紧 */
 @media (max-width: 375px) {
   .lair-recent { padding: 14px; }
