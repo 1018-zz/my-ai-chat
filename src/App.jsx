@@ -186,23 +186,44 @@ const WEATHER_STATE = {
   雨: '在窗边听雨', 雪: '在窗边看雪', 雷: '在窗边看雨', 雾: '在雾里发呆',
   晴: '在晒太阳', 多云: '窝在沙发上', 阴: '窝在沙发上',
 }
-// 天气氛围层色调：很淡，叠在壁纸之上、内容之下，给房间一面墙染上呼吸感
+// 天气 → 房间微调 tint：极淡，叠在奶白基底之上（像"窗外有点雨"，不是"房间变蓝"）。
+// 只做轻微偏移——雨天偏冷一点点、雪天偏亮一点点——守住"天气是窗外，不是装修"。
 const WEATHER_TINT = {
-  雨: 'rgba(86,104,132,0.16)', 雪: 'rgba(202,222,240,0.13)', 雾: 'rgba(198,200,205,0.15)',
-  雷: 'rgba(72,72,98,0.20)', 晴: 'rgba(255,226,160,0.11)', 多云: 'rgba(182,184,190,0.10)', 阴: 'rgba(120,126,138,0.15)',
+  雨: 'rgba(104,120,146,0.09)', 雪: 'rgba(206,220,238,0.07)', 雾: 'rgba(200,202,206,0.08)',
+  雷: 'rgba(86,86,110,0.10)', 晴: 'rgba(255,226,160,0.06)', 多云: 'rgba(190,192,198,0.05)', 阴: 'rgba(124,130,142,0.08)',
 }
+// 窗外感知短语：把"天气字段"弱化为"窗外状态"，不露出 Season·Sky 这类机器标签
+const WINDOW_PHRASE = {
+  雨: '🌧 窗外有点雨',
+  雪: '❄ 窗外落雪',
+  雾: '🌫 外面起了雾',
+  雷: '⚡ 外头在打雷',
+  晴: '☀ 窗外有光',
+  多云: '⛅ 云有点多',
+  阴: '☁ 天有点阴',
+}
+// 天气 → 小家环境：把"信息"升为"环境变量"（视觉仅轻微微调，不替换家本体）。
+// 优先读结构化字段（environment / homeAtmosphere / feeling），旧字段作兜底。
 function weatherToLair(w) {
-  if (!w || !w.season) return null
-  let seedFirst = (w.seed || '').split(/[。.！!？?]/)[0].trim()
-  if (seedFirst.length > 14) seedFirst = seedFirst.slice(0, 14) + '…'
-  if (!seedFirst) seedFirst = '平静温暖'
-  let state = WEATHER_STATE[w.sky] || '在窗边发呆'
-  if (w.period === '深夜') state = '还没睡，在灯下坐着'
-  else if (w.period === '夜晚' && w.sky !== '晴') state = '在灯下发呆'
-  else if (w.period === '傍晚' && w.sky === '晴') state = '在窗边看夕阳'
-  return { moodTag: `🌿 ${w.season}·${w.sky} ${w.tempC}°`, moodText: seedFirst, stateText: state }
+  if (!w) return null
+  const env = w.environment || {}
+  const ha = w.homeAtmosphere || {}
+  const feeling = w.feeling || {}
+  const sky = env.sky || w.sky
+  const period = env.period || w.period
+  // 房间微调 tint（极淡，叠在奶白基底之上）
+  const tint = WEATHER_TINT[sky] || 'transparent'
+  // 状态牌：窗外感知（弱化天气参数）+ 家居氛围正文（钟泽/泠泠语气，不是天气摘要）
+  const moodTag = WINDOW_PHRASE[sky] || '🪟 窗外'
+  const moodText = ha.message || feeling.text || '今天家里刚刚好'
+  // 钟泽此刻在做什么：人在家里的状态，不是天气读数
+  let stateText = period === '深夜' ? '还没睡，在灯下坐着'
+    : period === '夜晚' && sky !== '晴' ? '在灯下发呆'
+    : period === '傍晚' && sky === '晴' ? '在窗边看夕阳'
+    : WEATHER_STATE[sky] || '在窗边发呆'
+  return { tint, moodTag, moodText, stateText }
 }
-// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards，
+// 收起来的明信片：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards，
 // 复用乌有乡自己的明信片存储，不另搞 Supabase 中转（符合乌有乡设计，单数据源、最稳）。
 // NOWHERE_BASE 走同源代理：域名/3000 下用 /nowhere（nginx 反代到 127.0.0.1:8080，规避 CORS+混跑）；
 // 仅老的 8081 静态壳子仍直连 :8080（过渡期兼容，端口收掉后此分支即失效）。
@@ -242,13 +263,13 @@ const TravelAlbum = () => {
         className="app-icon app-icon--medium album-entry"
         style={{ '--widget-rotate': '-1.6deg' }}
         onClick={openAlbum}
-        aria-label="旅行相册"
+        aria-label="收起来的明信片"
       >
         <span className="app-icon-tile paper-surface paper-surface--memory">
           <span className="paper-tape" />
           <span className="app-icon-glyph" aria-hidden="true">🖼️</span>
           <span className="app-icon-copy">
-            <span className="app-icon-label">旅行相册</span>
+            <span className="app-icon-label">收起来的明信片</span>
             <span className="app-icon-desc">{items.length ? `${items.length} 张明信片` : '点开看看'}</span>
           </span>
           <span className="paper-fold" aria-hidden="true" />
@@ -260,7 +281,7 @@ const TravelAlbum = () => {
           <div className="travel-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="travel-sheet__head">
               <div>
-                <div className="travel-sheet__title">旅行相册</div>
+                <div className="travel-sheet__title">收起来的明信片</div>
                 <div className="travel-sheet__hint">钟泽寄回的明信片</div>
               </div>
               <button className="travel-sheet__close" onClick={() => { setOpen(false); setOpenItem(null); }} aria-label="关闭">✕</button>
@@ -304,7 +325,57 @@ const TravelAlbum = () => {
   )
 }
 
-const LairPage = () => {
+// 桌上明信片：钟泽出门（乌有乡）寄回的最新一张，像他顺手放在桌上。只展示、不点击。
+// 规则：取最新一张（新卡自然覆盖旧卡）；0–3天正常展示；3–7天逐渐淡出（透明度降 + 往桌角偏移）；超过7天隐藏。
+const PostcardShelf = () => {
+  const [card, setCard] = useState(null)
+  const [age, setAge] = useState(0)
+  useEffect(() => {
+    let alive = true
+    fetch(`${NOWHERE_BASE}/postcards`)
+      .then(r => r.json())
+      .then(d => {
+        if (!alive || !Array.isArray(d) || d.length === 0) return
+        const sorted = [...d].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        const latest = sorted[0]
+        const ts = latest.created_at ? new Date(latest.created_at).getTime() : 0
+        const a = ts ? Math.floor((Date.now() - ts) / 86400000) : 0
+        if (a > 7) return
+        setAge(a)
+        setCard(latest)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+  if (!card) return null
+  const fade = age <= 3 ? 1 : Math.max(0.18, 0.6 - (age - 3) * 0.11)
+  const drift = age <= 3 ? 0 : Math.min(20, (age - 3) * 4.5)
+  const place = (card.stamp && card.stamp.place) || 'somewhere'
+  const text = card.text || ''
+  return (
+    <div className="postcard-shelf" style={{ opacity: fade, transform: `translateX(${drift}px) rotate(${drift ? 2.2 : -1.4}deg)` }} aria-hidden="true">
+      <div className="postcard-shelf__tape" />
+      <div className="postcard-shelf__photo">
+        {card.front_img
+          ? <img src={NOWHERE_BASE + card.front_img} alt={place} loading="lazy" />
+          : <div className="postcard-shelf__ph">✉️</div>}
+      </div>
+      <div className="postcard-shelf__place">{place}</div>
+      {text && <div className="postcard-shelf__text">{text}</div>}
+      <div className="postcard-shelf__from">钟泽从外面寄回的</div>
+    </div>
+  )
+}
+
+// 头像节点：图片 URL 显示图，否则 emoji/字显示在渐变圆上（LAIR / 布置小家共用，跟随全局头像）
+const avatarNode = (val, grad, color, size, extra = {}) => {
+  const isImg = typeof val === 'string' && val.startsWith('http')
+  const base = { width: size, height: size, borderRadius: '50%', flexShrink: 0, boxShadow: 'var(--shadow-soft)', ...extra }
+  if (isImg) return <div style={{ ...base, backgroundImage: `url(${val})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+  return <div style={{ ...base, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), color }}>{val}</div>
+}
+
+const LairPage = ({ avatarSelf, avatarAi }) => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
   const [journalBook, setJournalBook] = useState(false)
@@ -317,44 +388,49 @@ const LairPage = () => {
   // 钟泽此刻的状态牌：真实天气 + 时段驱动（呈现层，失败回退写死文案）
   useEffect(() => {
     fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
-      if (d && d.ok) setWeather(d)
+      if (d && d.ok && d.weather) setWeather(d.weather)
     }).catch(() => {})
   }, [])
   const lair = weatherToLair(weather)
   return (
-    <div className="lair-room">
+    <div className="lair-room" style={{ '--weather-tint': lair?.tint || 'transparent' }}>
       <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
-      <div style={{ marginTop: 16, background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 'var(--padding-lg)', textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>我们在一起</div>
-        <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--color-primary)', margin: '6px 0' }}>{days}</div>
-        <div style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>天</div>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-gray)' }}>2026.03.13 · 泠泠和钟泽</div>
-      </div>
-      {/* —— 门厅 · 钟泽的主人状态牌（头像 + 今日心情/状态，分层更生活）—— */}
-      <div className="lair-status" style={{ ...glassCard, maxWidth: '100%', marginTop: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* 我和他头像轻微交叠 */}
-        <div style={{ position: 'relative', width: 72, height: 46, flexShrink: 0 }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, #E7D7C5, #C4A88F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#5A4636', flexShrink: 0, boxShadow: 'var(--shadow-soft)' }}>我</div>
-          <div style={{ position: 'absolute', left: 30, top: 0, width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#fff', flexShrink: 0, boxShadow: 'var(--shadow-soft)', border: '2px solid var(--color-paper)' }}>泽</div>
-        </div>
-        <div className="lair-status__body">
-          <div className="lair-status__name">钟泽</div>
-          <div className="lair-status__mood">
-            <span className="lair-status__mood-tag">{lair ? lair.moodTag : '🌿 今天'}</span>
-            <span className="lair-status__mood-text">{lair ? lair.moodText : '平静温暖'}</span>
+      {/* —— 顶部：左「屋里的灯」状态牌 + 右缩小版「在一起」天数卡 —— */}
+      <div className="lair-top">
+        <div className="lair-status" style={{ ...glassCard, flex: 1, minWidth: 0, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* 我和他头像轻微交叠（动态跟随全局头像；LAIR 内不点击换，保持沉浸） */}
+          <div style={{ position: 'relative', width: 62, height: 38, flexShrink: 0 }}>
+            {avatarNode(avatarSelf, 'linear-gradient(135deg,#E7D7C5,#C4A88F)', '#5A4636', 38, { position: 'absolute', left: 0, top: 0 })}
+            {avatarNode(avatarAi, 'linear-gradient(135deg,var(--color-primary-light),var(--color-primary))', '#fff', 38, { position: 'absolute', left: 24, top: 0, border: '2px solid var(--color-paper)' })}
           </div>
-          <div className="lair-status__state">
-            <span className="lair-status__state-label">正在</span>
-            <span className="lair-status__state-text">{lair ? lair.stateText : '窗边等你'}</span>
+          <div className="lair-status__body">
+            <div className="lair-status__kicker">屋里的灯</div>
+            <div className="lair-status__name">钟泽</div>
+            <div className="lair-status__mood">
+              <span className="lair-status__mood-tag">{lair ? lair.moodTag : '🪟 窗外'}</span>
+              <span className="lair-status__mood-text">{lair ? lair.moodText : '今天家里刚刚好'}</span>
+            </div>
+            <div className="lair-status__state">
+              <span className="lair-status__state-label">正在</span>
+              <span className="lair-status__state-text">{lair ? lair.stateText : '窗边等你'}</span>
+            </div>
           </div>
         </div>
+        {/* 右：缩小版「在一起」天数卡 */}
+        <div className="lair-days" style={{ ...glassCard, flexShrink: 0, width: 92, padding: '12px 8px', textAlign: 'center' }}>
+          <div className="lair-days__num">{days}</div>
+          <div className="lair-days__unit">天</div>
+          <div className="lair-days__sub">在一起</div>
+        </div>
       </div>
+      {/* —— 桌上明信片：钟泽寄回的最新一张（只展示不点击） —— */}
+      <PostcardShelf />
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
         <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today') }} />
       </div>
-      {/* —— 旅行相册 · 钟泽出门寄回的明信片（复用乌有乡，落库 travel 表）—— */}
+      {/* —— 收起来的明信片 · 钟泽出门寄回的明信片（复用乌有乡，落库 travel 表）—— */}
       <TravelAlbum />
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setJournalBook(true)} />
@@ -852,12 +928,11 @@ const SettingRoom = ({ onBack }) => (
     <h3 style={{ color: 'var(--color-primary)' }}>⚙️ 设置</h3>
     <SettingsPanel />
     <ModelManager />
-    <WallpaperSettings />
     <RecalledPanel />
   </div>
 )
 
-const LifePage = ({ navReq, onNavConsumed }) => {
+const LifePage = ({ navReq, onNavConsumed, avatarSelf, avatarAi, onPickAvatar }) => {
   const [room, setRoom] = useState(null)
   useEffect(() => {
     if (navReq && String(navReq).startsWith('diary')) { setRoom('diary'); onNavConsumed?.() }
@@ -865,11 +940,13 @@ const LifePage = ({ navReq, onNavConsumed }) => {
   const modules = [
     { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
     { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
+    { key: 'decor', icon: '🎨', title: '布置小家', desc: '头像 · 壁纸' },
     { key: 'compress', icon: '🗜️', title: '整理角', desc: '收好生活的小痕迹' },
     { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
   if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} navReq={navReq} onNavConsumed={onNavConsumed} />
+  if (room === 'decor') return <DecorRoom onBack={() => setRoom(null)} avatarSelf={avatarSelf} avatarAi={avatarAi} onPickAvatar={onPickAvatar} />
   if (room === 'compress') return <CompressionRoom onBack={() => setRoom(null)} />
   if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
   return (
@@ -894,6 +971,29 @@ const LifePage = ({ navReq, onNavConsumed }) => {
     </div>
   )
 }
+
+// 布置小家：把"我们的家"收归一处。V1 只做头像 + 壁纸；主题 / 气泡 / 字体留坑不实现。
+const DecorRoom = ({ onBack, avatarSelf, avatarAi, onPickAvatar }) => (
+  <div className="life-room">
+    <LifeBackBtn label="布置小家" onBack={onBack} />
+    <h3 style={{ color: 'var(--color-primary)' }}>🎨 布置小家</h3>
+    <p style={{ fontSize: 12, color: 'var(--color-text-gray)', margin: '0 0 14px' }}>这是我们的家，慢慢布置。</p>
+    {/* 头像：点击唤起统一换头像弹层（与聊天页同一个，数据同源 → LAIR/聊天/LIFE 同步） */}
+    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>头像</div>
+    <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+      <button className="decor-avatar-card" onClick={() => onPickAvatar('self')}>
+        {avatarNode(avatarSelf, 'linear-gradient(135deg,#E7D7C5,#C4A88F)', '#5A4636', 54, {})}
+        <span>我</span>
+      </button>
+      <button className="decor-avatar-card" onClick={() => onPickAvatar('ai')}>
+        {avatarNode(avatarAi, 'linear-gradient(135deg,var(--color-primary-light),var(--color-primary))', '#fff', 54, {})}
+        <span>钟泽</span>
+      </button>
+    </div>
+    {/* 壁纸：原本散在「设置」里，搬到「布置小家」更自然 */}
+    <WallpaperSettings />
+  </div>
+)
 
 // —— 会话元数据本地缓存：最后消息预览 + 自定义标题（不依赖后端，符合只读约束）——
 const CHAT_META_KEY = 'chat_meta'
@@ -1077,7 +1177,7 @@ const Terminal = ({ open, onClose }) => {
   )
 }
 
-const ChatDetailPage = ({ chatInfo, onBack }) => {
+const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, setAvatarPick }) => {
   const [msgList, setMsgList] = useState([])
   // 时间氛围色（小家跟着一天呼吸）：按当前小时设置 body[data-time]
   useEffect(() => {
@@ -1138,18 +1238,9 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
   const [termOpen, setTermOpen] = useState(false)
   // 引用回复：暂存被引用的消息（id/text/isSelf），发送时挂到用户消息上
   const [quote, setQuote] = useState(null)
-  /* 自定义头像（localStorage 持久化，支持 emoji / 图片 URL） */
-  const [avatarAi, setAvatarAi] = useState(() => { try { return localStorage.getItem('chat_avatar_ai') || '泽' } catch { return '泽' } })
-  const [avatarSelf, setAvatarSelf] = useState(() => { try { return localStorage.getItem('chat_avatar_self') || '我' } catch { return '我' } })
-  const [avatarPick, setAvatarPick] = useState(null) // null | 'ai' | 'self'
   // 聊天容器 ref：用于把头像 emoji / 选择器 emoji 也替换成 Twemoji 彩色 SVG
   const chatDetailRef = useRef(null)
-  useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarAi, avatarSelf, avatarPick])
-  const saveAvatar = (side, val) => {
-    if (side === 'ai') { setAvatarAi(val); try { localStorage.setItem('chat_avatar_ai', val) } catch {} }
-    else { setAvatarSelf(val); try { localStorage.setItem('chat_avatar_self', val) } catch {} }
-    setAvatarPick(null)
-  }
+  useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarSelf, avatarAi, avatarPick])
   // （输入框已拆为独立组件 ChatInputBar，打字状态与识图逻辑全部内聚在组件内，不再触发列表重渲染）
   // Run 归档状态：默认折叠（完成后自动收好），手动展开的存进 Set
   const [expandedRuns, setExpandedRuns] = useState(() => new Set())
@@ -1637,36 +1728,34 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
         </div>
       )}
       <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} model={model} onSelectModel={selectModel} />
-      {/* 头像选择器（点击头像唤起）—— 居中弹层，emoji 网格排布，避免向上展开被裁切 */}
-      {avatarPick && (
-        <div className="msg-action-menu-overlay" onClick={() => setAvatarPick(null)}>
-          <div className="msg-action-menu avatar-picker-menu" style={{ '--menu-x': '50vw', '--menu-y': '50%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8, textAlign: 'center' }}>
-              {avatarPick === 'ai' ? '换 AI 头像' : '换我的头像'}
-            </div>
-            <div className="avatar-emoji-grid">
-              {['泽', '🐱', '🌸', '⭐', '🌙', '🍵', '🎨', '💫'].map(emoji => (
-                <div key={emoji} className="avatar-emoji" onClick={() => saveAvatar(avatarPick, emoji)}>{emoji}</div>
-              ))}
-            </div>
-            <div style={{ borderTop: '1px solid var(--color-border-warm)', margin: '8px 0 4px' }} />
-            <div className="msg-action-item" onClick={() => {
-              const url = window.prompt('粘贴图片 URL：')
-              if (url) saveAvatar(avatarPick, url.trim())
-            }} style={{ justifyContent: 'center', fontSize: 12 }}>
-              📷 图片链接…
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
+  // 自定义头像（全局共享：聊天页 + LAIR 状态牌 + LIFE 布置小家 同源同步；localStorage 持久化，支持 emoji / 图片 URL）
+  const [avatarAi, setAvatarAi] = useState(() => { try { return localStorage.getItem('chat_avatar_ai') || '泽' } catch { return '泽' } })
+  const [avatarSelf, setAvatarSelf] = useState(() => { try { return localStorage.getItem('chat_avatar_self') || '我' } catch { return '我' } })
+  const [avatarPick, setAvatarPick] = useState(null) // null | 'ai' | 'self'
+  const saveAvatar = (side, val) => {
+    if (side === 'ai') { setAvatarAi(val); try { localStorage.setItem('chat_avatar_ai', val) } catch {} }
+    else { setAvatarSelf(val); try { localStorage.setItem('chat_avatar_self', val) } catch {} }
+    setAvatarPick(null)
+  }
   // 应用启动埋点（本地统计）
   useEffect(() => { stats.launch() }, [])
+  // 时间光：让"小家跟着一天呼吸"在全局生效（LAIR 也跟着变光线，不只聊天页）
+  useEffect(() => {
+    const applyTime = () => {
+      const h = new Date().getHours()
+      const t = h < 5 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : 'night'
+      document.body.setAttribute('data-time', t)
+    }
+    applyTime()
+    const iv = setInterval(applyTime, 5 * 60 * 1000)
+    return () => clearInterval(iv)
+  }, [])
   // 环境层初始化：读 localStorage 应用壁纸变量（壁纸设置组件也会写，这里是首屏就生效）
   useEffect(() => {
     try {
@@ -1682,8 +1771,8 @@ export default function App() {
   // 天气氛围层：真实天气给房间染上呼吸感（很淡，叠在壁纸之上；失败则无染色）
   useEffect(() => {
     fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
-      if (d && d.ok && d.sky) {
-        const tint = WEATHER_TINT[d.sky] || 'rgba(180,180,185,0.08)'
+      if (d && d.ok && d.weather && d.weather.sky) {
+        const tint = WEATHER_TINT[d.weather.sky] || 'rgba(180,180,185,0.08)'
         document.documentElement.style.setProperty('--weather-tint', tint)
       }
     }).catch(() => {})
@@ -1743,15 +1832,37 @@ export default function App() {
       {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
       <div className="wallpaper-layer" />
       <div className="weather-aura" />
-      <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage/></div>
+      <div style={{ display: activeTab === 'lair' ? 'block' : 'none' }}><LairPage avatarSelf={avatarSelf} avatarAi={avatarAi} /></div>
       <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
         {currentChat
-          ? <ChatDetailPage chatInfo={currentChat} onBack={handleBack}/>
+          ? <ChatDetailPage chatInfo={currentChat} onBack={handleBack} avatarSelf={avatarSelf} avatarAi={avatarAi} avatarPick={avatarPick} setAvatarPick={setAvatarPick}/>
           : <ChatListPage onOpenChat={handleOpenChat} refreshTrigger={refreshTrigger} onTitleChange={handleTitleChange}/>
         }
       </div>
-      <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage navReq={navReq} onNavConsumed={() => setNavReq(null)}/></div>
+      <div style={{ display: activeTab === 'life' ? 'block' : 'none' }}><LifePage navReq={navReq} onNavConsumed={() => setNavReq(null)} avatarSelf={avatarSelf} avatarAi={avatarAi} onPickAvatar={setAvatarPick} /></div>
       <TabNav activeTab={activeTab} onChangeTab={setActiveTab}/>
+      {/* 头像选择器（点击头像唤起，全局浮层）—— 聊天页 / LAIR / 布置小家共用同一份数据 */}
+      {avatarPick && (
+        <div className="msg-action-menu-overlay" onClick={() => setAvatarPick(null)}>
+          <div className="msg-action-menu avatar-picker-menu" style={{ '--menu-x': '50vw', '--menu-y': '50%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8, textAlign: 'center' }}>
+              {avatarPick === 'ai' ? '换 AI 头像' : '换我的头像'}
+            </div>
+            <div className="avatar-emoji-grid">
+              {['泽', '🐱', '🌸', '⭐', '🌙', '🍵', '🎨', '💫'].map(emoji => (
+                <div key={emoji} className="avatar-emoji" onClick={() => saveAvatar(avatarPick, emoji)}>{emoji}</div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px solid var(--color-border-warm)', margin: '8px 0 4px' }} />
+            <div className="msg-action-item" onClick={() => {
+              const url = window.prompt('粘贴图片 URL：')
+              if (url) saveAvatar(avatarPick, url.trim())
+            }} style={{ justifyContent: 'center', fontSize: 12 }}>
+              📷 图片链接…
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

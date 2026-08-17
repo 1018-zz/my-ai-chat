@@ -1,10 +1,40 @@
-// weather.js — 天气抓取 + 六轴解析 + 泠泠种子体感，返回结构化 JSON
-// 单一数据源：mcp.js 的 get_weather 工具与前端 /api/home/weather 端点都复用它，避免两处算天气分叉
-// 不依赖 env（wttr.in 无需密钥）；城市默认镇沅县（泠泠所在）
+// weather.js — 小家环境感知层（不是普通天气接口）
+// 单一数据源：mcp.js 的 get_weather 工具与前端 /api/home/weather 端点都复用它。
+// 不依赖 env（wttr.in 无需密钥）；城市默认镇沅县（泠泠所在）。
+//
+// 设计：天气数据 → 泠泠此刻所在环境 → 钟泽理解她今天的状态。
+// 返回分两层：旧字段（兼容 mcp.js / 前端状态牌）+ 新结构化（environment / feeling / homeAtmosphere）。
 
 const WTTRLANG = 'zh'
 
-export async function getWeather(city = 'Zhenyuan') {
+// 天气描述词表：抗 wttr.in 的变体（Light rain shower / Patchy rain possible / Heavy rain…）
+const WEATHER_MAP = {
+  snow: ['snow', 'sleet', '雪'],
+  fog: ['fog', 'mist', '雾'],
+  thunder: ['thunder', '雷'],
+  rain: ['rain', 'drizzle', 'shower', '雨', 'rain shower', 'patchy rain', 'light rain', 'heavy rain'],
+}
+
+// —— 上海时区（泠泠所在），以后她旅行/换区只需改这里 ——
+function nowShanghai() {
+  const now = new Date()
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', hour12: false }).format(now))
+  const month = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', month: '2-digit' }).format(now))
+  return { hour, month }
+}
+
+function detectSky(desc, cloud) {
+  const d = (desc || '').toLowerCase()
+  for (const [key, words] of Object.entries(WEATHER_MAP)) {
+    if (words.some((w) => d.includes(w))) return key
+  }
+  if (cloud >= 80) return '阴'
+  if (cloud >= 30) return '多云'
+  return '晴'
+}
+
+// ① 抓取 + 取数（原始）
+async function parseWeather(city = 'Zhenyuan') {
   const w = await fetch(`https://v2.wttr.in/${encodeURIComponent(city)}?format=j1&lang=${WTTRLANG}`, {
     headers: { 'User-Agent': 'my-ai-chat' },
   })
@@ -15,56 +45,105 @@ export async function getWeather(city = 'Zhenyuan') {
   const area = j.nearest_area?.[0]
   const areaName = area?.areaName?.[0]?.value || city
   const region = area?.region?.[0]?.value || ''
-  // 关键数值
-  const tempC = Number(cc.temp_C)            // 实际温度
-  const feelsC = Number(cc.FeelsLikeC)       // 体感温度
-  const humidity = Number(cc.humidity)        // 湿度 %
-  const windspeed = Number(cc.windspeedKmph) // 风速 km/h
+  const tempC = Number(cc.temp_C)
+  const feelsC = Number(cc.FeelsLikeC)
+  const humidity = Number(cc.humidity)
+  const windspeed = Number(cc.windspeedKmph)
   const weatherDesc = cc.weatherDesc?.[0]?.value || cc.lang_zh?.[0]?.value || ''
-  const cloud = Number(cc.cloudcover || 0)   // 云量 %
-  // 今日日出日落
+  const cloud = Number(cc.cloudcover || 0)
   const today = j.weather?.[0]
   const sunRise = today?.astronomy?.[0]?.sunrise || ''
   const sunSet = today?.astronomy?.[0]?.sunset || ''
   const maxT = today?.maxtempC
   const minT = today?.mintempC
+  return { areaName, region, tempC, feelsC, humidity, windspeed, weatherDesc, cloud, sunRise, sunSet, maxT, minT }
+}
 
-  // —— 六轴 + 温度给「此刻」定位 ——
-  const bjNow = new Date(Date.now() + 8 * 3600 * 1000)
-  const month1 = bjNow.getUTCMonth() + 1
-  const season = (() => { if (month1 >= 3 && month1 <= 5) return '春'; if (month1 >= 6 && month1 <= 8) return '夏'; if (month1 >= 9 && month1 <= 11) return '秋'; return '冬' })()
-  const h = bjNow.getUTCHours()
-  const period = (() => { if (h < 6) return '深夜'; if (h < 9) return '早晨'; if (h < 12) return '上午'; if (h < 14) return '中午'; if (h < 17) return '下午'; if (h < 19) return '傍晚'; if (h < 23) return '夜晚'; return '深夜' })()
-  const desc = weatherDesc.toLowerCase()
-  const sky = (() => { if (/snow|雪|sleet/.test(desc)) return '雪'; if (/fog|mist|雾/.test(desc)) return '雾'; if (/thunder|雷/.test(desc)) return '雷'; if (/rain|drizzle|shower|雨/.test(desc)) return '雨'; if (cloud >= 80) return '阴'; if (cloud >= 30) return '多云'; return '晴' })()
-  const windLevel = (() => { if (windspeed >= 62) return '大风'; if (windspeed >= 20) return '有风'; if (windspeed >= 8) return '微风'; return '无风' })()
-  const moist = (() => { if (humidity >= 85) return '潮湿'; if (humidity >= 70) return '微潮'; if (humidity >= 45) return '干爽'; return '干燥' })()
+// ② 六轴分析：地点 / 季节 / 时段 / 天空 / 风 / 湿度
+function analyzeEnvironment(raw) {
+  const { hour, month } = nowShanghai()
+  const season = month >= 3 && month <= 5 ? '春' : month >= 6 && month <= 8 ? '夏' : month >= 9 && month <= 11 ? '秋' : '冬'
+  const period = hour < 6 ? '深夜' : hour < 9 ? '早晨' : hour < 12 ? '上午' : hour < 14 ? '中午' : hour < 17 ? '下午' : hour < 19 ? '傍晚' : hour < 23 ? '夜晚' : '深夜'
+  const sky = detectSky(raw.weatherDesc, raw.cloud)
+  const wind = raw.windspeed >= 62 ? '大风' : raw.windspeed >= 20 ? '有风' : raw.windspeed >= 8 ? '微风' : '无风'
+  const humidity = raw.humidity >= 85 ? '潮湿' : raw.humidity >= 70 ? '微潮' : raw.humidity >= 45 ? '干爽' : '干燥'
+  return { place: raw.areaName, season, period, sky, wind, humidity }
+}
 
-  // —— 泠泠的种子体感（她亲手写，永不覆盖）——
-  const seed = (() => {
-    if (sky === '雨') return '下着雨，空气闷闷的。等雨停那一阵，会有蒸汽扑到脸上，潮湿又难呼吸。除非这会儿起了凉风，那才沁人心脾。'
-    if (sky === '雪') return '难得见雪，空气冷得清透，亮晶晶的。'
-    if (sky === '雾') return '起了雾，四周软乎乎的，看不太远，空气潮潮的。'
-    if (sky === '雷') return '打雷了，空气又闷又重，像是憋着一场雨。'
-    if (season === '冬') {
-      if (period === '早晨' || period === '夜晚' || period === '深夜') return '风吹过来凉飕飕的，落在脸上反而让人心情不错——干爽，清爽。'
-      return '中午热起来，外套穿不住，一动就容易出汗，脱了又有点凉。'
-    }
-    if (season === '夏') {
-      if (period === '早晨' || period === '夜晚' || period === '深夜') return '早晚很舒服，不用出门就没有汗，空气也刚刚好。'
-      if (period === '中午' || period === '下午') return '一出太阳就闷热，汗黏黏的，闷得难受。'
-      return '太阳照着，湿热湿热的，出门就是一身汗。'
-    }
-    // 春/秋（普洱没有分明春秋，早晚舒服、中午短袖）
-    if (period === '早晨' || period === '夜晚' || period === '深夜') return '早晚很舒服，正是穿长袖最舒服的时候。'
-    if (period === '中午' || period === '下午') return '中午还是热，短袖正好，一动还是会出汗。'
-    return '温度不低，早晚舒服，中午短袖。'
-  })()
-  const rhinitis = (season === '春') ? '（春天你鼻炎容易犯，出门记得带上纸。）' : ''
+// ③ 泠泠种子体感（她的声音，永不覆盖）—— 雨天按温度分档，避免"雨天永远一样"
+function getLingLingFeeling({ tempC, sky, season, period }) {
+  if (sky === '雨') {
+    if (tempC >= 30) return { text: '下着雨，空气闷闷的，潮湿又难呼吸。除非这会儿起了凉风，那才沁人心脾。', tag: '闷热雨' }
+    if (tempC < 15) return { text: '下着雨，湿冷湿冷的，缩在屋里最舒服。', tag: '湿冷雨' }
+    return { text: '下着雨，空气潮潮的，窗外雾蒙蒙的，屋里反而安稳。', tag: '潮湿柔和' }
+  }
+  if (sky === '雪') return { text: '难得见雪，空气冷得清透，亮晶晶的。', tag: '遇雪' }
+  if (sky === '雾') return { text: '起了雾，四周软乎乎的，看不太远，空气潮潮的。', tag: '薄雾' }
+  if (sky === '雷') return { text: '打雷了，空气又闷又重，像是憋着一场雨。', tag: '闷雷' }
+  if (season === '冬') {
+    if (period === '早晨' || period === '夜晚' || period === '深夜') return { text: '风吹过来凉飕飕的，落在脸上反而让人心情不错——干爽，清爽。', tag: '干爽凉' }
+    return { text: '中午热起来，外套穿不住，一动就容易出汗，脱了又有点凉。', tag: '冬日暖' }
+  }
+  if (season === '夏') {
+    if (period === '早晨' || period === '夜晚' || period === '深夜') return { text: '早晚很舒服，不用出门就没有汗，空气也刚刚好。', tag: '夏夜爽' }
+    if (tempC >= 33) return { text: '一出太阳就闷热，汗黏黏的，闷得难受。', tag: '酷暑' }
+    return { text: '太阳照着，湿热湿热的，出门就是一身汗。', tag: '夏日闷' }
+  }
+  if (period === '早晨' || period === '夜晚' || period === '深夜') return { text: '早晚很舒服，正是穿长袖最舒服的时候。', tag: '春秋爽' }
+  if (period === '中午' || period === '下午') return { text: '中午还是热，短袖正好，一动还是会出汗。', tag: '午间暖' }
+  return { text: '温度不低，早晚舒服，中午短袖。', tag: '平稳' }
+}
 
-  const hard = `${areaName} · ${season} · ${sky} · ${period} · ${windLevel} · ${moist}`
-  const numbers = `${tempC}°C（体感 ${feelsC}°C）｜湿度 ${humidity}%｜${windLevel}｜${sky}｜日出 ${sunRise} 日落 ${sunSet}`
-  const wx = `${seed}${rhinitis}\n\n[坐标] ${hard}\n[数据] ${numbers}${maxT ? `｜今日 ${minT}~${maxT}°C` : ''}`
+// ④ 小家环境氛围：时间打底 + 天气调制（墙面/光线/氛围/钟泽一句话）
+function deriveHomeAtmosphere(env) {
+  const { sky, period } = env
+  const dayBase = {
+    深夜: { wall: '#2a2640', light: '#3a3358' },
+    早晨: { wall: '#efe7d8', light: '#fff6e6' },
+    上午: { wall: '#f3eee2', light: '#fff8ec' },
+    中午: { wall: '#f6f1e6', light: '#fffaf0' },
+    下午: { wall: '#f3ead8', light: '#fff4e0' },
+    傍晚: { wall: '#ece0cf', light: '#ffeede' },
+    夜晚: { wall: '#352f47', light: '#4a4068' },
+  }
+  const base = dayBase[period] || dayBase['夜晚']
+  let theme = sky, wall = base.wall, light = base.light, atmosphere = 'calm', message
+  if (sky === '雨') { wall = '#8a93a8'; light = '#d8dde6'; atmosphere = 'quiet'; message = '外面下着雨，家里适合安静一点' }
+  else if (sky === '雪') { wall = '#e6ecf4'; light = '#f4f8ff'; atmosphere = 'still'; message = '下雪了，安静得能听见自己的呼吸' }
+  else if (sky === '雾') { wall = '#dfe0e2'; light = '#eef0f2'; atmosphere = 'soft'; message = '起了雾，四周软乎乎的' }
+  else if (sky === '雷') { wall = '#3a3a4e'; light = '#4a4a66'; atmosphere = 'heavy'; message = '打雷了，窝在家里最安心' }
+  else if (sky === '晴' && (period === '夜晚' || period === '深夜')) { wall = '#2c2e44'; light = '#3e4a6a'; atmosphere = 'clear'; message = '夜里晴，窗外有星星' }
+  else if (sky === '晴') { atmosphere = 'open'; message = '今天阳光很好' }
+  else if (sky === '阴') { atmosphere = 'calm'; message = '阴天，光线柔柔的' }
+  else if (sky === '多云') { atmosphere = 'easy'; message = '云有点多，不晒' }
+  else { message = '今天天气平平，正好待着' }
+  return { theme, wall, light, atmosphere, message }
+}
 
-  return { areaName, region, tempC, feelsC, humidity, windspeed, weatherDesc, cloud, sunRise, sunSet, maxT, minT, season, period, sky, windLevel, moist, seed, rhinitis, hard, numbers, wx }
+// ⑤ 拼装：兼容旧字段 + 新结构化
+export async function getWeather(city = 'Zhenyuan') {
+  const raw = await parseWeather(city)
+  const env = analyzeEnvironment(raw)
+  const feeling = getLingLingFeeling({ ...raw, ...env })
+  const hard = `${env.place} · ${env.season} · ${env.sky} · ${env.period} · ${env.wind} · ${env.humidity}`
+  const numbers = `${raw.tempC}°C（体感 ${raw.feelsC}°C）｜湿度 ${raw.humidity}%｜${env.wind}｜${env.sky}｜日出 ${raw.sunRise} 日落 ${raw.sunSet}`
+  const rhinitis = env.season === '春' ? '（春天你鼻炎容易犯，出门记得带上纸。）' : ''
+  const wx = `${feeling.text}${rhinitis}\n\n[坐标] ${hard}\n[数据] ${numbers}${raw.maxT ? `｜今日 ${raw.minT}~${raw.maxT}°C` : ''}`
+  const homeAtmosphere = deriveHomeAtmosphere(env)
+  return {
+    // —— 兼容旧字段（mcp.js 用 wx；前端状态牌用 sky/seed/season/period/tempC）——
+    areaName: env.place, region: raw.region, tempC: raw.tempC, feelsC: raw.feelsC,
+    humidity: raw.humidity, windspeed: raw.windspeed, weatherDesc: raw.weatherDesc, cloud: raw.cloud,
+    sunRise: raw.sunRise, sunSet: raw.sunSet, maxT: raw.maxT, minT: raw.minT,
+    season: env.season, period: env.period, sky: env.sky, windLevel: env.wind, moist: env.humidity,
+    seed: feeling.text, rhinitis, hard, numbers, wx,
+    // —— 新结构化 ——
+    raw: {
+      tempC: raw.tempC, feelsC: raw.feelsC, humidity: raw.humidity,
+      windspeed: raw.windspeed, cloud: raw.cloud, weatherDesc: raw.weatherDesc,
+    },
+    environment: env,
+    feeling,
+    homeAtmosphere,
+  }
 }

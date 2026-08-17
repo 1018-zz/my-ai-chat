@@ -9,8 +9,8 @@ import { fmtMsgTime } from '../utils/time'
 import { buildToolSummary } from './ToolGroupCard'
 import { SproutIcon, WrenchIcon, LightbulbIcon } from './icons'
 
-// 心声标记（[心里嘀咕：...] 或 <!-- 心声：... -->）
-const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]/g
+// 心声标记（[心里嘀咕：...] 或 <!-- 心声：... --> 或 ⟦voice⟧...⟦/voice⟧）
+const VOICE_RE = /<!--\s*心声[：:]\s*([\s\S]*?)\s*-->|\[\s*心里嘀咕[：:]\s*([^\]]+?)\s*\]|⟦voice⟧\s*([\s\S]*?)\s*⟦\/voice⟧/g
 
 // 段落呼吸：单卡片内按 \n\n 切成段落，逐段错落浮现（像一个人慢慢说），不再拆成多个气泡。
 // 流式再快也不怕——生成完仍按呼吸节奏把剩余段落补冒完；历史消息（挂载时未在流式）直接全显示。
@@ -92,7 +92,7 @@ function splitVoiceParts(text) {
   while ((m = VOICE_RE.exec(src)) !== null) {
     const before = src.slice(last, m.index).trim()
     if (before) items.push({ type: 'bubble', text: before })
-    const v = (m[1] || m[2] || '').trim()
+    const v = (m[1] || m[2] || m[3] || '').trim()
     if (v) items.push({ type: 'voice', text: v })
     last = VOICE_RE.lastIndex
   }

@@ -6,7 +6,7 @@ export async function onRequestGet({ request }) {
   const city = url.searchParams.get('city') || 'Zhenyuan'
   try {
     const d = await getWeather(city)
-    return new Response(JSON.stringify({ ok: true, ...d }), {
+    return new Response(JSON.stringify({ ok: true, weather: d }), {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     })
   } catch (e) {
