@@ -397,7 +397,7 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
       <h3 style={{ color: 'var(--color-primary)' }}>🏠 LAIR</h3>
       {/* —— 顶部：左「屋里的灯」状态牌 + 右缩小版「在一起」天数卡 —— */}
       <div className="lair-top">
-        <div className="lair-status" style={{ ...glassCard, flex: 1, minWidth: 0, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="lair-status" style={{ ...glassCard, flex: 1, minWidth: 0, padding: 'var(--lair-status-pad, 14px)', display: 'flex', alignItems: 'center', gap: 'var(--lair-status-gap, 12px)' }}>
           {/* 我和他头像轻微交叠（动态跟随全局头像；LAIR 内不点击换，保持沉浸） */}
           <div style={{ position: 'relative', width: 62, height: 38, flexShrink: 0 }}>
             {avatarNode(avatarSelf, 'linear-gradient(135deg,#E7D7C5,#C4A88F)', '#5A4636', 38, { position: 'absolute', left: 0, top: 0 })}
