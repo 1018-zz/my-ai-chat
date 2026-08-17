@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './NoteCard.css'
 import JournalPaper from './JournalPaper'
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 // 小纸条 · MVP v0.4 —— 双人留言板（澄设计 / 钟泽接入）
 // 双向：钟泽留纸条（MCP leave_note）+ 泠泠留纸条（✍ 输入）

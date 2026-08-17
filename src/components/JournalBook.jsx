@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import JournalPaper from './JournalPaper'
 import './JournalBook.css'
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 

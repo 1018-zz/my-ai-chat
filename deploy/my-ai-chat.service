@@ -1,0 +1,30 @@
+# /etc/systemd/system/xiaojia.service
+# 安装：
+#   sudo cp deploy/my-ai-chat.service /etc/systemd/system/xiaojia.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now xiaojia
+# 查看：sudo systemctl status xiaojia / journalctl -u xiaojia -f
+
+[Unit]
+Description=小家 (my-ai-chat) 常驻运行时
+After=network.target
+
+[Service]
+Type=simple
+# 部署目录（deploy.sh 默认 /opt/xiaojia）
+WorkingDirectory=/opt/xiaojia
+ExecStart=/usr/bin/node /opt/xiaojia/server.js
+# 密钥从同目录 .env 读取；也可改用 EnvironmentFile=/opt/xiaojia/.env
+EnvironmentFile=/opt/xiaojia/.env
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+# 进程守护：崩了自动拉起
+Restart=always
+RestartSec=3
+# 若用专用低权限用户，请先 `useradd -r -s /usr/sbin/nologin xiaojia` 并 chown 目录
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 // 项目文件：不能丢的时刻
 // 数据存 Supabase（跨设备），localStorage 作为离线回退
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 const STORAGE_KEY = 'project-memories'
 
 const builtInMemories = [

@@ -195,8 +195,7 @@
 }
 .travel-sheet__close:hover { background: rgba(247, 242, 233, 0.95); }
 
-/* 灯箱层级抬到相册浮层之上（sheet 800 → lightbox 860） */
-.travel-lightbox { z-index: 860; }
+/* 灯箱 z-index 已在主定义中设为 860（高于 travel-mask 800） */
 
 /* legacy 容器（已不再使用，保留无害） */
 .travel-album {
@@ -273,12 +272,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 明信片灯箱 */
+/* 明信片灯箱（z-index 高于 travel-mask 的 800） */
 .travel-lightbox {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .6);
-  z-index: 50;
+  z-index: 860;
   display: flex;
   align-items: center;
   justify-content: center;

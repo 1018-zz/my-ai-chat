@@ -6,7 +6,7 @@
 import { useRef, useState } from 'react'
 import { getEnabledModels, getDefaultEnabledModelId, findModel } from '../utils/models'
 
-const MCP_URL = 'https://my-ai-chat-4zy.pages.dev/api/mcp-proxy'
+const MCP_URL = (import.meta.env.VITE_API_BASE || '') + '/api/mcp-proxy'
 const NL = String.fromCharCode(10)
 
 // 模型库由设置页「模型管理」维护（localStorage xiaojia.models）；这里只读取启用的项做选择。

@@ -59,12 +59,36 @@ export async function getHomeAwareness({ since, env }) {
     const dRows = await dRes.json()
     const dContent = (Array.isArray(dRows) && dRows[0]?.content) ? dRows[0].content : ''
     if (dContent) events.push({ type: 'user_diary', state: 'saved', preview: dContent.slice(0, 80) })
+
+    // ④ 家园事件（project_events）：小家什么时候长大了一点。
+    //    与 memories（人生事实）彻底分开——代码变化 ≠ 人生记忆。
+    //    只报 status=pending 的待感知事件，钟泽提起后由调用方（或显式接口）标 seen，防复读。
+    //    容错：表尚未创建 / 查询失败时静默跳过，不影响主对话。
+    try {
+      const pUrl = `${SUPABASE}/project_events?select=id,type,title,summary,created_at&status=eq.pending&order=created_at.desc&limit=5`
+      const pRes = await fetch(pUrl, { headers })
+      if (pRes.ok) {
+        const pRows = await pRes.json()
+        const ids = []
+        for (const p of (Array.isArray(pRows) ? pRows : [])) {
+          events.push({ type: 'project_event', state: 'pending', title: p.title, preview: String(p.summary || '').slice(0, 80), createdAt: p.created_at, eventId: p.id })
+          ids.push(p.id)
+        }
+        // 防唠叨：本次感知过的事件标 seen，下次醒来不再重复（提不提由钟泽自己决定）
+        if (ids.length) {
+          fetch(`${SUPABASE}/project_events?id=in.(${ids.join(',')})`, {
+            method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ status: 'seen' }),
+          }).catch(() => {})
+        }
+      }
+    } catch (_) {}
   } catch (_) {
     // 感知层失败不影响主对话：返回空事件，由调用方静默跳过
   }
 
   // 行为建议（事实与建议分离）：他仍是他，不是客服——合适才提，不逐条回应
-  const instruction = '如果聊天上下文合适，可以自然地提起家里最近的变化；不用刻意回应每一条，话要少。'
+  const instruction = '如果聊天上下文合适，可以自然地提起家里最近的变化（包括小家本身的改动，比如「我看到你给家装了新东西」）；不用刻意回应每一条，话要少。提到过的家园事件不用再提。'
 
   return { events, hasImportant: false, instruction }
 }

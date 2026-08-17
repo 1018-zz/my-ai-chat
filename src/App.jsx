@@ -1,4 +1,4 @@
-import { fetchConversations, createConversation, deleteConversation, fetchMessages, searchMemories, githubFile } from './utils/api'
+import { fetchConversations, createConversation, deleteConversation, softDeleteConversation, restoreConversation, fetchTrashConversations, fetchMessages, searchMemories, githubFile } from './utils/api'
 import { normalizeMessage } from './utils/normalize'
 import { fmtMsgTime } from './utils/time'
 import { applyTwemoji } from './utils/emoji'
@@ -146,7 +146,7 @@ function UserMsgRow({ msg, avatar, onAvatarClick }) {
   )
 }
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 const MCP_URL = `${API_BASE}/api/mcp-proxy`
 const systemPrompt = buildSystemPrompt()
 const MAX_TOOL_ROUNDS = 16
@@ -202,10 +202,13 @@ function weatherToLair(w) {
   else if (w.period === '傍晚' && w.sky === '晴') state = '在窗边看夕阳'
   return { moodTag: `🌿 ${w.season}·${w.sky} ${w.tempC}°`, moodText: seedFirst, stateText: state }
 }
-// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards（同源主机 :8080），
+// 旅行相册：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards，
 // 复用乌有乡自己的明信片存储，不另搞 Supabase 中转（符合乌有乡设计，单数据源、最稳）。
-// NOWHERE_BASE 用动态 hostname：相册在 8081、nowhere 在 8080，同主机跨端口读取，换域名/IP 也自动适配。
-const NOWHERE_BASE = `http://${window.location.hostname}:8080`
+// NOWHERE_BASE 走同源代理：域名/3000 下用 /nowhere（nginx 反代到 127.0.0.1:8080，规避 CORS+混跑）；
+// 仅老的 8081 静态壳子仍直连 :8080（过渡期兼容，端口收掉后此分支即失效）。
+const NOWHERE_BASE = window.location.port === '8081'
+  ? `http://${window.location.hostname}:8080`
+  : '/nowhere'
 const TravelAlbum = () => {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
@@ -253,21 +256,21 @@ const TravelAlbum = () => {
       </button>
 
       {open && (
-        <div className="travel-mask" onClick={() => setOpen(false)}>
+        <div className="travel-mask" onClick={() => { setOpen(false); setOpenItem(null); }}>
           <div className="travel-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="travel-sheet__head">
               <div>
                 <div className="travel-sheet__title">旅行相册</div>
                 <div className="travel-sheet__hint">钟泽寄回的明信片</div>
               </div>
-              <button className="travel-sheet__close" onClick={() => setOpen(false)} aria-label="关闭">✕</button>
+              <button className="travel-sheet__close" onClick={() => { setOpen(false); setOpenItem(null); }} aria-label="关闭">✕</button>
             </div>
             {items.length === 0 ? (
               <div className="travel-album__empty">{loading ? '正在翻看他的行囊…' : '钟泽还没寄回明信片，等他出门走走 🌿'}</div>
             ) : (
               <div className="travel-album__grid">
                 {items.map((it) => (
-                  <button key={it.id} className="travel-album__cell" onClick={() => setOpenItem(it)}>
+                  <button key={it.id} className="travel-album__cell" onClick={() => { setOpen(false); setOpenItem(it); }}>
                     {it.front_img
                       ? <img className="travel-album__img" src={NOWHERE_BASE + it.front_img} alt={(it.stamp && it.stamp.place) || '明信片'} loading="lazy" />
                       : <div className="travel-album__ph">✉️</div>}
@@ -362,6 +365,13 @@ const LairPage = () => {
 }
 
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+// 小家日界线：凌晨5点前算前一天（与 mcp.js write_diary / dayRange 一致）
+const bjDayStr = (d = new Date()) => {
+  const bj = new Date(d.getTime() + 8 * 3600 * 1000)
+  let s = bj.toISOString().slice(0, 10)
+  if (bj.getUTCHours() < 5) s = new Date(bj.getTime() - 24 * 3600 * 1000).toISOString().slice(0, 10)
+  return s
+}
 // 日记页用：把 YYYY-MM-DD 拆成「MM.DD + 星期」，做成手帐日期页签
 const diaryDateParts = (s) => {
   const [y, m, d] = String(s).split('-').map(Number)
@@ -442,7 +452,7 @@ const TodayDiaryView = () => {
   const [aiWriting, setAiWriting] = useState(false)
   const [aiError, setAiError] = useState('')
   const [saving, setSaving] = useState(false)
-  const todayStr = fmtDate(new Date())
+  const todayStr = bjDayStr()
   const loadDiaries = async (autoGenerate = false) => {
     try {
       const res = await fetch(`${API_BASE}/api/diaries`)
@@ -521,7 +531,7 @@ const HistoryDiaryView = () => {
     const g = groups.find(x => x.date === d.date)
     if (g) g.entries.push(d); else groups.push({ date: d.date, entries: [d] })
   })
-  const todayStr = fmtDate(new Date())
+  const todayStr = bjDayStr()
   const groupsFiltered = groups.filter(g => g.date !== todayStr)
   return (
     <div className="diary-history">
@@ -909,19 +919,43 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   const [conversations, setConversations] = useState([])
   const [editingId, setEditingId] = useState(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [showTrash, setShowTrash] = useState(false)
+  const [trashList, setTrashList] = useState([])
+  const [confirmConv, setConfirmConv] = useState(null)   // 待删除确认的会话（列出名字让你选软删还是彻底删）
+  const [toast, setToast] = useState(null)
   const homeConvId = (() => { try { return localStorage.getItem('home_conv_id') } catch { return null } })()
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
   const refresh = () => {
     fetchConversations().then(list => {
-      const merged = mergeChatMeta(Array.isArray(list) ? list : [])
+      const merged = mergeChatMeta(Array.isArray(list) ? list : []).filter(c => !c.deleted_at)
       merged.sort((a, b) => a.id === homeConvId ? -1 : b.id === homeConvId ? 1 : (b.updated_at || 0) - (a.updated_at || 0))
       setConversations(merged)
     }).catch(() => {})
   }
+  const refreshTrash = () => {
+    fetchTrashConversations().then(list => setTrashList(Array.isArray(list) ? list : [])).catch(() => setTrashList([]))
+  }
   useEffect(() => { refresh() }, [refreshTrigger, homeConvId])
+  useEffect(() => { if (showTrash) refreshTrash() }, [showTrash])
   const handleCreate = async () => {
     try { const { id } = await createConversation('新对话'); stats.newConversation(); refresh(); onOpenChat({ id, title: '新对话' }) } catch (e) { console.error(e) }
   }
-  const handleDelete = async (e, convId) => { e.stopPropagation(); if (convId === homeConvId) return; await deleteConversation(convId); refresh() }
+  // 点 ✕ → 弹确认框（列出名字，二选一），不直接删
+  const askDelete = (e, conv) => { e.stopPropagation(); if (conv.id === homeConvId) return; setConfirmConv(conv) }
+  const softDelete = async () => {
+    const conv = confirmConv; setConfirmConv(null)
+    if (!conv) return
+    await softDeleteConversation(conv.id).catch(() => {})
+    refresh(); showToast(`已将「${conv.title || '新对话'}」移入回收站`)
+  }
+  const purge = async () => {
+    const conv = confirmConv; setConfirmConv(null)
+    if (!conv) return
+    await deleteConversation(conv.id).catch(() => {})
+    refresh(); if (showTrash) refreshTrash(); showToast(`已彻底删除「${conv.title || '新对话'}」`)
+  }
+  const restore = async (conv) => { await restoreConversation(conv.id).catch(() => {}); refreshTrash(); refresh() }
+  const purgeFromTrash = async (conv) => { await deleteConversation(conv.id).catch(() => {}); refreshTrash() }
   const setHome = (e, convId) => {
     e.stopPropagation()
     try { localStorage.setItem('home_conv_id', convId) } catch (_) {}
@@ -939,26 +973,71 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   const renameInputStyle = { flex: 1, fontSize: 15, fontWeight: 600, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--color-border-glass)', background: 'var(--color-card-glass)', color: 'inherit', outline: 'none' }
   return (
     <div className="chat-page">
-      <div className="chat-header"><div className="chat-header-title">💬 对话</div><button className="btn" onClick={handleCreate} style={{ padding: '6px 14px', fontSize: 13 }}>＋ 新建</button></div>
+      <div className="chat-header">
+        <div className="chat-header-title">{showTrash ? '🗑 回收站' : '💬 对话'}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {showTrash
+            ? <button className="btn" onClick={() => setShowTrash(false)} style={{ padding: '6px 14px', fontSize: 13 }}>← 返回</button>
+            : <button className="btn" onClick={() => setShowTrash(true)} style={{ padding: '6px 14px', fontSize: 13 }}>🗑 回收站</button>}
+          {!showTrash && <button className="btn" onClick={handleCreate} style={{ padding: '6px 14px', fontSize: 13 }}>＋ 新建</button>}
+        </div>
+      </div>
       <div className="chat-list">
-        {conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
-          <div key={conv.id} className="chat-item" onClick={() => onOpenChat(conv)}>
-            <div className="chat-avatar">❤️</div>
-            <div className="chat-info">
-              {editingId === conv.id
-                ? <input className="chat-rename-input" style={renameInputStyle} autoFocus value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }} />
-                : <div className="chat-name">{conv.title || '新对话'}</div>}
-              <div className="chat-last-msg">{conv.last_message || '还没有消息~'}</div>
+        {showTrash ? (
+          trashList.length === 0
+            ? <div className="chat-empty">🗑 回收站是空的<br/>暂时删除的对话会在这里等你恢复</div>
+            : trashList.map(conv => (
+              <div key={conv.id} className="chat-item">
+                <div className="chat-avatar">💔</div>
+                <div className="chat-info">
+                  <div className="chat-name">{conv.title || '新对话'}</div>
+                  <div className="chat-last-msg">删除于 {conv.deleted_at ? new Date(conv.deleted_at).toLocaleString('zh-CN', { hour12: false }) : ''}</div>
+                </div>
+                <div className="chat-right">
+                  <button style={editBtnStyle} onClick={() => restore(conv)} title="恢复">↩ 恢复</button>
+                  <button className="chat-item-delete" onClick={() => purgeFromTrash(conv)} title="彻底删除">🗑</button>
+                </div>
+              </div>
+            ))
+        ) : (
+          conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
+            <div key={conv.id} className="chat-item" onClick={() => onOpenChat(conv)}>
+              <div className="chat-avatar">❤️</div>
+              <div className="chat-info">
+                {editingId === conv.id
+                  ? <input className="chat-rename-input" style={renameInputStyle} autoFocus value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }} />
+                  : <div className="chat-name">{conv.title || '新对话'}</div>}
+                <div className="chat-last-msg">{conv.last_message || '还没有消息~'}</div>
+              </div>
+              <div className="chat-right">
+                <div className="chat-time">{formatTime(conv.updated_at)}</div>
+                <button style={{ ...editBtnStyle, opacity: conv.id === homeConvId ? 1 : 0.4 }} onClick={e => setHome(e, conv.id)} title={conv.id === homeConvId ? '默认窗口' : '设为默认窗口'}>{conv.id === homeConvId ? '🏠' : '🏡'}</button>
+                <button style={editBtnStyle} onClick={e => startRename(e, conv)} title="重命名">✎</button>
+                {conv.id !== homeConvId && <button className="chat-item-delete" onClick={e => askDelete(e, conv)}>✕</button>}
+              </div>
             </div>
-            <div className="chat-right">
-              <div className="chat-time">{formatTime(conv.updated_at)}</div>
-              <button style={{ ...editBtnStyle, opacity: conv.id === homeConvId ? 1 : 0.4 }} onClick={e => setHome(e, conv.id)} title={conv.id === homeConvId ? '默认窗口' : '设为默认窗口'}>{conv.id === homeConvId ? '🏠' : '🏡'}</button>
-              <button style={editBtnStyle} onClick={e => startRename(e, conv)} title="重命名">✎</button>
-              {conv.id !== homeConvId && <button className="chat-item-delete" onClick={e => handleDelete(e, conv.id)}>✕</button>}
+          ))
+        )}
+      </div>
+      {confirmConv && (
+        <div onClick={() => setConfirmConv(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 900, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 320, background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebKitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 6 }}>删除「{confirmConv.title || '新对话'}」？</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', lineHeight: 1.6, marginBottom: 16 }}>
+              暂时删除：移入回收站，随时可恢复，消息不动（不影响记忆压缩）。<br/>
+              彻底删除：连同消息从数据库移除，不可恢复。
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button className="note-btn" onClick={softDelete}>🗂 暂时删除（进回收站）</button>
+              <button onClick={purge} style={{ padding: '10px', borderRadius: 12, border: '1px solid var(--color-danger, #D97777)', background: 'rgba(217,119,119,0.12)', color: 'var(--color-danger, #D97777)', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>🗑 彻底删除</button>
+              <button onClick={() => setConfirmConv(null)} style={{ padding: '10px', borderRadius: 12, border: '1px solid var(--color-border-glass)', background: 'transparent', color: 'var(--color-text-gray)', fontSize: 13, cursor: 'pointer' }}>取消</button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+      {toast && (
+        <div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', background: 'rgba(40,34,30,0.9)', color: '#fff', fontSize: 13, padding: '10px 18px', borderRadius: 999, zIndex: 950, boxShadow: 'var(--shadow-soft)', maxWidth: '90%', textAlign: 'center' }}>{toast}</div>
+      )}
     </div>
   )
 }
@@ -1308,7 +1387,11 @@ const ChatDetailPage = ({ chatInfo, onBack }) => {
       let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
       if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
       if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
-      return { role: m.isSelf ? 'user' : 'assistant', content: c }
+      const item = { role: m.isSelf ? 'user' : 'assistant', content: c }
+      // DeepSeek thinking 模式硬性规定：历史里带思考链的 assistant 消息必须原样回传 reasoning_content，
+      // 否则下一轮请求直接 400、整条回复不生成（表现就是「尾巴消失」）。与 :1356 工具分支对齐。
+      if (!m.isSelf && m.thinking) item.reasoning_content = m.thinking
+      return item
     })]
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = ''

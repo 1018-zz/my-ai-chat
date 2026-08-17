@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './NotePanel.css'
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 // 整理面板 —— 把纸条归置成三堆：待处理 / 已收下 / 飘走的
 // 待处理 pending：你点[收到]/[不要]决定；我的决定在对话里（decide_note）

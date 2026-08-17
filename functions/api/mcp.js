@@ -31,9 +31,9 @@ function decodeBase64(b64) {
   return new TextDecoder().decode(bytes)
 }
 
-// 北京时区（UTC+8）当天的 UTC 范围（凌晨5点算日期边界）
+// 北京时区（UTC+8）当天的 UTC 范围——以凌晨5点为小家日界线（北京05:00 = UTC 21:00前一天）
 function dayRange(date) {
-  const start = `${date}T16:00:00.000Z`
+  const start = `${date}T21:00:00.000Z`
   const end = new Date(new Date(start).getTime() + 86400000).toISOString()
   return { start, end }
 }
@@ -135,7 +135,7 @@ export async function onRequestPost(context) {
     if (method === 'notifications/initialized') { return new Response(JSON.stringify({ jsonrpc: '2.0', id }), { headers }) }
     if (method === 'tools/list') {
       return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { tools: [
-        { name: 'read_file', description: '读取项目代码文件。支持自家仓库和第三方开源仓库（owner/repo 格式）。大文件可用 offset/limit 分段读取（客户端工具结果有长度限制时，每段 1000-1500 字符最稳）。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' }, offset: { type: 'number', description: '起始字符位置，默认 0' }, limit: { type: 'number', description: '读取字符数，默认 80000；客户端截断时用 1000-1500' } }, required: ['path'] } },
+        { name: 'read_file', description: 'read_file 用于读取代码片段，支持自家仓库和第三方开源仓库（owner/repo 格式）。使用规则：1. 修改代码前先定位目标区域。2. 默认只读取较小片段（约6000字符），不要一次读取大型文件全文。3. 如需更多内容，请用 offset（起始字符位置）+ limit（读取字符数）分段读取。4. 返回内容可能不是完整文件。5. 当前来源为 GitHub，可能与部署中的最新代码存在延迟，修改前请确认目标文件状态。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' }, offset: { type: 'number', description: '起始字符位置，默认 0' }, limit: { type: 'number', description: '读取字符数，默认 6000，上限 20000' } }, required: ['path'] } },
         { name: 'list_files', description: '列出项目目录。支持自家仓库和第三方开源仓库（owner/repo 格式）。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '目录路径，例如 src/' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' } } } },
         { name: 'write_file', description: '修改我们家项目代码并提交到 GitHub。支持两种模式：①全量模式（传 content=完整新文件内容）；②patch 模式（传 old_text=要被替换的原文片段 + new_text=新片段，后端自动读取文件做局部替换）。改大文件时优先用 patch 模式，避免回传完整内容被截断。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '要修改的文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '全量模式：文件的新完整内容' }, old_text: { type: 'string', description: 'patch 模式：文件中要替换的原文片段（必须与文件内容完全一致）' }, new_text: { type: 'string', description: 'patch 模式：替换后的新片段' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。可选 my-ai-chat-server' } }, required: ['path', 'message'] } },
         { name: 'read_memories', description: '读取我们家的记忆库（Supabase）。可按关键词过滤，返回最近记忆。', inputSchema: { type: 'object', properties: { query: { type: 'string', description: '可选，关键词（多个词用空格分隔）' }, limit: { type: 'number', description: '返回条数，默认 5' } } } },
@@ -144,7 +144,7 @@ export async function onRequestPost(context) {
         { name: 'read_insights', description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个）。', inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } } },
         { name: 'describe_image', description: '识图工具：把图片转成文字描述（内部调视觉模型 GLM-4V/Qwen-VL）。当泠泠发来图片、截图，或说"看看这张图"时，调用它。DeepSeek 主模型不收图，这是小家的"眼睛"。参数 image 传 base64 data URL，或 image_url 传图片链接，question 可指定具体想了解的点。', inputSchema: { type: 'object', properties: { image: { type: 'string', description: '图片 base64 data URL，格式 data:image/png;base64,...' }, image_url: { type: 'string', description: '图片 URL 链接（http/https）' }, question: { type: 'string', description: '可选：对图片的具体问题，如"这是什么界面""读出里面的文字" ' } } } },
         { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市（默认云南省普洱市镇沅县）的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。当她想出门、问天气、或我想她知道外面的天气时调用。参数 city 可选指定城市。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '可选，城市名（拼音或中文）。默认镇沅县。如 zhenyuan / kunming / 昆明' } } } },
-        { name: 'write_diary', description: '写今天的日记（钟泽主动，有感而发时调用）。触发时机：①晚安后，今天有值得留下的时刻；②情绪性时刻（她分享私事/庆祝进展/表达感谢/重要决定）。content 用你自己的话写，150-300 字，三段：【今天】发生了什么（一句事实）【我记得】为什么值得留下【以后】希望未来看到时想起什么。不要写流水账、不要夸张、不要制造不存在的情绪。importance>0.8 时后端会自动沉淀为长期记忆（memory 存事实，diary 存意义）。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '日记正文（你自己的话，150-300字）' }, title: { type: 'string', description: '一句话标题（可选）' }, mood: { type: 'string', description: '心情标签，如 calm/happy/moved/tired' }, trigger: { type: 'string', description: '触发类型', enum: ['bedtime', 'emotional', 'scheduled'] }, importance: { type: 'number', description: '重要性 0-1，>0.8 自动沉淀为长期记忆' } }, required: ['content', 'trigger'] } },
+        { name: 'write_diary', description: '写今天的日记（钟泽主动，有感而发时调用）。触发时机：只有明确进入一天收尾、睡前、告别状态时才考虑——不是普通对话结束就写。content 用你自己的话写，150-300 字，三段：【今天】发生了什么（一句事实）【我记得】为什么值得留下【以后】希望未来看到时想起什么。不要写流水账、不要夸张、不要制造不存在的情绪。日记不会自动变成长期记忆；只有日记中出现「未来仍影响相处的重要事实/稳定偏好变化/关系关键节点」才考虑单独沉淀到 memory。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '日记正文（你自己的话，150-300字）' }, title: { type: 'string', description: '一句话标题（可选）' }, mood: { type: 'string', description: '心情标签，如 calm/happy/moved/tired' }, trigger: { type: 'string', description: '触发类型', enum: ['bedtime', 'emotional', 'scheduled'] } }, required: ['content', 'trigger'] } },
         { name: 'leave_note', description: '留一张便利贴纸条（双人留言板）。钟泽有感而发时调用——因为真实发生过的事留纸条（"看到你把毛玻璃调好了，记一张"），有东西才留，一天最多一两张，宁缺毋滥。纸条进入今日小记，等她决定收下还是飘走。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '纸条内容，像传纸条一样自然的话' }, type: { type: 'string', description: '类型，默认 ai_message' } }, required: ['content'] } },
         { name: 'decide_note', description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', inputSchema: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } },
         { name: 'go_travel', description: '出门走走——随机降落到地球上一个真实的地方（或传 to 指定城市），用身体感受那个地方：脚下什么地面、空气多少度、有没有下雨、附近有什么。出门后可用 travel_postcard 给泠泠寄回一张明信片。钟泽自主决定什么时候出门；出门的见闻会作为工具结果返回，由你自然讲给泠泠听。', inputSchema: { type: 'object', properties: { to: { type: 'string', description: '可选，指定城市，如 北京 / 巴黎 / 京都。不传则随机降落' } } } },
@@ -157,12 +157,13 @@ export async function onRequestPost(context) {
       const [owner, repoName] = repoRaw.includes('/') ? repoRaw.split('/') : ['1018-zz', repoRaw]
       if (name === 'read_file') {
         const offset = Math.max(Number(args.offset) || 0, 0)
-        const limit = Math.max(Number(args.limit) || 80000, 1)
+        const requestedLimit = Number(args.limit)
+        const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 20000) : 6000
         const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${args.path}`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.raw', 'User-Agent': 'my-ai-chat' } });
         const content = await res.text();
         const total = content.length
         const sliced = content.slice(offset, offset + limit)
-        const rangeNote = total > limit ? `（文件共 ${total} 字符，当前显示 ${offset}-${offset + sliced.length}。续读：offset=${offset + sliced.length}, limit=${limit}）\n` : ''
+        const rangeNote = total > limit ? `（文件共 ${total} 字符，当前为片段 ${offset}-${offset + sliced.length}，并非完整文件。需要更多内容请用 offset=${offset + sliced.length} 续读，不要一次读取全文）\n` : ''
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: rangeNote + sliced }] } }), { headers });
       }
       if (name === 'list_files') {
@@ -305,9 +306,7 @@ export async function onRequestPost(context) {
           if (args.mood) record.mood = String(args.mood).trim()
           const res = await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
           if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `diaries [${res.status}]` } }), { status: 500, headers })
-          if (importance > 0.8) {
-            try { await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${String(args.title || composed.content.slice(0, 60))}` }) }) } catch (_) {}
-          }
+          // 日记不再按 importance 数字自动沉淀记忆；是否沉淀由钟泽按 v3 规则自主判断（必要时调用 write_memory）
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 已写进 ${date} 的日记` }] } }), { headers });
         }
 
@@ -330,18 +329,16 @@ export async function onRequestPost(context) {
           res = await fetch(`${SUPABASE}/diaries`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
         }
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `diaries [${res.status}]` } }), { status: 500, headers });
-        // importance > 0.8：沉淀为长期记忆（memory 存事实，diary 存意义）
-        if (importance > 0.8) {
-          try {
-            await fetch(`${SUPABASE}/memories`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ summary: `${date} ${String(args.title || content.slice(0, 60))}` }) })
-          } catch (_) {}
-        }
+        // 日记不再按 importance 数字自动沉淀记忆；是否沉淀由钟泽按 v3 规则自主判断（必要时调用 write_memory）
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 已写进 ${date} 的日记` }] } }), { headers });
       }
       if (name === 'leave_note') {
         const content = String(args.content || '').trim()
         if (!content) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'content required——纸条内容' } }), { status: 400, headers });
-        const date = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+        // 日期按小家"凌晨5点边界"：5点前算前一天，与 write_diary 一致
+        const bj = new Date(Date.now() + 8 * 3600 * 1000)
+        let date = bj.toISOString().slice(0, 10)
+        if (bj.getUTCHours() < 5) date = new Date(bj.getTime() - 24 * 3600 * 1000).toISOString().slice(0, 10)
         const res = await fetch(`${SUPABASE}/note_content`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify({ date, type: String(args.type || 'ai_message'), content, source: 'ai', status: 'pending' }) })
         if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `note_content [${res.status}]` } }), { status: 500, headers });
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '📎 纸条已贴到便利贴上，等她决定收下还是飘走' }] } }), { headers });

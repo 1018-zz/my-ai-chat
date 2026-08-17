@@ -33,6 +33,7 @@ export const TOOL_GROUPS = [
   { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'read_memories', 'describe_image'] },
   { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'decide_note', 'leave_note', 'write_diary'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
+  { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },
 ]
 
 // 模式 → 显示文字（设置页默认只显示状态，不堆开关）

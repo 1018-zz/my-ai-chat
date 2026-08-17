@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const API_BASE = 'https://my-ai-chat-4zy.pages.dev'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 // 压缩工作台（④消息压缩）：日历三级——预览可压周期 → 一键执行 → 批次历史可溯源
 const LEVELS = [
