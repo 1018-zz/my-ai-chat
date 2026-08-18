@@ -19,6 +19,7 @@ import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToo
 import { getProjectMemories, addProjectMemory, deleteProjectMemory, injectMemoriesToPrompt } from './project/memories'
 import Markdown from './components/Markdown'
 import { pushSupported, registerServiceWorker, subscribePush, unsubscribePush, sendTestPush } from './utils/push'
+import { playNotifySound } from './utils/notify'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
 import './styles/chat-tweaks.css'
@@ -1395,6 +1396,13 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     setUnseenCount(0); setShowNewPill(false)
   }
 
+  // —— 站内兜底提醒（不依赖推送）：网页在后台时，钟泽发新消息则弹横幅 + 提示音 + 标题闪动 ——
+  const [inPageToast, setInPageToast] = useState(null) // { text }
+  const seenTsRef = useRef(0)        // 已“看到”的最新助手消息时间(ms)
+  const titleTimerRef = useRef(null)
+  const baseTitleRef = useRef('')
+  useEffect(() => { baseTitleRef.current = document.title || '小家' }, [])
+
   useEffect(() => {
     if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => {
       // P0.7c：工具结果回填——tool 消息按消息序列聚合回对应 assistant 的 toolCalls
@@ -1415,12 +1423,67 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
         else pending = null
       }
       setMsgList(restored)
+      // 兜底基线：进入会话时，把最新助手消息标记为“已看到”，避免历史消息误触发提醒
+      const lastSeen = [...restored].reverse().find(m => !m.isSelf)
+      seenTsRef.current = lastSeen?.ts ? lastSeen.ts : 0
       // 进入会话强制定位到底部（DOM 渲染完成后；进来就该停在最近的消息处）
       atBottomRef.current = true
       setUnseenCount(0); setShowNewPill(false)
       prevMsgLenRef.current = restored.length
       setTimeout(() => scrollMsgToBottom('auto'), 80)
     }).catch(() => {})
+  }, [chatInfo?.id])
+
+  // 前台时：把最新助手消息持续标记为“已看到”，避免切到后台后对已在看的消息误报
+  useEffect(() => {
+    if (!document.hidden) {
+      const last = [...msgList].reverse().find(m => !m.isSelf)
+      if (last?.ts) seenTsRef.current = Math.max(seenTsRef.current, last.ts)
+    }
+  }, [msgList])
+
+  // 回到前台：清横幅、复原标题，并把当前最新助手消息标记为已看
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return
+      const last = [...msgList].reverse().find(m => !m.isSelf)
+      if (last?.ts) seenTsRef.current = Math.max(seenTsRef.current, last.ts)
+      setInPageToast(null)
+      if (titleTimerRef.current) { clearTimeout(titleTimerRef.current); titleTimerRef.current = null }
+      document.title = baseTitleRef.current
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [msgList])
+
+  // 后台轮询：网页收在后台时，钟泽发了新消息就弹横幅 + 提示音 + 标题闪动（不依赖推送）
+  useEffect(() => {
+    const id = chatInfo?.id
+    if (!id) return
+    const iv = setInterval(async () => {
+      if (!document.hidden) return // 前台不轮询（用户正在看）
+      try {
+        const res = await fetch(`${API_BASE}/api/messages?conversationId=${encodeURIComponent(id)}`)
+        const d = await res.json().catch(() => ({}))
+        const msgs = Array.isArray(d.messages) ? d.messages : []
+        let latestMs = 0, latestText = ''
+        for (const m of msgs) {
+          if (m.role !== 'assistant') continue
+          const t = new Date(m.created_at).getTime()
+          if (t > latestMs) { latestMs = t; latestText = m.content || '' }
+        }
+        if (latestMs > seenTsRef.current) {
+          seenTsRef.current = latestMs
+          const preview = latestText.replace(/\s+/g, ' ').slice(0, 40)
+          setInPageToast({ text: preview })
+          playNotifySound()
+          document.title = '🔔 钟泽找你'
+          if (titleTimerRef.current) clearTimeout(titleTimerRef.current)
+          titleTimerRef.current = setTimeout(() => { document.title = baseTitleRef.current }, 3000)
+        }
+      } catch (_) { /* 后台轮询失败不影响主流程 */ }
+    }, 20000)
+    return () => clearInterval(iv)
   }, [chatInfo?.id])
 
   const handleMsgScroll = (e) => {
@@ -1695,6 +1758,17 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
 
   return (
     <div className="chat-detail-page" ref={chatDetailRef}>
+      {/* 站内兜底提醒：后台收到钟泽新消息时弹出的横幅（不依赖系统推送） */}
+      {inPageToast && (
+        <div
+          onClick={() => { setInPageToast(null); jumpToNew() }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'linear-gradient(90deg, rgba(145,107,78,0.97), rgba(120,90,64,0.97))', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.28)' }}
+        >
+          <span style={{ fontSize: 16, flexShrink: 0 }}>🔔</span>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>钟泽：{inPageToast.text}</span>
+          <span onClick={(e) => { e.stopPropagation(); setInPageToast(null) }} style={{ fontSize: 16, opacity: 0.85, padding: '0 4px', flexShrink: 0 }}>✕</span>
+        </div>
+      )}
       <Terminal open={termOpen} onClose={() => setTermOpen(false)} />
       <div className="chat-detail-header">
         <span className="chat-back" onClick={onBack}>←</span>

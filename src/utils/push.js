@@ -1,6 +1,17 @@
 // src/utils/push.js — PWA 推送前端工具（注册 SW / 订阅 / 退订）
 // 零依赖，只走浏览器原生 Push API + /api/push
 
+// VAPID 公钥是 base64url 字符串；Firefox 的 pushManager.subscribe 对字符串公钥
+// 某些版本会内部炸（报 "r is null"），转成 Uint8Array 是规范做法，Chrome 也兼容。
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  const arr = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+  return arr
+}
+
 export function pushSupported() {
   return typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -22,13 +33,15 @@ export async function subscribePush(reg) {
   if (permission !== 'granted') return { granted: false, permission }
 
   const res = await fetch('/api/push')
-  const { publicKey } = await res.json()
+  const data = await res.json().catch(() => ({}))
+  const publicKey = data && data.publicKey
+  if (!publicKey) throw new Error('服务器未返回推送公钥（VAPID 未配置）')
 
   let sub = await reg.pushManager.getSubscription()
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: publicKey,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
     })
   }
   await fetch('/api/push', {
