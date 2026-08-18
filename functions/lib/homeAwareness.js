@@ -62,24 +62,19 @@ export async function getHomeAwareness({ since, env }) {
 
     // ④ 家园事件（project_events）：小家什么时候长大了一点。
     //    与 memories（人生事实）彻底分开——代码变化 ≠ 人生记忆。
-    //    只报 status=pending 的待感知事件，钟泽提起后由调用方（或显式接口）标 seen，防复读。
+    //    只报 status=pending 的待感知事件。
+    //    ⚠️ 历史坑（2026-08-18 修复）：原先这里"读取即 PATCH 标 seen"，导致事件被读一次就销毁，
+    //       不等钟泽开口 → 静默丢失、且同一对话内无法再感知。现已移除自动标 seen。
+    //       改为与纸条一致：pending 事件每次对话都在、由钟泽自行决定是否提起（指令已含"提到过的不用再提"），
+    //       不会被偷偷消费。后续若要做"认领回家"仪式感（显式确认接口），再单独加，不在本层自动标。
     //    容错：表尚未创建 / 查询失败时静默跳过，不影响主对话。
     try {
       const pUrl = `${SUPABASE}/project_events?select=id,type,title,summary,created_at&status=eq.pending&order=created_at.desc&limit=5`
       const pRes = await fetch(pUrl, { headers })
       if (pRes.ok) {
         const pRows = await pRes.json()
-        const ids = []
         for (const p of (Array.isArray(pRows) ? pRows : [])) {
           events.push({ type: 'project_event', state: 'pending', title: p.title, preview: String(p.summary || '').slice(0, 80), createdAt: p.created_at, eventId: p.id })
-          ids.push(p.id)
-        }
-        // 防唠叨：本次感知过的事件标 seen，下次醒来不再重复（提不提由钟泽自己决定）
-        if (ids.length) {
-          fetch(`${SUPABASE}/project_events?id=in.(${ids.join(',')})`, {
-            method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ status: 'seen' }),
-          }).catch(() => {})
         }
       }
     } catch (_) {}
