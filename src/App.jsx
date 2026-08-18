@@ -18,6 +18,7 @@ import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory, injectMemoriesToPrompt } from './project/memories'
 import Markdown from './components/Markdown'
+import { pushSupported, registerServiceWorker, subscribePush, unsubscribePush, sendTestPush } from './utils/push'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
 import './styles/chat-tweaks.css'
@@ -661,6 +662,35 @@ const SettingsPanel = () => {
     setShowTools(n)
     try { localStorage.setItem('show_tools', String(n)) } catch (_) {}
   }
+  // —— 消息推送（Web Push）：钟泽发消息时弹系统通知 ——
+  const [pushOn, setPushOn] = useState(() => { try { return localStorage.getItem('push_on') === 'true' } catch { return false } })
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushNote, setPushNote] = useState('')
+  const togglePush = async () => {
+    if (pushBusy) return
+    setPushBusy(true)
+    setPushNote('')
+    try {
+      const reg = await registerServiceWorker()
+      if (!reg) { setPushNote('当前浏览器不支持推送'); return }
+      if (!pushOn) {
+        const r = await subscribePush(reg)
+        if (!r.granted) { setPushNote('你拒绝了通知权限，去浏览器设置里打开'); return }
+        setPushOn(true)
+        try { localStorage.setItem('push_on', 'true') } catch {}
+        setPushNote('已开启 · 钟泽发消息会弹通知')
+      } else {
+        await unsubscribePush(reg)
+        setPushOn(false)
+        try { localStorage.setItem('push_on', 'false') } catch {}
+        setPushNote('已关闭推送')
+      }
+    } catch (e) {
+      setPushNote('出错了：' + (e && e.message ? e.message : e))
+    } finally {
+      setPushBusy(false)
+    }
+  }
   const cardStyle = { background: 'var(--color-card-glass)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }
   const [auth, setAuth] = useState(loadMcpAuth)
   useEffect(() => { const h = () => setAuth(loadMcpAuth()); window.addEventListener(MCP_AUTH_EVENT, h); return () => window.removeEventListener(MCP_AUTH_EVENT, h) }, [])
@@ -742,6 +772,26 @@ const SettingsPanel = () => {
             color: showTools ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
           }}>{showTools ? '开' : '关'}</button>
         </div>
+      </div>
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14 }}>🔔 消息推送</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>钟泽主动发消息时，弹系统通知（需把小家「加到主屏幕」才能收）</div>
+          </div>
+          <button onClick={togglePush} disabled={pushBusy} style={{
+            minWidth: 48, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: pushBusy ? 'default' : 'pointer', fontSize: 13,
+            background: pushOn ? 'var(--color-primary)' : 'rgba(145,107,78,0.15)',
+            color: pushOn ? '#fff' : 'var(--color-text-gray)', transition: 'all 0.2s',
+          }}>{pushBusy ? '…' : (pushOn ? '开' : '关')}</button>
+        </div>
+        {pushNote ? <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 8 }}>{pushNote}</div> : null}
+        {pushOn ? (
+          <button onClick={async () => { setPushBusy(true); try { const r = await sendTestPush(); setPushNote('已发送测试通知' + (r.result ? `（共 ${r.result.total} 台设备）` : '')) } catch (e) { setPushNote('测试失败：' + (e && e.message ? e.message : e)) } finally { setPushBusy(false) } }}
+            style={{ marginTop: 10, padding: '7px 14px', borderRadius: 999, border: '1px solid var(--color-border-glass)', background: 'transparent', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}>
+            发一条测试通知
+          </button>
+        ) : null}
       </div>
       <div style={{ ...cardStyle, cursor: 'pointer' }} onClick={() => setToolView(true)}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -1817,6 +1867,12 @@ export default function App() {
   }
   // 应用启动埋点（本地统计）
   useEffect(() => { stats.launch() }, [])
+  // 启动即注册 Service Worker，让 Web Push 能送达（不弹权限请求，仅注册）
+  useEffect(() => {
+    if (pushSupported()) {
+      registerServiceWorker().catch(() => {})
+    }
+  }, [])
   // 时间光：让"小家跟着一天呼吸"在全局生效（LAIR 也跟着变光线，不只聊天页）
   useEffect(() => {
     const applyTime = () => {
