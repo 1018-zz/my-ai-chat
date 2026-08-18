@@ -21,17 +21,18 @@ export const MCP_TOOLS = [
   { key: 'write_diary', label: '写日记' },
   { key: 'go_travel', label: '出门走走' },
   { key: 'travel_postcard', label: '寄明信片' },
+  { key: 'acknowledge_home_event', label: '收下小家变动' },
 ]
 
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
 // 默认始终允许（DEFAULT_ALWAYS），避免晚安写日记 / 留碎片时被授权弹窗打断。
 // 若用户在设置页显式设为 never，仍尊重用户选择。
-const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard']
+const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard', 'acknowledge_home_event']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
   { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'read_memories', 'describe_image'] },
-  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'decide_note', 'leave_note', 'write_diary'] },
+  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },
 ]
