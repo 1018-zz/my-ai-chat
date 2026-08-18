@@ -1238,6 +1238,47 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const [termOpen, setTermOpen] = useState(false)
   // 引用回复：暂存被引用的消息（id/text/isSelf），发送时挂到用户消息上
   const [quote, setQuote] = useState(null)
+  // 选字引用：用户在任意气泡里选中一段文字时，在选区上方浮出「引用」按钮
+  // 点它只把【选中的文字】塞进 quote，下游渲染/发送/注入钟泽上下文都会自动只显示那一句
+  const [selQuote, setSelQuote] = useState(null) // { text, msgId, isSelf, x, y }
+  useEffect(() => {
+    const calc = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) { setSelQuote(null); return }
+      const text = sel.toString().trim()
+      if (!text) { setSelQuote(null); return }
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      if (!rect || (rect.width === 0 && rect.height === 0)) { setSelQuote(null); return }
+      // 往上找最近的带 data-msg-id 的气泡，确定引用的是哪条消息
+      let node = range.commonAncestorContainer
+      if (node && node.nodeType === 3) node = node.parentElement
+      const bubble = node && node.closest ? node.closest('[data-msg-id]') : null
+      if (!bubble) { setSelQuote(null); return }
+      setSelQuote({
+        text,
+        msgId: bubble.getAttribute('data-msg-id'),
+        isSelf: bubble.getAttribute('data-is-self') === '1',
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+      })
+    }
+    const onUp = () => setTimeout(calc, 0) // 等浏览器落定选区再读
+    document.addEventListener('mouseup', onUp)
+    document.addEventListener('touchend', onUp)
+    document.addEventListener('selectionchange', calc)
+    return () => {
+      document.removeEventListener('mouseup', onUp)
+      document.removeEventListener('touchend', onUp)
+      document.removeEventListener('selectionchange', calc)
+    }
+  }, [])
+  const applySelQuote = () => {
+    if (!selQuote) return
+    setQuote({ id: selQuote.msgId, text: selQuote.text, isSelf: selQuote.isSelf })
+    setSelQuote(null)
+    const s = window.getSelection(); if (s) s.removeAllRanges()
+  }
   // 聊天容器 ref：用于把头像 emoji / 选择器 emoji 也替换成 Twemoji 彩色 SVG
   const chatDetailRef = useRef(null)
   useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarSelf, avatarAi, avatarPick])
@@ -1253,6 +1294,9 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const longPressTimer = useRef(null)
   const closeActionMenu = () => { setActionMenu(a => ({ ...a, visible: false })) }
   const handleMsgLongPressStart = (e, msg) => {
+    // 若用户正在选区（移动端长按选字），不抢弹长按菜单，留给「选字引用」浮条
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed && sel.toString().trim()) return
     const el = e.currentTarget
     if (longPressTimer.current) clearTimeout(longPressTimer.current)
     longPressTimer.current = setTimeout(() => {
@@ -1636,6 +1680,8 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
             if (msg.isSelf) {
               nodes.push(
                 <div key={msg.id} className="msg-enter"
+                  data-msg-id={msg.id}
+                  data-is-self="1"
                   onContextMenu={(e) => handleMsgContextMenu(e, msg)}
                   onTouchStart={(e) => handleMsgLongPressStart(e, msg)}
                   onTouchEnd={handleMsgLongPressEnd}
@@ -1648,15 +1694,32 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
             } else {
               // 连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
               const run = []
-              while (i < msgList.length && !msgList[i].isSelf) { run.push(msgList[i]); i++ }
+              while (i < msgList.length && !msgList[i].isSelf) {
+                run.push(msgList[i]); i++
+                const last = run[run.length - 1]
+                // 钟泽主动醒来消息自成一组：它自身、或紧接的下一条是唤醒消息时在此切分，
+                // 避免被上一条普通回复合并而丢失分隔符/角标
+                if (last.meta?.wake) break
+                if (msgList[i] && msgList[i].meta?.wake) break
+              }
               const first = run[0]
               nodes.push(
                 <div key={first.id} className="msg-enter"
+                  data-msg-id={first.id}
+                  data-is-self="0"
                   onContextMenu={(e) => handleMsgContextMenu(e, first)}
                   onTouchStart={(e) => handleMsgLongPressStart(e, first)}
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
+                  {/* ① 钟泽主动醒来分隔符：仅当该轮首条是唤醒消息时显示（不含任何概率/评分） */}
+                  {first.meta?.wake && (
+                    <div className="wake-divider" role="separator">
+                      <span className="wake-divider__line" />
+                      <span className="wake-divider__label">钟泽主动醒来 · {fmtMsgTime(first.ts)}</span>
+                      <span className="wake-divider__line" />
+                    </div>
+                  )}
                   <div className="msg-row msg-row-ai">
                     <div
                       className="msg-avatar msg-avatar-ai"
@@ -1665,7 +1728,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
                       title="点击换头像"
                     >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
                     <div className="msg-col msg-col-ai">
-                      <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} />
+                      <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} wakeMeta={first.meta?.wake} />
                     </div>
                   </div>
                 </div>
@@ -1709,6 +1772,15 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           )
         })()}
       </div>
+      {/* 选字引用浮条：在气泡内选中一段文字后，浮在选区上方，点它只引用选中的那一句 */}
+      {selQuote && (
+        <button
+          className="sel-quote-btn"
+          style={{ left: selQuote.x, top: Math.max(selQuote.y - 40, 8) }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={applySelQuote}
+        >引用这句</button>
+      )}
       {/* 微信式：上翻历史后浮出"跳到新消息"，点击平滑回到底部 */}
       {showNewPill && (
         <button className="new-msg-pill show" onClick={jumpToNew}>

@@ -3,6 +3,14 @@ import './NoteCard.css'
 import JournalPaper from './JournalPaper'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
+// 记录「泠泠已处理过的最新纸条 id」，id 比它大才算「新纸条」
+// 这样收完一张后不会一直卡在提醒，钟泽再贴新纸条才重新亮起（localStorage 持久化）
+const LAST_ACTED_KEY = 'xiaojia_last_acted_note_id'
+
+function readLastActedId() {
+  const v = Number(localStorage.getItem(LAST_ACTED_KEY) || 0)
+  return Number.isFinite(v) && v > 0 ? v : 0
+}
 
 // 小纸条 · MVP v0.4 —— 双人留言板（澄设计 / 钟泽接入）
 // 双向：钟泽留纸条（MCP leave_note）+ 泠泠留纸条（✍ 输入）
@@ -14,6 +22,8 @@ export default function NoteCard({ onOpenPanel }) {
   const [counts, setCounts] = useState({ pending: 0, saved: 0, discarded: 0 })
   const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState('')
+  // 已处理过的最新纸条 id（收下/不要都算「处理」）；刷新页面后从 localStorage 读回，避免重复提醒
+  const [lastActedId, setLastActedId] = useState(readLastActedId)
 
   const refresh = () => fetch(`${API_BASE}/api/notes`).then(r => r.json()).then(d => {
     setNotes(d.notes || [])
@@ -34,10 +44,14 @@ export default function NoteCard({ onOpenPanel }) {
   const pendingCount = counts.pending || 0
   // 迷你入口只关心「等泠泠决定的纸条」（钟泽留的、待处理）；她自己留的 pending 等钟泽看，不触发提醒
   const pendingForHer = notes.filter(n => n.source === 'ai' && n.status === 'pending')
-  const alertNote = pendingForHer[0]
+  // 只把「比已处理过的更新」的纸条算作未读提醒；收完立刻清零，钟泽再贴新纸条才重新亮
+  const alertNote = pendingForHer.find(n => n.id > lastActedId) || null
 
   const decide = async (id, status) => {
     await fetch(`${API_BASE}/api/notes`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, decided_by: 'user' }) })
+    const nextId = Math.max(lastActedId, Number(id) || 0)
+    localStorage.setItem(LAST_ACTED_KEY, String(nextId))
+    setLastActedId(nextId)
     refresh()
   }
 
@@ -65,7 +79,7 @@ export default function NoteCard({ onOpenPanel }) {
         ) : (
           <>
             <span className="mini-pin">📎</span>
-            <span className="mini-hint">纸条</span>
+            <span className="mini-hint">没有新的纸条要收</span>
           </>
         )}
       </div>

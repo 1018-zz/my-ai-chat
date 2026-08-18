@@ -16,6 +16,23 @@ body {
 /* 心声便签加宽（原 max-width 68%） */
 .inner-thought { max-width: 82%; }
 
+/* ═══ 修复气泡被长内容顶出屏幕（移动端 375px 验收）═══
+   根因：.msg-col 有 max-width:72% 约束，但其子 .msg-left 在 flex 列里按内容撑宽
+   （align-items:flex-start 不拉伸），导致气泡 max-width:100% 参照被撑大的父级，
+   长文本/长串时不换行、气泡顶到屏外被裁切。
+   修复：让气泡列撑满约束宽度、气泡可收缩、长串强制换行。 */
+.msg-col { min-width: 0; }
+.msg-row-self .msg-col { width: 100%; }
+.msg-left { width: 100%; max-width: 100%; min-width: 0; }
+.msg-bubble,
+.msg-left .msg-bubble,
+.msg-right .msg-bubble,
+.msg-row-self .msg-bubble {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 /* ═══ 按呼吸节奏拆分气泡（每段独立气泡，像微信逐条发送） ═══ */
 /* 分割气泡之间加大间距——呼吸停顿感 */
 .msg-left .msg-bubble--split + .msg-bubble--split {
@@ -508,3 +525,68 @@ img.emoji {
   .mem-card__body { font-size: 12.5px; }
 }
 .new-msg-pill:active { transform: translateX(-50%) translateY(1px); }
+
+/* ═══ 唤醒标记（钟泽主动醒来）· 不碰 theme.css，样式走 chat-tweaks ═══ */
+/* 铁律：分隔符/角标只显示"来源 + 时间"，绝不出现任何概率/评分/置信度 */
+
+/* ① 对话流中央分隔符：钟泽主动醒来 */
+.wake-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 4px 10px;
+  opacity: 0.72;
+}
+.wake-divider__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(180, 160, 140, 0.45), transparent);
+}
+.wake-divider__label {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--color-text-gray, #8a7c6c);
+  white-space: nowrap;
+}
+
+/* ② 气泡角标：钟泽主动醒来 */
+.wake-badge {
+  align-self: flex-start;
+  margin: 0 0 5px 2px;
+  padding: 2px 9px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: var(--color-text-gray, #8a7c6c);
+  background: rgba(180, 160, 140, 0.14);
+  border: 1px solid rgba(180, 160, 140, 0.28);
+  border-radius: 999px;
+  user-select: none;
+}
+
+/* 375px 收紧：分隔符不挤压气泡、角标不挡文字 */
+@media (max-width: 375px) {
+  .wake-divider { margin: 12px 2px 8px; gap: 6px; }
+  .wake-divider__label { font-size: 10px; }
+  .wake-badge { font-size: 10px; padding: 2px 8px; }
+}
+
+/* ① 选字引用浮条：选中气泡内文字后浮在选区上方，只引用选中的那一句 */
+.sel-quote-btn {
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--color-primary, #c08b72);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+}
+.sel-quote-btn:active { filter: brightness(0.94); }

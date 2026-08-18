@@ -27,11 +27,11 @@ const Markdown = ({ children }) => {
         code: ({ node, children }) => {
           const isBlock = node && node.position && node.position.start.line !== node.position.end.line
           return isBlock
-            ? <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, lineHeight: 1.6 }}>{children}</code>
+            ? <code style={{ display: 'block', fontFamily: 'ui-monospace, monospace', fontSize: 12, lineHeight: 1.6, color: '#e6e6e6', whiteSpace: 'pre' }}>{children}</code>
             : <code style={{ background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4, fontFamily: 'ui-monospace, monospace', fontSize: '0.88em' }}>{children}</code>
         },
         pre: ({ children }) => (
-          <pre style={{ background: '#0d0f12', padding: 12, borderRadius: 8, overflowX: 'auto', margin: '8px 0', fontSize: 12, lineHeight: 1.6 }}>{children}</pre>
+          <pre style={{ background: '#2b2d31', color: '#e6e6e6', padding: 12, borderRadius: 8, overflowX: 'auto', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', margin: '8px 0', fontSize: 12, lineHeight: 1.6 }}>{children}</pre>
         ),
         a: ({ children, href }) => <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>{children}</a>,
         hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--color-border, #333)', margin: '10px 0' }} />,

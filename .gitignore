@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist2
+dist3
 build-check
 .tmp-build
 .tmp-*

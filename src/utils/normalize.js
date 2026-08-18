@@ -81,6 +81,9 @@ export function migrateLegacyMessage(raw) {
     isSelf: self,
     status: interrupted ? 'interrupted' : loading ? 'running' : 'done',
     blocks,
+    // 唤醒来源标记（messages.meta.wake= spontaneous|precise）：透传给 UI 识别"钟泽主动醒来"
+    // 仅携带来源标识，绝不携带任何调度概率/评分（铁律：调度数学不可见于任意 UI 层）
+    meta: raw.meta ?? null,
     // —— 过渡期兼容字段（Phase 1 渲染器切换后删）——
     text: body,
     thinking,

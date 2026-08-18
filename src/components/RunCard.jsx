@@ -101,7 +101,7 @@ function splitVoiceParts(text) {
   return items
 }
 
-function RunCard({ msgs, showThinking, expanded, onToggle }) {
+function RunCard({ msgs, showThinking, expanded, onToggle, wakeMeta }) {
   const tools = msgs.flatMap(m => (m.toolCalls || []).filter(t => t.name))
   // 挂载时是否正在流式生成：本次生成 → 逐句浮现；历史消息 → 直接全显示
   const liveRef = useRef(msgs.some(m => m.loading))
@@ -119,6 +119,8 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
   return (
     // .msg-left 在 theme.css 是 display:flex（单气泡时代遗留），内联覆盖为垂直流
     <div className="msg-left" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+      {/* 唤醒角标：钟泽主动醒来时显示（仅来源标识，不含任何调度概率/评分） */}
+      {wakeMeta && <div className="wake-badge">✦ 主动醒来</div>}
       {/* 运行中：轻量工作台状态条（像翻开工作台，不是服务器日志） */}
       {running && (hasThinking || hasTools) && (
         <div
@@ -196,7 +198,7 @@ function RunCard({ msgs, showThinking, expanded, onToggle }) {
 // memo + 自定义比较：run 切片数组每次渲染都是新引用（默认浅比较必失效），
 // 改为逐条比较消息元素引用——元素没变就是真没变，打字/loading 切换/菜单开关都跳过重渲染
 export default memo(RunCard, (prev, next) => {
-  if (prev.showThinking !== next.showThinking || prev.expanded !== next.expanded || prev.onToggle !== next.onToggle) return false
+  if (prev.showThinking !== next.showThinking || prev.expanded !== next.expanded || prev.onToggle !== next.onToggle || prev.wakeMeta !== next.wakeMeta) return false
   const a = prev.msgs, b = next.msgs
   if (a === b) return true
   if (a.length !== b.length) return false
