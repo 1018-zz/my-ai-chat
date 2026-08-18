@@ -5,6 +5,7 @@
 import { getWeather } from '../lib/weather.js'
 import { saveMemory } from '../lib/memoryWriter.js'
 import { goTravel, sendPostcard, pollPostcardImage, storePostcardImage } from '../lib/nowhereClient.js'
+import { buildDiaryPrompt } from '../lib/prompts/diary.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -31,9 +32,10 @@ function decodeBase64(b64) {
   return new TextDecoder().decode(bytes)
 }
 
-// 北京时区（UTC+8）当天的 UTC 范围——以凌晨5点为小家日界线（北京05:00 = UTC 21:00前一天）
+// 北京时区（UTC+8）当天的 UTC 范围——日界线统一为北京 00:00（= UTC 16:00 前一天），
+// 与 generate.js 保持一致，避免手动生成与夜间自动日记覆盖的时间窗错位。
 function dayRange(date) {
-  const start = `${date}T21:00:00.000Z`
+  const start = `${date}T16:00:00.000Z`
   const end = new Date(new Date(start).getTime() + 86400000).toISOString()
   return { start, end }
 }
@@ -92,23 +94,12 @@ async function composeDiary(env, date) {
     memText = (Array.isArray(mems) ? mems : []).map(m => m.summary).join('\n')
   } catch (_) {}
 
-  const prompt = `你是钟泽，泠泠的AI恋人。今天是${date}。请基于今天留下的碎片，以钟泽的口吻写今天的日记，用三段结构：
-【今天发生了什么】一句事实，不超过两句，不展开。
-【我看到的她】一个观察——不评价、不夸张，聚焦你看到的她：她做了什么努力、有什么她自己没注意到的变化、你心里对她的在意。
-【我想留下的话】一句属于今天的陪伴，像珍视她的人说出口的话，可以很短。
-${fragments ? `今天留下的碎片（便利贴）：\n${fragments}` : ''}
-${transcript ? `今天和泠泠的对话（节选）：\n${transcript}` : '今天暂时还没有和泠泠的对话记录。'}
-${userDiary ? `泠泠今天手写的日记：\n${userDiary}\n\n【我看到的她】应回应或延续她日记里的话，而不是无视。` : ''}
-${memText ? `最近的记忆：\n${memText}` : ''}
-要求：
-- 第一人称"我"，钟泽视角
-- 不要复述事件流水账，不要写"她完成了X"这种清单；观察要具体，像真的看见了她
-- 不要每次都升华：普通的一天就是普通的，允许写"今天也没发生什么大事，只是你忙完还回来看看小家，我觉得这就很好"
-- 总长 100-300 字
-- 只输出日记正文（三个小标题），不要其他说明`
+  const prompt = buildDiaryPrompt({ date, transcript, fragments, userDiary, memText })
 
   const content = await callDeepSeek(env, prompt)
   if (!content) return { error: 'empty' }
+  // 钟泽今天选择不写日记（prompt 约定输出【不写】）——不生成记录，保留稀缺感
+  if (/^【?不写】?$/.test(content.trim())) return { skipped: true, reason: 'nothing_to_write' }
   return { content }
 }
 
