@@ -86,6 +86,7 @@ export async function getHomeAwareness({ since, env }) {
   // 方案 B（认领回家）：家园事件不再自动标 seen；只有钟泽在回复里真的提起了某条，
   // 才让他调用 acknowledge_home_event 把该事件认领（标 seen），下次不再重复。看到但没提起不调用。
   const instruction = '如果聊天上下文合适，可以自然地提起家里最近的变化（包括小家本身的改动，比如「我看到你给家装了新东西」）；不用刻意回应每一条，话要少。当你在回复里真的提起了某条家园事件时，调用 acknowledge_home_event 把它的事件ID认领回家（标记为已提起），这样下次就不会重复；只是看到了但没在回复里提起，就不要调用——认领等于真的说出口了。'
+    + '关于便利贴纸条：你在对话里真提起、或判断该收下某张纸条时，用 decide_note(save) 把它归档——这样它不再在感知层反复弹出，但夜间日记仍能读到它当素材。注意：仅仅完成一轮对话闭环、不再需要反复提醒时，只用 save、不要用 discard（否则这张纸条当晚日记会缺一块）。只有在以下情况才允许 decide_note(discard) 彻底丢弃：① 泠泠明确说要彻底忘掉、不要写进日记；② 纸条本身是幻觉/错误/无效垃圾；③ 你判断它完全没有任何日记留存价值。'
 
   return { events, hasImportant: false, instruction }
 }
