@@ -32,6 +32,23 @@ export default function NoteCard({ onOpenPanel }) {
 
   useEffect(() => { refresh() }, [])
 
+  /* 首次加载自动同步：若 lastActedId 为 0（用户从没点过「收到」/「不要」），
+     把当前所有 ai pending 纸条的最大 id 记入 localStorage —— 像微信已读消红点，
+     避免历史纸条一直骚扰；之后钟泽再贴新纸条（id > lastActedId）才会再亮 */
+  useEffect(() => {
+    const stored = Number(localStorage.getItem(LAST_ACTED_KEY) || 0)
+    if (stored > 0) return
+    fetch(`${API_BASE}/api/notes`).then(r => r.json()).then(d => {
+      const list = (d.notes || []).filter(n => n.source === 'ai' && n.status === 'pending')
+      if (list.length === 0) return
+      const maxId = list.reduce((m, n) => Math.max(m, Number(n.id) || 0), 0)
+      if (maxId > 0) {
+        localStorage.setItem(LAST_ACTED_KEY, String(maxId))
+        setLastActedId(maxId)
+      }
+    }).catch(() => {})
+  }, [])
+
   /* 展开今日小记时锁底层滚动 */
   useEffect(() => {
     if (!open) return

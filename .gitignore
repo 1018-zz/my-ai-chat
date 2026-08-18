@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 dist2
-dist3
+dist4
 build-check
 .tmp-build
 .tmp-*
