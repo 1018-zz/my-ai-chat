@@ -77,6 +77,12 @@ const TOOLS = [
     parameters: { type: 'object', properties: { text: { type: 'string', description: '明信片文字，像真的寄给泠泠的话' } }, required: ['text'] },
     category: 'companion', autonomy: 'sometimes', risk: 'low',
   },
+  {
+    name: 'acknowledge_home_event',
+    description: '把一条家园事件"认领回家"——当你在回复里真的自然提起了某条小家变动（事件ID就在家感知层括号里）时，调用它把那个事件ID传进来，标记为已提起。这样下次醒来就不会重复提起同一条。注意：只是看到了但没在回复里提起，就不要调用——认领 = 真的说出口了。',
+    parameters: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'none',
+  },
 ]
 
 // 模型每轮可见的「主动型」工具。

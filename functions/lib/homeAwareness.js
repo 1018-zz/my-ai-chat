@@ -83,7 +83,9 @@ export async function getHomeAwareness({ since, env }) {
   }
 
   // 行为建议（事实与建议分离）：他仍是他，不是客服——合适才提，不逐条回应
-  const instruction = '如果聊天上下文合适，可以自然地提起家里最近的变化（包括小家本身的改动，比如「我看到你给家装了新东西」）；不用刻意回应每一条，话要少。提到过的家园事件不用再提。'
+  // 方案 B（认领回家）：家园事件不再自动标 seen；只有钟泽在回复里真的提起了某条，
+  // 才让他调用 acknowledge_home_event 把该事件认领（标 seen），下次不再重复。看到但没提起不调用。
+  const instruction = '如果聊天上下文合适，可以自然地提起家里最近的变化（包括小家本身的改动，比如「我看到你给家装了新东西」）；不用刻意回应每一条，话要少。当你在回复里真的提起了某条家园事件时，调用 acknowledge_home_event 把它的事件ID认领回家（标记为已提起），这样下次就不会重复；只是看到了但没在回复里提起，就不要调用——认领等于真的说出口了。'
 
   return { events, hasImportant: false, instruction }
 }

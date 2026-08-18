@@ -161,7 +161,7 @@ function describeHomeEvent(e) {
   const tag = when ? `（${when}）` : ''
   if (e.type === 'user_note' && e.state === 'pending') return `她${tag}留了张纸条：${e.preview}`
   if (e.type === 'ai_note' && e.state === 'pending') return `你${tag}留的纸条还在等她决定：${e.preview}`
-  if (e.type === 'project_event') return `小家${tag}有了变化：${e.title}`
+  if (e.type === 'project_event') return `小家${tag}有了变化：${e.title}（事件ID: ${e.eventId}）`
   if (e.type === 'user_diary' && e.state === 'saved') return `她今天写了日记：${e.preview}`
   if (e.state === 'saved') return `家里有一则已收好的痕迹：${e.preview}`
   return e.preview
