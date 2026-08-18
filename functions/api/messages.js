@@ -33,7 +33,7 @@ export async function onRequestGet(context) {
   const includeDeleted = url.searchParams.get('includeDeleted') === '1'
   const includeTools = url.searchParams.get('includeTools') === '1'
   // 瘦身查询：不拉 thinking（思考链全文）大字段；默认过滤 role=tool（工具结果，每条最多几千字符）
-  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.asc`
+  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,meta,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.asc`
   if (!includeDeleted) q += `&deleted_at=is.null`
   if (!includeTools) q += `&role=neq.tool`
   const res = await fetch(q, { headers: sbHeaders(env) })
