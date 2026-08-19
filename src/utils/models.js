@@ -80,10 +80,10 @@ export function findModel(id) {
 // 聊天发送时按当前场景（先从 chatInfo 推）取对应模型。
 
 export const SCENES = [
-  { key: 'chat', label: '日常聊天', icon: '💬' },
-  { key: 'diary', label: '写日记 / 自我觉察', icon: '📖' },
-  { key: 'mcp', label: '工具调用（改代码/读文件）', icon: '🛠️' },
-  { key: 'compress', label: '压缩总结 / 记忆提取', icon: '🗜️' },
+  { key: 'chat', label: '日常聊天', icon: '💬', desc: '主要的对话功能，用于与用户进行日常对话交互' },
+  { key: 'diary', label: '写日记 / 自我觉察', icon: '📖', desc: '把今天值得留下的时刻写成日记、记录自我发现' },
+  { key: 'mcp', label: '工具调用（改代码/读文件）', icon: '🛠️', desc: '读项目代码/列目录/改文件提交 GitHub' },
+  { key: 'compress', label: '上下文压缩 / 记忆提取', icon: '🗜️', desc: '压缩历史上下文、生成聊天摘要、提取长期记忆' },
 ]
 
 export const SCENE_KEY = 'xiaojia.sceneModels'
