@@ -697,6 +697,7 @@ const SettingsPanel = () => {
   const [auth, setAuth] = useState(loadMcpAuth)
   useEffect(() => { const h = () => setAuth(loadMcpAuth()); window.addEventListener(MCP_AUTH_EVENT, h); return () => window.removeEventListener(MCP_AUTH_EVENT, h) }, [])
   const labelOf = Object.fromEntries(MCP_TOOLS.map(t => [t.key, t.label]))
+  const descOf = Object.fromEntries(MCP_TOOLS.map(t => [t.key, t.desc]))
   const [toolView, setToolView] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const setMode = (key, mode) => { const n = setMcpToolMode(auth, key, mode); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
@@ -720,7 +721,10 @@ const SettingsPanel = () => {
                   return (
                     <div key={k} style={{ borderRadius: 10, background: open ? 'rgba(145,107,78,0.06)' : 'transparent', padding: open ? '8px 10px' : 0 }}>
                       <div onClick={() => setExpanded(open ? null : k)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '7px 2px' }}>
-                        <span style={{ fontSize: 13 }}>{labelOf[k]}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 13 }}>{labelOf[k]}</span>
+                          {descOf[k] && <div style={{ fontSize: 11, color: 'var(--color-text-gray)', marginTop: 2 }}>{descOf[k]}</div>}
+                        </div>
                         <span style={{ fontSize: 12, color: mode === 'always' ? 'var(--color-primary)' : 'var(--color-text-gray)' }}>{MODE_LABEL[mode]} ›</span>
                       </div>
                       {open && (
