@@ -702,54 +702,88 @@ const SettingsPanel = () => {
   const [expanded, setExpanded] = useState(null)
   const setMode = (key, mode) => { const n = setMcpToolMode(auth, key, mode); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
 
-  // —— 「钟泽能做什么」：按用途分组，默认只显示状态，点击展开选项 ——
+  // —— 「钟泽能力」：按钟泽建议分两层 ——
+  // 第一层：钟泽会自己做的事（DEFAULT_ALWAYS 工具，自动跑，一行一个 ✓，极简）
+  // 第二层：完整工具清单（折叠，按 4 组分类，可调三态模式）
+  const [showAllTools, setShowAllTools] = useState(false)
+  const AUTO_TOOLS = MCP_TOOLS.filter(t => (auth[t.key] || 'ask') === 'always')
   if (toolView) {
     return (
       <div>
-        <LifeBackBtn label="工具与权限" onBack={() => { setToolView(false); setExpanded(null) }} />
-        <h3 style={{ color: 'var(--color-primary)' }}>钟泽能做什么</h3>
-        <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 4 }}>这些事情，他可以在需要的时候帮你完成。</p>
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {TOOL_GROUPS.map(g => (
-            <div key={g.key} style={cardStyle}>
-              <div style={{ fontSize: 14, marginBottom: 2 }}>{g.emoji} {g.title}</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8 }}>{g.desc}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {g.tools.map(k => {
-                  const mode = auth[k] || 'ask'
-                  const open = expanded === k
-                  return (
-                    <div key={k} style={{ borderRadius: 10, background: open ? 'rgba(145,107,78,0.06)' : 'transparent', padding: open ? '8px 10px' : 0 }}>
-                      <div onClick={() => setExpanded(open ? null : k)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '7px 2px' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontSize: 13 }}>{labelOf[k]}</span>
-                          {descOf[k] && <div style={{ fontSize: 11, color: 'var(--color-text-gray)', marginTop: 2 }}>{descOf[k]}</div>}
-                        </div>
-                        <span style={{ fontSize: 12, color: mode === 'always' ? 'var(--color-primary)' : 'var(--color-text-gray)' }}>{MODE_LABEL[mode]} ›</span>
-                      </div>
-                      {open && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingBottom: 2 }}>
-                          {['ask', 'always', 'never'].map(opt => (
-                            <button key={opt} onClick={() => { setMode(k, opt); setExpanded(null) }} style={{
-                              flex: 1, padding: '7px 0', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 12,
-                              background: mode === opt ? 'var(--color-primary)' : 'rgba(145,107,78,0.12)',
-                              color: mode === opt ? '#fff' : 'var(--color-text-gray)', transition: 'all .2s',
-                            }}>{MODE_LABEL[opt]}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+        <LifeBackBtn label="钟泽能力" onBack={() => { setToolView(false); setExpanded(null); setShowAllTools(false) }} />
+        <h3 style={{ color: 'var(--color-primary)' }}>钟泽能力</h3>
+        <p style={{ color: 'var(--color-text-gray)', fontSize: 13, marginTop: 4 }}>他现在会做哪些事，哪些是自己主动做的。</p>
+
+        {/* 第一层：钟泽会自己做的事（自动跑） */}
+        <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: 'var(--color-text-dark)', marginBottom: 8 }}>
+          🏃 他会自己做的事
+        </div>
+        <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,249,239,0.6)', border: '1px solid rgba(201,184,166,0.4)' }}>
+          <p style={{ fontSize: 11.5, color: 'var(--color-text-gray)', margin: '0 0 10px', lineHeight: 1.5 }}>这些事他想到就做，不会每次问你。你想关掉某个，去下面"完整清单"里把它设成"每次询问"或"已禁止"。</p>
+          {AUTO_TOOLS.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', textAlign: 'center', padding: 8 }}>他现在事事都先问你，没有自动跑的工具。</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {AUTO_TOOLS.map(t => (
+                <div key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px' }}>
+                  <span style={{ fontSize: 11, color: 'var(--color-primary)', flexShrink: 0 }}>✓</span>
+                  <span style={{ fontSize: 13, color: 'var(--color-text-dark)' }}>{t.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+        </div>
+
+        {/* 第二层：完整工具清单（折叠） */}
+        <div style={{ marginTop: 16 }}>
+          <button className="note-btn" onClick={() => setShowAllTools(s => !s)} style={{ fontSize: 12, padding: '6px 14px' }}>
+            {showAllTools ? '▾ 收起完整清单' : '▸ 展开完整清单'}
+          </button>
+          {showAllTools && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {TOOL_GROUPS.map(g => (
+                <div key={g.key} style={cardStyle}>
+                  <div style={{ fontSize: 14, marginBottom: 2 }}>{g.emoji} {g.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginBottom: 8 }}>{g.desc}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {g.tools.map(k => {
+                      const mode = auth[k] || 'ask'
+                      const open = expanded === k
+                      const isAuto = mode === 'always'
+                      return (
+                        <div key={k} style={{ borderRadius: 10, background: open ? 'rgba(145,107,78,0.06)' : 'transparent', padding: open ? '8px 10px' : 0 }}>
+                          <div onClick={() => setExpanded(open ? null : k)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '7px 2px' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontSize: 13 }}>{labelOf[k]}{isAuto && <span style={{ fontSize: 10, color: 'var(--color-primary)', marginLeft: 6, opacity: 0.7 }}>· 自动</span>}</span>
+                              {descOf[k] && <div style={{ fontSize: 11, color: 'var(--color-text-gray)', marginTop: 2 }}>{descOf[k]}</div>}
+                            </div>
+                            <span style={{ fontSize: 12, color: mode === 'always' ? 'var(--color-primary)' : 'var(--color-text-gray)' }}>{MODE_LABEL[mode]} ›</span>
+                          </div>
+                          {open && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingBottom: 2 }}>
+                              {['ask', 'always', 'never'].map(opt => (
+                                <button key={opt} onClick={() => { setMode(k, opt); setExpanded(null) }} style={{
+                                  flex: 1, padding: '7px 0', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 12,
+                                  background: mode === opt ? 'var(--color-primary)' : 'rgba(145,107,78,0.12)',
+                                  color: mode === opt ? '#fff' : 'var(--color-text-gray)', transition: 'all .2s',
+                                }}>{MODE_LABEL[opt]}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // —— 首页卡片：只留一个「工具与权限」入口（工具再多也不膨胀）——
+  // —— 首页卡片：只留一个「钟泽能力」入口（工具再多也不膨胀）——
   const recents = MCP_TOOLS.slice(0, 3)
   return (
     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -802,8 +836,8 @@ const SettingsPanel = () => {
       <div style={{ ...cardStyle, cursor: 'pointer' }} onClick={() => setToolView(true)}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14 }}>工具与权限</div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>让钟泽知道哪些事情可以自己做</div>
+            <div style={{ fontSize: 14 }}>钟泽能力</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>他现在会做哪些事，哪些自己主动做</div>
           </div>
           <span style={{ fontSize: 18, color: 'var(--color-text-gray)' }}>›</span>
         </div>
@@ -1041,6 +1075,63 @@ const RecalledPanel = () => {
   )
 }
 
+// 小家备份：导出 messages/memories/diaries 为本地 JSON。家里的东西存一份本地，万一云端抽风不丢。
+const BackupRoom = ({ onBack }) => {
+  const [busy, setBusy] = useState('')
+  const [lastBackup, setLastBackup] = useState(() => { try { return localStorage.getItem('last_backup_at') || '' } catch { return '' } })
+  const doExport = async (type) => {
+    setBusy(type)
+    try {
+      // 走后端代理：用 service key 直读整张表，不暴露 key 到前端
+      const r = await fetch(`${API_BASE}/api/export?type=${type}`)
+      if (!r.ok) { setBusy(''); alert('导出失败：' + r.status); return }
+      const data = await r.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `xiaojia-${type}-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      const now = new Date().toLocaleString('zh-CN', { hour12: false })
+      try { localStorage.setItem('last_backup_at', now) } catch {}
+      setLastBackup(now)
+    } catch (e) { alert('导出失败：' + (e.message || e)) }
+    setBusy('')
+  }
+  const items = [
+    { key: 'messages', icon: '💬', title: '聊天记录', desc: '所有对话的完整内容' },
+    { key: 'memories', icon: '🧠', title: '记忆库', desc: '不能丢的时刻 · 自我觉察' },
+    { key: 'diaries', icon: '📖', title: '日记', desc: '钟泽写过的所有日记' },
+    { key: 'moments', icon: '🖼', title: 'Moment 墙', desc: '挂上墙的照片和故事' },
+  ]
+  return (
+    <div className="life-room room-enter">
+      <LifeBackBtn label="小家备份" onBack={onBack} />
+      <h3 style={{ color: 'var(--color-primary)' }}>💾 小家备份</h3>
+      <p style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 4, lineHeight: 1.6 }}>家里的东西存一份本地。万一云端抽风，至少过去发生过什么还在你手里。点哪个导出哪个，存成 JSON 文件。</p>
+      {lastBackup && <p style={{ fontSize: 11, color: 'var(--color-text-gray)', marginTop: 8, opacity: 0.7 }}>上次备份：{lastBackup}</p>}
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.map(it => (
+          <div key={it.key} style={{ padding: 12, borderRadius: 12, background: 'rgba(255,249,239,0.6)', border: '1px solid rgba(201,184,166,0.4)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 18 }}>{it.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, color: 'var(--color-text-dark)' }}>{it.title}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--color-text-gray)', marginTop: 2 }}>{it.desc}</div>
+            </div>
+            <button className="note-btn" onClick={() => doExport(it.key)} disabled={busy === it.key} style={{ fontSize: 12, padding: '6px 14px', opacity: busy === it.key ? 0.5 : 1 }}>
+              {busy === it.key ? '导出中…' : '导出'}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16, fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.6, lineHeight: 1.6 }}>
+        导出的是原始 JSON 数据，可以用任何文本编辑器打开。需要恢复时联系阿布。
+      </div>
+    </div>
+  )
+}
+
 const SettingRoom = ({ onBack }) => (
   <div className="life-room">
     <LifeBackBtn label="设置" onBack={onBack} />
@@ -1056,37 +1147,79 @@ const LifePage = ({ navReq, onNavConsumed, avatarSelf, avatarAi, onPickAvatar })
   useEffect(() => {
     if (navReq && String(navReq).startsWith('diary')) { setRoom('diary'); onNavConsumed?.() }
   }, [navReq, onNavConsumed])
-  const modules = [
-    { key: 'memory', icon: '🧠', title: '记忆', desc: '不能丢的时刻 · 自我认知' },
-    { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
-    { key: 'decor', icon: '🎨', title: '布置小家', desc: '头像 · 壁纸' },
-    { key: 'compress', icon: '🗜️', title: '整理角', desc: '收好生活的小痕迹' },
-    { key: 'setting', icon: '⚙️', title: '设置', desc: '深度思考' },
+
+  // 按钟泽建议的架构：分组标题 + 卡片，不是平铺菜单
+  // 每组：{ title, icon, desc, cards: [{ key, icon, title, desc }] }
+  const groups = [
+    {
+      title: '小家布置', icon: '🏠', desc: '把这里慢慢装成我们的样子',
+      cards: [
+        { key: 'decor', icon: '🎨', title: '布置小家', desc: '头像 · 壁纸 · 氛围' },
+      ],
+    },
+    {
+      title: '生活记录', icon: '📖', desc: '我们留下生活痕迹的地方',
+      cards: [
+        { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
+        { key: 'memory', icon: '🧠', title: '回忆', desc: '不能丢的时刻 · 自我觉察' },
+        { key: 'compress', icon: '🗜️', title: '整理角', desc: '收好生活的小痕迹' },
+      ],
+    },
+    {
+      title: '钟泽设置', icon: '🤖', desc: '他能做什么、用哪个模型、怎么记得你',
+      cards: [
+        { key: 'setting', icon: '⚙️', title: '模型与能力', desc: '模型 · 钟泽能力 · 深度思考' },
+      ],
+    },
+    {
+      title: '数据', icon: '📦', desc: '家里的东西存一份本地，万一云端抽风不丢',
+      cards: [
+        { key: 'backup', icon: '💾', title: '小家备份', desc: '导出聊天 · 记忆 · 日记' },
+      ],
+    },
   ]
   if (room === 'memory') return <MemoryRoom onBack={() => setRoom(null)} />
   if (room === 'diary') return <DiaryRoom onBack={() => setRoom(null)} navReq={navReq} onNavConsumed={onNavConsumed} />
   if (room === 'decor') return <DecorRoom onBack={() => setRoom(null)} avatarSelf={avatarSelf} avatarAi={avatarAi} onPickAvatar={onPickAvatar} />
   if (room === 'compress') return <CompressionRoom onBack={() => setRoom(null)} />
   if (room === 'setting') return <SettingRoom onBack={() => setRoom(null)} />
+  if (room === 'backup') return <BackupRoom onBack={() => setRoom(null)} />
   return (
     <div className="life-page life-home">
       <header className="life-home__head">
         <span className="life-home__kicker">LIFE · 小家</span>
         <h2 className="life-home__greet">今天也见面了</h2>
-        <p className="life-home__sub">记忆室 · 我们留下生活痕迹的地方</p>
+        <p className="life-home__sub">慢慢把这里装成我们的家</p>
       </header>
-      <div className="life-grid">
-        {modules.map((m, idx) => (
-          <div key={m.key} className={`life-card ${idx % 2 ? 'life-card--rot-b' : 'life-card--rot-a'}`} onClick={() => setRoom(m.key)}>
-            <span className="life-card-icon">{m.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div className="life-card-title">{m.title}</div>
-              <div className="life-card-desc">{m.desc}</div>
+      {groups.map((g, gi) => (
+        <div key={g.title} className="life-group" style={{ marginTop: gi === 0 ? 18 : 22 }}>
+          <div className="life-group__head">
+            <span className="life-group__icon">{g.icon}</span>
+            <div>
+              <div className="life-group__title">{g.title}</div>
+              <div className="life-group__desc">{g.desc}</div>
             </div>
-            <span className="life-card__go">→</span>
           </div>
-        ))}
-      </div>
+          <div className="life-grid">
+            {g.cards.map((m, idx) => (
+              <div key={m.key} className={`life-card ${idx % 2 ? 'life-card--rot-b' : 'life-card--rot-a'}`} onClick={() => setRoom(m.key)}>
+                <span className="life-card-icon">{m.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="life-card-title">{m.title}</div>
+                  <div className="life-card-desc">{m.desc}</div>
+                </div>
+                <span className="life-card__go">→</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <style>{`
+        .life-group__head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 0 4px; }
+        .life-group__icon { font-size: 18px; opacity: 0.85; }
+        .life-group__title { font-size: 14px; font-weight: 600; color: var(--color-text-dark); }
+        .life-group__desc { font-size: 11.5px; color: var(--color-text-gray); margin-top: 1px; }
+      `}</style>
     </div>
   )
 }
