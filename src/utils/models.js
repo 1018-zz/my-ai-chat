@@ -73,3 +73,34 @@ export function setChatModel(chatId, modelId) {
 export function findModel(id) {
   return getModelLibrary().find(m => m.id === id) || null
 }
+
+// —— 场景→模型映射 ——
+// 钟泽在不同情境下用不同模型：闲聊用快模型，写日记/严肃事用强模型。
+// 存 localStorage xiaojia.sceneModels: { sceneId: modelId }
+// 聊天发送时按当前场景（先从 chatInfo 推）取对应模型。
+
+export const SCENES = [
+  { key: 'chat', label: '日常聊天', icon: '💬' },
+  { key: 'diary', label: '写日记 / 自我觉察', icon: '📖' },
+  { key: 'mcp', label: '工具调用（改代码/读文件）', icon: '🛠️' },
+  { key: 'compress', label: '压缩总结 / 记忆提取', icon: '🗜️' },
+]
+
+export const SCENE_KEY = 'xiaojia.sceneModels'
+export function getSceneModel(sceneKey) {
+  try {
+    const map = JSON.parse(localStorage.getItem(SCENE_KEY) || '{}')
+    if (map[sceneKey]) return map[sceneKey]
+  } catch (_) {}
+  return getDefaultEnabledModelId()  // 没配就回退到默认模型
+}
+export function setSceneModel(sceneKey, modelId) {
+  try {
+    const map = JSON.parse(localStorage.getItem(SCENE_KEY) || '{}')
+    map[sceneKey] = modelId
+    localStorage.setItem(SCENE_KEY, JSON.stringify(map))
+  } catch (_) {}
+}
+export function getAllSceneModels() {
+  try { return JSON.parse(localStorage.getItem(SCENE_KEY) || '{}') } catch { return {} }
+}

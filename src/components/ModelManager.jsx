@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getModelLibrary, saveModelLibrary } from '../utils/models'
+import { getModelLibrary, saveModelLibrary, SCENES, getAllSceneModels, setSceneModel, getDefaultEnabledModelId } from '../utils/models'
 
 // 设置页 · 模型管理（澄 HomeRoom）：维护全局模型库 xiaojia.models
 // 只做「启用/停用、添加、删除」；API Key 留到后续阶段（共用 deepseek 端点）。
@@ -16,6 +16,18 @@ export default function ModelManager() {
   const persist = (next) => {
     setModels(next)
     saveModelLibrary(next)
+  }
+
+  // 场景分配：独立 state（不依赖 models 修改触发重渲）
+  const [sceneModels, setSceneModels] = useState(() => {
+    const saved = getAllSceneModels()
+    const out = {}
+    for (const s of SCENES) out[s.key] = saved[s.key] || getDefaultEnabledModelId()
+    return out
+  })
+  const pickSceneModel = (sceneKey, modelId) => {
+    setSceneModel(sceneKey, modelId)
+    setSceneModels(m => ({ ...m, [sceneKey]: modelId }))
   }
 
   const toggleEnabled = (id) => {
@@ -68,6 +80,39 @@ export default function ModelManager() {
             <button className="note-btn" onClick={() => removeModel(m.id)} style={{ fontSize: 11, color: 'var(--color-danger)' }}>删除</button>
           </div>
         ))}
+      </div>
+
+      {/* 按场景分配模型（grouped select：每场景一行 + 下拉挑模型）*/}
+      <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>
+        <span>🎯 按场景分配模型</span>
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--color-text-gray)', margin: '0 0 8px' }}>钟泽在不同情境下用不同模型。比如写日记想稳，闲聊想快。每个场景单独挑，挑完就记住。</p>
+      <div style={{ padding: 12, borderRadius: 12, background: 'rgba(255,249,239,0.6)', border: '1px solid rgba(201,184,166,0.4)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {SCENES.map(sc => {
+          const enabledList = models.filter(m => m.enabled)
+          const current = sceneModels[sc.key] && enabledList.some(m => m.id === sceneModels[sc.key])
+            ? sceneModels[sc.key]
+            : enabledList[0]?.id || models[0]?.id || ''
+          const curModel = models.find(m => m.id === current)
+          return (
+            <div key={sc.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px' }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{sc.icon}</span>
+              <span style={{ fontSize: 13, flex: 1, minWidth: 0, color: 'var(--color-text-dark)' }}>{sc.label}</span>
+              <select
+                value={current}
+                onChange={e => pickSceneModel(sc.key, e.target.value)}
+                style={{ fontSize: 12, padding: '5px 8px', borderRadius: 8, border: '1px solid rgba(201,184,166,0.5)', background: 'rgba(255,255,255,0.7)', color: 'var(--color-text-dark)', maxWidth: '58%' }}
+              >
+                {(enabledList.length ? enabledList : models).map(m => (
+                  <option key={m.id} value={m.id}>{m.label}{m.desc ? ` · ${m.desc}` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )
+        })}
+        <div style={{ fontSize: 10.5, color: 'var(--color-text-gray)', marginTop: 4, opacity: 0.75 }}>
+          当前选择 · {Object.entries(sceneModels).filter(([k]) => enabledList.some(m => m.id === sceneModels[k])).map(([k, v]) => `${SCENES.find(s => s.key === k)?.label}=${models.find(m => m.id === v)?.label || v}`).join(' / ') || '默认'}
+        </div>
       </div>
 
       {showAdd && (

@@ -1627,6 +1627,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       const reader = res.body.getReader(); const decoder = new TextDecoder()
       let ft = '', buf = '', tcs = [], th = ''
       let aborted = false
+      let usage = null  // 后端在 done 时透传 DeepSeek usage（含缓存命中 token）
       const thStart = Date.now(); let thDur = null
       const parseLine = (l) => {
         if (!l.startsWith('data: ')) return
@@ -1642,6 +1643,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           }
           if (d.tool_calls) tcs = d.tool_calls
           if (d.done && d.aborted) aborted = true
+          if (d.done && d.usage) usage = d.usage
           if (d.done && d.conversationId && !chatInfo?.id) { chatInfo.id = d.conversationId }
         } catch (_) {}
       }
@@ -1659,7 +1661,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       }
       // 补解析残留 buffer：最后一次 chunk 可能没有换行，防止最后一字丢失
       if (buf.trim()) { const lastLines = buf.split('\n'); for (const l of lastLines) parseLine(l) }
-      return { ft, tcs, th, thDur, reasoningContent: th, aborted }
+      return { ft, tcs, th, thDur, reasoningContent: th, aborted, usage }
     } finally { clearTimeout(timer); abortRef.current = null }
   }
 
@@ -1708,14 +1710,14 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       return item
     })]
     cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
-    let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = ''
+    let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = '', curUsage = null
     const awarenessSince = getAwarenessSince(chatInfo?.id)
     const first = await streamChat(curMsgs, curAiId,
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
       (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)),
       false, awarenessSince)
     setAwarenessSince(chatInfo?.id)
-    curFt = first.ft; curTcs = first.tcs; curReasoning = first.reasoningContent || ''
+    curFt = first.ft; curTcs = first.tcs; curReasoning = first.reasoningContent || ''; curUsage = first.usage || null
     if (first.aborted) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
     if (first.thDur) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinkingDone: true, thinkingDur: first.thDur } : m))
     while (curTcs.length > 0 && rounds < MAX_TOOL_ROUNDS) {
@@ -1769,9 +1771,9 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
         true, awarenessSince)
       if (nxt.aborted) setMsgList(p => p.map(m => m.id === nid ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
       if (nxt.thDur) setMsgList(p => p.map(m => m.id === nid ? { ...m, thinkingDone: true, thinkingDur: nxt.thDur } : m))
-      curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curReasoning = nxt.reasoningContent || ''; curAiId = nid
+      curMsgs = fms; curFt = nxt.ft; curTcs = nxt.tcs; curReasoning = nxt.reasoningContent || ''; curAiId = nid; if (nxt.usage) curUsage = nxt.usage
     }
-    return curFt
+    return curUsage ? { text: curFt, usage: curUsage } : curFt
   }
 
   const stopGen = () => { if (sleepTimer.current) clearTimeout(sleepTimer.current); stopRequestedRef.current = true; abortRef.current?.abort() }
@@ -1791,8 +1793,16 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     setMsgList(p => [...p, um, { id: uidA, text: '', isSelf: false, loading: true, ts: Date.now() }])
     if (chatInfo.id) updateChatPreview(chatInfo.id, ut)
     try {
-      const aiText = await runChatTurn([...msgList, um], uidA)
-      if (aiText && aiText.trim()) { stats.message(); stats.usage({ input: estimateTokens([...msgList, um].map(m => m.text || '').join(' ')), output: estimateTokens(aiText) }) }
+      const result = await runChatTurn([...msgList, um], uidA)
+      const aiText = typeof result === 'string' ? result : result?.text
+      const usage = typeof result === 'object' ? result?.usage : null
+      if (aiText && aiText.trim()) {
+        stats.message()
+        const usagePayload = usage
+          ? { input: usage.promptTokens || 0, output: usage.completionTokens || 0, cache: usage.cacheHit || 0 }
+          : { input: estimateTokens([...msgList, um].map(m => m.text || '').join(' ')), output: estimateTokens(aiText) }
+        stats.usage(usagePayload)
+      }
       if (chatInfo.id) updateChatPreview(chatInfo.id, (aiText && aiText.trim()) ? aiText : ut)
     } catch (e) {
       setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m))
