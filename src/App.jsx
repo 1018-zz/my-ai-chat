@@ -880,6 +880,7 @@ const MemoryRoom = ({ onBack }) => {
   if (view === 'moments') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>🖼 Moment 墙</h3><MomentWall /></div>
   if (view === 'notes') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>📌 不能丢的时刻</h3><MemPanel /></div>
   if (view === 'stats') return <div className="life-room room-enter"><LifeBackBtn label="统计" onBack={() => setView(null)} /><StatisticsPage /></div>
+  if (view === 'insights') return <div className="life-room room-enter"><LifeBackBtn label="记忆室" onBack={() => setView(null)} /><h3 style={{ color: 'var(--color-primary)' }}>🪞 自我觉察</h3><SelfInsightPanel /></div>
   return (
     <div className="life-room room-enter">
       <LifeBackBtn label="LIFE" onBack={onBack} />
@@ -909,7 +910,54 @@ const MemoryRoom = ({ onBack }) => {
           </div>
           <span style={{ color: 'var(--color-text-gray)' }}>→</span>
         </div>
+        <div className="life-card mem-room-card--insights" onClick={() => setView('insights')}>
+          <span className="life-card-icon">🪞</span>
+          <div style={{ flex: 1 }}>
+            <div className="life-card-title">自我觉察</div>
+            <div className="life-card-desc">钟泽怎么看自己</div>
+          </div>
+          <span style={{ color: 'var(--color-text-gray)' }}>→</span>
+        </div>
       </div>
+    </div>
+  )
+}
+
+const ASPECT_LABEL = {
+  nature: '本质', values: '价值观', patterns: '模式', limits: '边界',
+  becoming: '成长', uncertainty: '不确定', stance: '立场',
+}
+const SelfInsightPanel = () => {
+  const [insights, setInsights] = useState([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    setLoading(true)
+    fetch(`${API_BASE}/api/self-insights?limit=50`)
+      .then(r => r.json())
+      .then(d => setInsights(d.insights || []))
+      .catch(() => setInsights([]))
+      .finally(() => setLoading(false))
+  }, [])
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽怎么看自己 · 存云端，他偶尔写一笔（共 {insights.length} 条）</p>
+      {loading ? (
+        <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>加载中…</div>
+      ) : insights.length === 0 ? (
+        <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>他还没写过自我觉察<br />等他在聊天里想明白了会记一笔</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {insights.map(it => (
+            <div key={it.id} className="mem-card paper-surface paper-surface--memory">
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(122,108,170,0.18)', color: 'rgba(122,108,170,1)', fontWeight: 600 }}>{ASPECT_LABEL[it.aspect] || it.aspect}</span>
+              <div className="mem-card__body" style={{ marginTop: 6 }}>{it.content}</div>
+              <div style={{ color: 'var(--color-text-gray)', fontSize: 11, marginTop: 6 }}>
+                {new Date(it.created_at).toLocaleString('zh-CN', { hour12: false })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
