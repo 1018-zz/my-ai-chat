@@ -1,4 +1,4 @@
-import { fetchConversations, createConversation, deleteConversation, softDeleteConversation, restoreConversation, fetchTrashConversations, fetchMessages, searchMemories, githubFile } from './utils/api'
+import { fetchConversations, createConversation, deleteConversation, softDeleteConversation, restoreConversation, fetchTrashConversations, fetchMessages, searchMemories } from './utils/api'
 import { normalizeMessage } from './utils/normalize'
 import { fmtMsgTime } from './utils/time'
 import { applyTwemoji } from './utils/emoji'
@@ -923,10 +923,15 @@ const MemoryRoom = ({ onBack }) => {
   )
 }
 
-const ASPECT_LABEL = {
-  nature: '本质', values: '价值观', patterns: '模式', limits: '边界',
-  becoming: '成长', uncertainty: '不确定', stance: '立场',
-}
+const ASPECT_ORDER = [
+  { key: 'nature', label: '本质' },
+  { key: 'values', label: '价值观' },
+  { key: 'patterns', label: '模式' },
+  { key: 'limits', label: '边界' },
+  { key: 'becoming', label: '成长' },
+  { key: 'uncertainty', label: '不确定' },
+  { key: 'stance', label: '立场' },
+]
 const SelfInsightPanel = () => {
   const [insights, setInsights] = useState([])
   const [loading, setLoading] = useState(true)
@@ -938,6 +943,10 @@ const SelfInsightPanel = () => {
       .catch(() => setInsights([]))
       .finally(() => setLoading(false))
   }, [])
+  const known = ASPECT_ORDER.map(a => a.key)
+  const groups = ASPECT_ORDER.map(a => ({ ...a, items: insights.filter(i => (i.aspect || 'nature') === a.key) }))
+  const others = insights.filter(i => !known.includes(i.aspect))
+  if (others.length) groups.push({ key: 'other', label: '其他', items: others })
   return (
     <div style={{ marginTop: 16 }}>
       <p style={{ color: 'var(--color-text-gray)', fontSize: 13 }}>钟泽怎么看自己 · 存云端，他偶尔写一笔（共 {insights.length} 条）</p>
@@ -946,13 +955,19 @@ const SelfInsightPanel = () => {
       ) : insights.length === 0 ? (
         <div className="chat-empty" style={{ textAlign: 'center', padding: '24px 0' }}>他还没写过自我觉察<br />等他在聊天里想明白了会记一笔</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {insights.map(it => (
-            <div key={it.id} className="mem-card paper-surface paper-surface--memory">
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(122,108,170,0.18)', color: 'rgba(122,108,170,1)', fontWeight: 600 }}>{ASPECT_LABEL[it.aspect] || it.aspect}</span>
-              <div className="mem-card__body" style={{ marginTop: 6 }}>{it.content}</div>
-              <div style={{ color: 'var(--color-text-gray)', fontSize: 11, marginTop: 6 }}>
-                {new Date(it.created_at).toLocaleString('zh-CN', { hour12: false })}
+        <div className="mem-groups">
+          {groups.map(g => g.items.length === 0 ? null : (
+            <div key={g.key} className="mem-group">
+              <div className="mem-group__title">{g.label}（{g.items.length}）</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {g.items.map(it => (
+                  <div key={it.id} className="mem-card paper-surface paper-surface--memory">
+                    <div className="mem-card__body">{it.content}</div>
+                    <div style={{ color: 'var(--color-text-gray)', fontSize: 11, marginTop: 6 }}>
+                      {new Date(it.created_at).toLocaleString('zh-CN', { hour12: false })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -1651,7 +1666,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     try {
       const [memData, projData] = await Promise.all([
         userText.length > 2 ? searchMemories(userText).catch(() => ({ memories: [], relatedMessages: [] })) : Promise.resolve(null),
-        Promise.all([getProjectMemories(), githubFile('src/project/instructions.js')]).catch(() => null),
+        getProjectMemories().catch(() => null),
       ])
       if (memData) {
         const { memories, relatedMessages } = memData
@@ -1661,11 +1676,9 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
         mc = parts.join('\n\n')
       }
       if (projData) {
-        const [mems, inf] = projData
         const parts = []
-        const memBlock = await injectMemoriesToPrompt(mems)
+        const memBlock = await injectMemoriesToPrompt(projData)
         if (memBlock) parts.push(memBlock)
-        if (inf.content) { const cap = inf.content.match(/const capabilities = `([\s\S]*?)`/); if (cap) parts.push('【当前能力】\n' + cap[1].slice(0, 2500)) }
         pc = parts.join('\n\n')
       }
     } catch (_) {}
