@@ -115,6 +115,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
   // TextDecoder 提到循环外：跨 chunk 保持解码状态，中文字符被 chunk 切开时不再烂成 U+FFFD
   const decoder = new TextDecoder()
   let fullContent = '', buffer = '', toolCalls = [], reasoning = ''
+  let usageData = null  // DeepSeek 在流末尾返回 usage（含缓存命中 token），累计后透传给前端
   let aborted = false
   const thinkFilter = new ThinkTagReasoningFilter()
 
@@ -131,6 +132,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
             if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
             try {
               const d = JSON.parse(line.slice(6))
+              if (d.usage && (d.usage.prompt_cache_hit_tokens !== undefined || d.usage.prompt_tokens !== undefined)) usageData = d.usage
               const delta = d.choices?.[0]?.delta
               if (delta?.content) {
                 // 同 chunk 两路思考并存（reasoning_content + content 内 <think>）时，
@@ -236,7 +238,16 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           tryCompressConversation(env, convId)
         }
 
-        const doneMsg = `data: ${JSON.stringify({ done: true, conversationId: convId, aborted })}\n\n`
+        const donePayload = { done: true, conversationId: convId, aborted }
+        if (usageData && (usageData.prompt_cache_hit_tokens !== undefined || usageData.prompt_tokens !== undefined)) {
+          donePayload.usage = {
+            promptTokens: usageData.prompt_tokens || 0,
+            completionTokens: usageData.completion_tokens || 0,
+            cacheHit: usageData.prompt_cache_hit_tokens || 0,
+            cacheMiss: usageData.prompt_cache_miss_tokens || 0,
+          }
+        }
+        const doneMsg = `data: ${JSON.stringify(donePayload)}\n\n`
         try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
         try { controller.close() } catch (_) {}
       }
