@@ -19,6 +19,7 @@ import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToo
 import { getProjectMemories, addProjectMemory, deleteProjectMemory, injectMemoriesToPrompt } from './project/memories'
 import Markdown from './components/Markdown'
 import { pushSupported, registerServiceWorker, subscribePush, unsubscribePush, sendTestPush } from './utils/push'
+import SplashScreen from './components/SplashScreen'
 import { playNotifySound } from './utils/notify'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
@@ -1991,6 +1992,17 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
+  // 启动雾窗：首次打开/每天首次打开显示，之后直接进
+  const [splashWeather, setSplashWeather] = useState(null)
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      const today = new Date().toDateString()
+      const last = localStorage.getItem('splash_shown_date')
+      if (last === today) return false // 今天已显示过，直接进
+      localStorage.setItem('splash_shown_date', today)
+      return true
+    } catch { return true }
+  })
   // 自定义头像（全局共享：聊天页 + LAIR 状态牌 + LIFE 布置小家 同源同步；localStorage 持久化，支持 emoji / 图片 URL）
   const [avatarAi, setAvatarAi] = useState(() => { try { return localStorage.getItem('chat_avatar_ai') || '泽' } catch { return '泽' } })
   const [avatarSelf, setAvatarSelf] = useState(() => { try { return localStorage.getItem('chat_avatar_self') || '我' } catch { return '我' } })
@@ -2032,10 +2044,14 @@ export default function App() {
     } catch (_) {}
   }, [])
   // 天气氛围层：真实天气给房间染上呼吸感（很淡，叠在壁纸之上；失败则无染色）
+  // 同时存 state 供 SplashScreen 使用
+  const [weather, setWeather] = useState(null)
   useEffect(() => {
     fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
-      if (d && d.ok && d.weather && d.weather.sky) {
-        const tint = WEATHER_TINT[d.weather.sky] || 'rgba(180,180,185,0.08)'
+      if (d && d.ok && d.weather) {
+        setWeather(d.weather)
+        const sky = d.weather.environment?.sky || d.weather.sky
+        const tint = WEATHER_TINT[sky] || 'rgba(180,180,185,0.08)'
         document.documentElement.style.setProperty('--weather-tint', tint)
       }
     }).catch(() => {})
@@ -2092,6 +2108,12 @@ export default function App() {
 
   return (
     <div className="page-wrap">
+      {showSplash && (
+        <SplashScreen
+          weather={weather}
+          onDone={() => setShowSplash(false)}
+        />
+      )}
       {/* 环境层（澄 HomeRoom v2）：壁纸 + 暖光 + 暗角——小家不是页面，是房间 */}
       <div className="wallpaper-layer" />
       <div className="weather-aura" />
