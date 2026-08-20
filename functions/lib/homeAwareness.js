@@ -139,3 +139,30 @@ export async function getRecentHomeEvents({ env, limit = 8 }) {
   events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
   return events.slice(0, limit)
 }
+
+// 「小家瞬间」展示层（给用户看，归一化）：梦 / 未来可扩 巡家·旅行·特殊时刻。
+// 单一数据源：从 project_events 读，前端只认 type（如 'dream'），不写死 wake_dream——
+// 以后新增瞬间类型只需往这里补，前端零改动。
+// 用于 LAIR「昨夜留下」卡片，独立于聊天感知层（getHomeAwareness）。
+export async function getHomeMoments({ env, limit = 3 } = {}) {
+  const headers = sbHeaders(env)
+  const out = []
+  try {
+    const url = `${SUPABASE}/project_events?select=id,type,title,summary,created_at&type=eq.wake_dream&order=created_at.desc&limit=${limit}`
+    const res = await fetch(url, { headers })
+    if (!res.ok) return out
+    const rows = await res.json()
+    for (const p of (Array.isArray(rows) ? rows : [])) {
+      const summary = String(p.summary || '')
+      out.push({
+        type: 'dream',
+        title: '昨夜留下',
+        summary: summary.slice(0, 80),
+        content: summary,
+        createdAt: p.created_at,
+        timeLabel: noteTimeLabel(p.created_at),
+      })
+    }
+  } catch (_) {}
+  return out
+}

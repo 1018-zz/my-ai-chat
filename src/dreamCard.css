@@ -1,0 +1,98 @@
+/* 「昨夜留下」梦卡片 —— 独立组件样式，不碰 theme.css。
+   视觉语言：韩系奶油手帐 + 月光紫（#B7A8C9 / #C5B9D6），像桌上多了一张纸。 */
+
+.dream-card {
+  position: relative;
+  margin-top: 14px;
+  padding: 17px 16px 14px 20px;
+  background: linear-gradient(180deg, #FBF7F0 0%, #F4ECE0 100%);
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgba(120, 100, 90, 0.10), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  border: 1px solid rgba(183, 168, 201, 0.35);
+  transform: rotate(-0.5deg);
+  cursor: pointer;
+  overflow: hidden;
+}
+/* 左侧一道月光紫细线，作为「这是梦」的弱识别 */
+.dream-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #C5B9D6, #B7A8C9);
+}
+/* 顶部纸胶带 */
+.dream-card__tape {
+  position: absolute;
+  top: -8px; left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 66px; height: 18px;
+  background: rgba(183, 168, 201, 0.32);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.dream-card__moon { font-size: 15px; line-height: 1; margin-bottom: 7px; }
+.dream-card__label {
+  font-size: 11px; letter-spacing: 0.14em;
+  color: #8E7FA6; margin-bottom: 5px;
+}
+.dream-card__line { font-size: 13px; color: #6F5F59; margin-bottom: 7px; }
+.dream-card__quote {
+  font-size: 14px; line-height: 1.65;
+  color: #4A3F3A; font-style: italic;
+}
+.dream-card__quote::before { content: '“'; }
+.dream-card__quote::after { content: '”'; }
+.dream-card__time {
+  margin-top: 9px; font-size: 11px;
+  color: #B7A8C9; text-align: right;
+}
+
+/* 空态：不编造因果，只说小家静静睡了 */
+.dream-card--empty {
+  cursor: default;
+  transform: rotate(0.4deg);
+  border-style: dashed;
+  text-align: center;
+  font-size: 13px; line-height: 1.8;
+  color: #9A8C84;
+  padding: 22px 16px;
+}
+.dream-card--empty::before {
+  background: #C5B9D6;
+  opacity: 0.5;
+}
+
+/* 点开 = 底部 sheet（拿起一张纸，看完放回去） */
+.dream-sheet-mask {
+  position: fixed; inset: 0;
+  background: rgba(40, 34, 38, 0.32);
+  display: flex; align-items: flex-end;
+  z-index: 60;
+  animation: dreamFade 0.2s ease;
+}
+.dream-sheet {
+  width: 100%; max-width: 480px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #FDFBF7 0%, #F2EADD 100%);
+  border-radius: 22px 22px 0 0;
+  padding: 22px 22px calc(22px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 30px rgba(80, 60, 90, 0.18);
+  animation: dreamUp 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  max-height: 82vh; overflow-y: auto;
+}
+.dream-sheet__title {
+  font-size: 15px; font-weight: 600;
+  color: #8E7FA6; margin-bottom: 14px; text-align: center;
+}
+.dream-sheet__content {
+  font-size: 15px; line-height: 1.9;
+  color: #3F3530; white-space: pre-wrap;
+}
+.dream-sheet__note {
+  margin-top: 18px; padding-top: 13px;
+  border-top: 1px dashed rgba(183, 168, 201, 0.5);
+  font-size: 12px; color: #A99BB8;
+  text-align: center; line-height: 1.7;
+}
+@keyframes dreamUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes dreamFade { from { opacity: 0; } to { opacity: 1; } }

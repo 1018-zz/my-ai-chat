@@ -18,6 +18,7 @@ import { buildSystemPrompt } from './project/instructions'
 import { MCP_TOOLS, TOOL_GROUPS, MODE_LABEL, loadMcpAuth, saveMcpAuth, setMcpToolMode, MCP_AUTH_EVENT } from './utils/mcpAuth'
 import { getProjectMemories, addProjectMemory, deleteProjectMemory, injectMemoriesToPrompt } from './project/memories'
 import Markdown from './components/Markdown'
+import './dreamCard.css'
 import { pushSupported, registerServiceWorker, subscribePush, unsubscribePush, sendTestPush } from './utils/push'
 import SplashScreen from './components/SplashScreen'
 import { playNotifySound } from './utils/notify'
@@ -375,6 +376,76 @@ const PostcardShelf = () => {
   )
 }
 
+// 昨夜留下：钟泽做梦后留在小家的余韵。放在 LAIR 状态区（不是 LIFE 工具），
+// 像桌上多了一张纸——他也有自己的夜晚。数据复用 /api/home/awareness 的 homeMoments
+// （后端已归一化，前端只认 type:'dream'，不写死 wake_dream）。
+const DreamCard = () => {
+  const [dream, setDream] = useState(null)
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    fetch(`${API_BASE}/api/home/awareness`)
+      .then(r => r.json())
+      .then(d => {
+        if (!alive) return
+        const moments = (d && d.homeMoments) || []
+        setDream(moments.find(m => m.type === 'dream') || null)
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+  if (loading) return null
+  if (!dream) {
+    return (
+      <div className="dream-card dream-card--empty">
+        昨夜没有留下梦。<br />小家安安静静地睡了一晚。
+      </div>
+    )
+  }
+  return (
+    <>
+      <div className="dream-card" onClick={() => setOpen(true)}>
+        <div className="dream-card__tape" />
+        <div className="dream-card__moon">🌙</div>
+        <div className="dream-card__label">昨夜留下</div>
+        <div className="dream-card__line">钟泽做了一个梦</div>
+        <div className="dream-card__quote">{dream.summary}……</div>
+        <div className="dream-card__time">{dreamTimeLabel(dream.createdAt)}</div>
+      </div>
+      {open && (
+        <div className="dream-sheet-mask" onClick={() => setOpen(false)}>
+          <div className="dream-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="dream-sheet__title">昨夜的余韵</div>
+            <div className="dream-sheet__content">{dream.content}</div>
+            <div className="dream-sheet__note">这不是记忆，只是醒来时留下的一点想象。</div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// 梦的时间标签（北京时间）：凌晨 3:12 / 晚上 9:30
+function dreamTimeLabel(iso) {
+  if (!iso) return ''
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000)
+  const h = t.getUTCHours()
+  const m = t.getUTCMinutes()
+  const hh = `${h}:${String(m).padStart(2, '0')}`
+  let period = '凌晨'
+  if (h >= 6 && h < 9) period = '早上'
+  else if (h >= 9 && h < 12) period = '上午'
+  else if (h >= 12 && h < 14) period = '中午'
+  else if (h >= 14 && h < 17) period = '下午'
+  else if (h >= 17 && h < 19) period = '傍晚'
+  else if (h >= 19 && h < 22) period = '晚上'
+  else if (h >= 22) period = '夜里'
+  if (period === '凌晨') return `凌晨 ${hh}`
+  return `${period} ${hh}`
+}
+
 // 头像节点：图片 URL 显示图，否则 emoji/字显示在渐变圆上（LAIR / 布置小家共用，跟随全局头像）
 const avatarNode = (val, grad, color, size, extra = {}) => {
   const isImg = typeof val === 'string' && val.startsWith('http')
@@ -434,6 +505,8 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
       </div>
       {/* —— 桌上明信片：钟泽寄回的最新一张（只展示不点击） —— */}
       <PostcardShelf />
+      {/* —— 昨夜留下：钟泽做梦后留在小家的余韵（像桌上多了一张纸） —— */}
+      <DreamCard />
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
