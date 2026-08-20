@@ -385,15 +385,23 @@ const DreamCard = () => {
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let alive = true
-    fetch(`${API_BASE}/api/home/awareness`)
-      .then(r => r.json())
-      .then(d => {
-        if (!alive) return
-        const moments = (d && d.homeMoments) || []
-        setDream(moments.find(m => m.type === 'dream') || null)
-      })
-      .catch(() => {})
-      .finally(() => { if (alive) setLoading(false) })
+    const postcardP = fetch(`${NOWHERE_BASE}/postcards`).then(r => r.json()).catch(() => null)
+    const awareP = fetch(`${API_BASE}/api/home/awareness`).then(r => r.json()).catch(() => null)
+    Promise.all([postcardP, awareP]).then(([pd, ad]) => {
+      if (!alive) return
+      // 他出门寄回明信片（≤7天）时，梦卡让位——桌上只留那张图片，不挤两张纸
+      if (Array.isArray(pd) && pd.length) {
+        const sorted = [...pd].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        const latest = sorted[0]
+        if (latest && latest.created_at) {
+          const age = Math.floor((Date.now() - new Date(latest.created_at).getTime()) / 86400000)
+          if (age <= 7) { setLoading(false); return }
+        }
+      }
+      const moments = (ad && ad.homeMoments) || []
+      setDream(moments.find(m => m.type === 'dream') || null)
+      setLoading(false)
+    })
     return () => { alive = false }
   }, [])
   if (loading) return null
