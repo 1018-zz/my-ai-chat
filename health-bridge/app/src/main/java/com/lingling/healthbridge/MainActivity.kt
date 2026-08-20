@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
                 // 没授全：告诉用户具体缺哪些，并自动再弹一次授权页（只请求缺失的）
                 val names = missing.map(HealthSync::permissionLabel).joinToString("、")
                 statusText.text = "还缺：$names。请把这几项都勾上（授权页里每一项都要开）"
-                requestPermission.launch(missing)
+                launchPermission(missing)
             }
         }
 
@@ -76,8 +76,22 @@ class MainActivity : AppCompatActivity() {
                 else {
                     val names = missing.map(HealthSync::permissionLabel).joinToString("、")
                     statusText.text = "需要先授权：$names（授权页里每一项都要开）"
-                    requestPermission.launch(missing)
+                    launchPermission(missing)
                 }
+            }
+        }
+    }
+
+    /** 弹 Health Connect 授权页；弹不出来（未安装/版本过旧）时给明确指引 */
+    private fun launchPermission(perms: Set<String>) {
+        try {
+            requestPermission.launch(perms)
+        } catch (e: Exception) {
+            statusText.text = "无法打开 Health Connect 授权页。请确认手机装了「Health Connect」应用；" +
+                "也可以去 系统设置 → 应用 → 健康桥 → 权限 → 健康数据 手动勾选后重试"
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
+            } catch (_: Exception) {
             }
         }
     }

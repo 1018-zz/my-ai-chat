@@ -30,7 +30,6 @@ object HealthSync {
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
     )
 
     private val SLEEP_PERM = HealthPermission.getReadPermission(SleepSessionRecord::class)
@@ -98,10 +97,13 @@ object HealthSync {
                 )
                 val avgHr = hrAgg[HeartRateRecord.BPM_AVG]?.toInt()
 
-                val rhrResp = client.readRecords(
-                    ReadRecordsRequest(RestingHeartRateRecord::class, timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
-                )
-                val restingHr = rhrResp.records.maxByOrNull { it.time }?.beatsPerMinute?.toInt()
+                val restingHr = try {
+                    client.readRecords(
+                        ReadRecordsRequest(RestingHeartRateRecord::class, timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
+                    ).records.maxByOrNull { it.time }?.beatsPerMinute?.toInt()
+                } catch (_: Exception) {
+                    null // 静息心率非必须权限，读不到就跳过
+                }
 
                 postDay(date, sleepByDate[date], steps, restingHr, avgHr)
             }
