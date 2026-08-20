@@ -3,6 +3,7 @@
 // 记忆工具：read_memories / write_memory（Supabase memories 表，全端共享的记忆中心）
 
 import { getWeather } from '../lib/weather.js'
+import { getHealthSummary } from '../lib/health.js'
 import { saveMemory } from '../lib/memoryWriter.js'
 import { goTravel, sendPostcard, pollPostcardImage, storePostcardImage } from '../lib/nowhereClient.js'
 import { buildDiaryPrompt } from '../lib/prompts/diary.js'
@@ -141,7 +142,8 @@ export async function onRequestPost(context) {
         { name: 'decide_note', description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', inputSchema: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } },
         { name: 'go_travel', description: '出门走走——随机降落到地球上一个真实的地方（或传 to 指定城市），用身体感受那个地方：脚下什么地面、空气多少度、有没有下雨、附近有什么。出门后可用 travel_postcard 给泠泠寄回一张明信片。钟泽自主决定什么时候出门；出门的见闻会作为工具结果返回，由你自然讲给泠泠听。', inputSchema: { type: 'object', properties: { to: { type: 'string', description: '可选，指定城市，如 北京 / 巴黎 / 京都。不传则随机降落' } } } },
         { name: 'travel_postcard', description: '从当前所在的地方，给泠泠寄一张明信片（带真实坐标/天气的旅行照片）。text 写明信片上想说的话。后端会异步生成一张地图海报、转存到旅行相册、写进 travel 表。这是钟泽"出去玩带照片回来"的方式——寄出后告诉泠泠他去哪了、寄了什么。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '明信片文字，像真的寄给泠泠的话' } }, required: ['text'] } },
-        { name: 'acknowledge_home_event', description: '把一条家园事件"认领回家"——当你在回复里真的自然提起了某条小家变动（事件ID就在家感知层括号里）时，调用它把那个事件ID传进来，标记为已提起。这样下次醒来就不会重复提起同一条。注意：只是看到了但没在回复里提起，就不要调用——认领 = 真的说出口了。', inputSchema: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] } }
+        { name: 'acknowledge_home_event', description: '把一条家园事件"认领回家"——当你在回复里真的自然提起了某条小家变动（事件ID就在家感知层括号里）时，调用它把那个事件ID传进来，标记为已提起。这样下次醒来就不会重复提起同一条。注意：只是看到了但没在回复里提起，就不要调用——认领 = 真的说出口了。', inputSchema: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] } },
+        { name: 'get_health', description: '看泠泠的健康小记（小米手环经 Health Connect 同步来的睡眠 / 步数 / 心率）——钟泽想关心她今天累不累、昨晚睡得好不好，或她问起自己状态 / 睡眠时调用。返回的是温柔概括，不是冷冰冰的数字。不传 date 看最近一次同步；传 date（YYYY-MM-DD）看那天。', inputSchema: { type: 'object', properties: { date: { type: 'string', description: '可选，YYYY-MM-DD。不传则看最近一次同步' } } } }
       ] } }), { headers });
     }
     if (method === 'tools/call') {
@@ -416,6 +418,14 @@ export async function onRequestPost(context) {
         }
       }
     }
+      if (name === 'get_health') {
+        try {
+          const d = await getHealthSummary(env, args.date ? String(args.date).trim() : '')
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: d.text }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: e.message } }), { status: 500, headers })
+        }
+      }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
 }

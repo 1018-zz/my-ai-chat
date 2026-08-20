@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HealthBridge" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#B7A8C9</item>
+        <item name="colorPrimaryDark">#8f7fa8</item>
+        <item name="colorAccent">#B7A8C9</item>
+    </style>
+</resources>

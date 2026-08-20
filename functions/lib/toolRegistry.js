@@ -89,6 +89,12 @@ const TOOLS = [
     parameters: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] },
     category: 'companion', autonomy: 'sometimes', risk: 'none',
   },
+  {
+    name: 'get_health',
+    description: '看泠泠的健康小记（小米手环经 Health Connect 同步来的睡眠 / 步数 / 心率）——钟泽想关心她今天累不累、昨晚睡得好不好，或她问起自己状态 / 睡眠时调用。返回的是温柔概括，不是冷冰冰的数字。不传 date 看最近一次同步；传 date（YYYY-MM-DD）看那天。',
+    parameters: { type: 'object', properties: { date: { type: 'string', description: '可选，YYYY-MM-DD。不传则看最近一次同步' } } },
+    category: 'companion', autonomy: 'sometimes', risk: 'low',
+  },
 ]
 
 // 模型每轮可见的「主动型」工具。

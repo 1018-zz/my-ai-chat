@@ -39,3 +39,9 @@ build-check
 
 # 部署临时包（VPS 打包遗留，不入库）
 wake.zip
+
+# 安卓健康桥（独立模块，构建产物不入库；仅源码纳入）
+health-bridge/build/
+health-bridge/.gradle/
+health-bridge/app/build/
+health-bridge/local.properties
