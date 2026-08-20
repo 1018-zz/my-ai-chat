@@ -38,7 +38,29 @@ export async function onRequestGet(context) {
   if (!includeTools) q += `&role=neq.tool`
   const res = await fetch(q, { headers: sbHeaders(env) })
   const data = await res.json()
-  const messages = Array.isArray(data) ? data : []
+  let messages = Array.isArray(data) ? data : []
+  // 合并「钟泽沉默唤醒」灰字 + 「她在想」小注 + 「梦的余韵」：无对话归属，按时间插入整段时间线，
+  // 作为存在痕（不进对话气泡）。前端 normalize 识别 kind 渲染灰色小字。
+  try {
+    const wr = await fetch(
+      `${SUPABASE}/project_events?type=in.(wake_silent,wake_intent,wake_dream)&select=id,type,summary,created_at&order=created_at.asc`,
+      { headers: sbHeaders(env) }
+    )
+    const wrows = await wr.json()
+    if (Array.isArray(wrows) && wrows.length) {
+      const gray = wrows.map(w => ({
+        id: (w.type || 'wake_silent') + ':' + (w.created_at || ''),
+        role: 'system',
+        kind: w.type || 'wake_silent',
+        content: w.summary || '',
+        created_at: w.created_at,
+        meta: { wakeSilent: w.type === 'wake_silent', wakeIntent: w.type === 'wake_intent', wakeDream: w.type === 'wake_dream' },
+      }))
+      messages = [...messages, ...gray].sort(
+        (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
+      )
+    }
+  } catch (_) { /* 灰字不可达不影响主消息流 */ }
   return new Response(JSON.stringify({ messages }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })

@@ -102,7 +102,7 @@ export async function onRequestPost(context) {
         // breath：时间/摘要/自我认知/记忆广播 在本块注入；纸条与日记痕迹统一走 Home Awareness Layer
         // （单一数据源，前端不再自行感知——见 functions/lib/homeAwareness.js）
         try {
-          const mr = await fetch(`${SUPABASE}/memories?select=summary&order=created_at.desc&limit=10`, { headers: sbHeaders(env) })
+          const mr = await fetch(`${SUPABASE}/memories?select=summary&type=neq.feel&order=created_at.desc&limit=10`, { headers: sbHeaders(env) })
           const mrows = await mr.json()
           const list = Array.isArray(mrows) ? mrows : []
           const important = list.find(r => (r.summary || '').includes('重要'))
@@ -125,8 +125,9 @@ export async function onRequestPost(context) {
           } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n以下内容是你已经拥有的长期记忆与家里近况，不是新发生的事。不要因为看到它们而再次写入记忆库；只有当泠泠说出全新的、尚未记录的重要事实时，才考虑调用 write_memory。\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
-        const orig = messages[sysIdx].content
-        messages = messages.map((m, i) => i === sysIdx ? { ...m, content: orig + extra } : m)
+        // 动态上下文作为尾随 system 消息，保持 messages[0]（systemPrompt）稳定 = 缓存前缀
+        // （设计说明·固定内容放前面，动态内容后置；否则每轮前缀都变，缓存失效）
+        messages = [...messages, { role: 'system', content: extra }]
       }
     } catch (_) {}
 

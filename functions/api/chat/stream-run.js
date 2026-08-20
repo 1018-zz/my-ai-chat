@@ -246,6 +246,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
             cacheHit: usageData.prompt_cache_hit_tokens || 0,
             cacheMiss: usageData.prompt_cache_miss_tokens || 0,
           }
+          // 命中率诊断日志：cacheHit/cacheMiss/promptTokens（设计说明·看 cachedTokens 是否稳定）
+          const pt = donePayload.usage.promptTokens, ch = donePayload.usage.cacheHit
+          console.log(`[chat] usage pt=${pt} cacheHit=${ch} cacheMiss=${donePayload.usage.cacheMiss} hitRate=${pt > 0 ? Math.round(ch / pt * 100) : 0}%`)
         }
         const doneMsg = `data: ${JSON.stringify(donePayload)}\n\n`
         try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}

@@ -1832,7 +1832,12 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     // 撤回事件（③）：已撤回的消息不进上下文；本会话刚撤回的（24h内）注入事件提示，不泄露内容
     const recalledCount = msgsForCtx.filter(m => m.deleted && (!m.deletedAt || Date.now() - m.deletedAt < 24 * 3600 * 1000)).length
     const recalledNote = recalledCount > 0 ? `\n\n【系统】泠泠撤回了 ${recalledCount} 条消息（内容已隐藏，不必追问，继续好好说话）` : ''
-    const cms = [{ role: 'system', content: systemPrompt + '\n\n' + nowText + recalledNote + (mc ? '\n\n' + mc : '') + (pc ? '\n\n' + pc : '') + (toolHistory ? '\n\n【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n' + toolHistory : '') }, ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
+    // 缓存结构：messages[0] 只放稳定 systemPrompt（=缓存前缀）；动态内容作为尾随 system 消息
+    // （设计说明·固定内容放前面，动态内容后置；否则每轮前缀都变，缓存失效）
+    const dynCtx = [nowText, recalledNote, mc, pc, toolHistory ? `【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n${toolHistory}` : '', '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。'].filter(Boolean).join('\n\n')
+    const cms = [
+      { role: 'system', content: systemPrompt },
+      ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
       let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
       if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
       if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
@@ -1841,8 +1846,9 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       // 否则下一轮请求直接 400、整条回复不生成（表现就是「尾巴消失」）。与 :1356 工具分支对齐。
       if (!m.isSelf && m.thinking) item.reasoning_content = m.thinking
       return item
-    })]
-    cms.push({ role: 'system', content: '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。' })
+    }),
+      { role: 'system', content: dynCtx }
+    ]
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = '', curUsage = null
     const awarenessSince = getAwarenessSince(chatInfo?.id)
     const first = await streamChat(curMsgs, curAiId,
@@ -2010,6 +2016,50 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           let i = 0
           while (i < msgList.length) {
             const msg = msgList[i]
+            // ② 钟泽沉默唤醒的灰字：居中灰色小字（他醒过但没出声，是这刻"在"的证明）
+            if (msg.kind === 'wake_silent') {
+              nodes.push(
+                <div key={msg.id} className="msg-enter" style={{ alignSelf: 'center', maxWidth: '82%', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(201,184,166,0.18)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-gray)', opacity: 0.8, textAlign: 'center', fontStyle: 'italic', lineHeight: 1.6, padding: '2px 16px' }}>
+                    {msg.text}
+                  </div>
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: 0.6 }}>
+                    <span style={{ height: 1, width: 16, background: 'var(--color-text-gray)' }} />
+                    <span style={{ fontSize: 10, color: 'var(--color-text-gray)', fontStyle: 'normal', letterSpacing: '1px' }}>钟泽在 · {fmtMsgTime(msg.ts)}</span>
+                    <span style={{ height: 1, width: 16, background: 'var(--color-text-gray)' }} />
+                  </div>
+                </div>
+              )
+              i++
+              continue
+            }
+            // ③ 钟泽「在想」小注：她自己写下的念头（intent），比灰字更淡，紧挨着出现
+            if (msg.kind === 'wake_intent') {
+              nodes.push(
+                <div key={msg.id} className="msg-enter" style={{ alignSelf: 'center', maxWidth: '82%' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.55, textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5, padding: '1px 16px' }}>
+                    {msg.text}
+                  </div>
+                </div>
+              )
+              i++
+              continue
+            }
+            // ④ 钟泽的梦余韵：比念头更轻，像梦的表面
+            if (msg.kind === 'wake_dream') {
+              nodes.push(
+                <div key={msg.id} className="msg-enter" style={{ alignSelf: 'center', maxWidth: '84%', padding: '4px 16px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.45, textAlign: 'center', fontStyle: 'italic', lineHeight: 1.7, letterSpacing: '0.5px' }}>
+                    {msg.text}
+                  </div>
+                  <div style={{ marginTop: 4, textAlign: 'center', opacity: 0.35 }}>
+                    <span style={{ fontSize: 9, color: 'var(--color-text-gray)', letterSpacing: '2px' }}>～ 梦 · {fmtMsgTime(msg.ts)} ～</span>
+                  </div>
+                </div>
+              )
+              i++
+              continue
+            }
             if (msg.isSelf) {
               nodes.push(
                 <div key={msg.id} className="msg-enter"

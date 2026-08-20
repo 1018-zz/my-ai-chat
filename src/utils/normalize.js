@@ -27,6 +27,25 @@ function stripLegacyThinkTags(text) {
 // 统一入口：已统一 → 补兼容字段返回；旧格式 → 迁移
 export function normalizeMessage(raw) {
   if (!raw) return null
+  // 钟泽沉默唤醒的灰字 / 她在想的小注 / 梦的余韵（后端合并进消息流，kind 标记；不进对话气泡，仅作存在痕）
+  if (raw.kind === 'wake_silent' || raw.kind === 'wake_intent' || raw.kind === 'wake_dream') {
+    return {
+      id: raw.id ?? raw.created_at ?? Date.now(),
+      ts: raw.created_at ? new Date(raw.created_at).getTime() : Date.now(),
+      role: 'system-event',
+      kind: raw.kind,
+      isSelf: false,
+      status: 'done',
+      blocks: [{ type: 'text', content: raw.content || '' }],
+      // 过渡期兼容字段
+      text: raw.content || '',
+      thinking: undefined,
+      thinkingDone: false,
+      thinkingDur: 0,
+      toolCalls: [],
+      meta: raw.kind === 'wake_silent' ? { wakeSilent: true } : raw.kind === 'wake_dream' ? { wakeDream: true } : { wakeIntent: true },
+    }
+  }
   if (Array.isArray(raw.blocks)) {
     return {
       ...raw,
