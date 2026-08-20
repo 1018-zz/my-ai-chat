@@ -336,43 +336,64 @@ const TravelAlbum = () => {
 
 // 桌上明信片：钟泽出门（乌有乡）寄回的最新一张，像他顺手放在桌上。只展示、不点击。
 // 规则：取最新一张（新卡自然覆盖旧卡）；0–3天正常展示；3–7天逐渐淡出（透明度降 + 往桌角偏移）；超过7天隐藏。
+// 桌上明信片：钟泽出门（乌有乡）寄回的最新一张，像他顺手放在桌上。
+// 旅行状态的主角：只展示图片（去掉他说的文字）；若他同时做了梦，角上标🌙，点开看梦余韵。
+// 规则：取最新一张（新卡自然覆盖旧卡）；0–3天正常展示；3–7天逐渐淡出；超过7天隐藏（桌面交还梦卡）。
 const PostcardShelf = () => {
   const [card, setCard] = useState(null)
   const [age, setAge] = useState(0)
+  const [dream, setDream] = useState(null)
+  const [open, setOpen] = useState(false)
   useEffect(() => {
     let alive = true
-    fetch(`${NOWHERE_BASE}/postcards`)
-      .then(r => r.json())
-      .then(d => {
-        if (!alive || !Array.isArray(d) || d.length === 0) return
-        const sorted = [...d].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-        const latest = sorted[0]
-        const ts = latest.created_at ? new Date(latest.created_at).getTime() : 0
-        const a = ts ? Math.floor((Date.now() - ts) / 86400000) : 0
-        if (a > 7) return
-        setAge(a)
-        setCard(latest)
-      })
-      .catch(() => {})
+    const postcardP = fetch(`${NOWHERE_BASE}/postcards`).then(r => r.json()).catch(() => null)
+    const awareP = fetch(`${API_BASE}/api/home/awareness`).then(r => r.json()).catch(() => null)
+    Promise.all([postcardP, awareP]).then(([pd, ad]) => {
+      if (!alive || !Array.isArray(pd) || pd.length === 0) return
+      const sorted = [...pd].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+      const latest = sorted[0]
+      const ts = latest.created_at ? new Date(latest.created_at).getTime() : 0
+      const a = ts ? Math.floor((Date.now() - ts) / 86400000) : 0
+      if (a > 7) return
+      setAge(a)
+      setCard(latest)
+      const moments = (ad && ad.homeMoments) || []
+      setDream(moments.find(m => m.type === 'dream') || null)
+    })
     return () => { alive = false }
   }, [])
   if (!card) return null
   const fade = age <= 3 ? 1 : Math.max(0.18, 0.6 - (age - 3) * 0.11)
   const drift = age <= 3 ? 0 : Math.min(20, (age - 3) * 4.5)
   const place = (card.stamp && card.stamp.place) || 'somewhere'
-  const text = card.text || ''
+  const photo = card.front_img
+    ? <img src={NOWHERE_BASE + card.front_img} alt={place} loading="lazy" />
+    : <div className="postcard-shelf__ph">✉️</div>
   return (
-    <div className="postcard-shelf" style={{ opacity: fade, transform: `translateX(${drift}px) rotate(${drift ? 2.2 : -1.4}deg)` }} aria-hidden="true">
-      <div className="postcard-shelf__tape" />
-      <div className="postcard-shelf__photo">
-        {card.front_img
-          ? <img src={NOWHERE_BASE + card.front_img} alt={place} loading="lazy" />
-          : <div className="postcard-shelf__ph">✉️</div>}
+    <>
+      <div
+        className="postcard-shelf"
+        style={{ opacity: fade, transform: `translateX(${drift}px) rotate(${drift ? 2.2 : -1.4}deg)`, cursor: dream ? 'pointer' : 'default' }}
+        onClick={dream ? () => setOpen(true) : undefined}
+      >
+        <div className="postcard-shelf__tape" />
+        {dream && <div className="postcard-shelf__moon">🌙</div>}
+        <div className="postcard-shelf__photo">{photo}</div>
+        <div className="postcard-shelf__place">{place}</div>
+        {/* 旅行时只留图片：去掉他说的文字(text)与“钟泽从外面寄回的”(from) */}
       </div>
-      <div className="postcard-shelf__place">{place}</div>
-      {text && <div className="postcard-shelf__text">{text}</div>}
-      <div className="postcard-shelf__from">钟泽从外面寄回的</div>
-    </div>
+      {open && dream && (
+        <div className="dream-sheet-mask" onClick={() => setOpen(false)}>
+          <div className="dream-sheet" onClick={(e) => e.stopPropagation()}>
+            {card.front_img && <img className="postcard-sheet__img" src={NOWHERE_BASE + card.front_img} alt={place} />}
+            <div className="postcard-sheet__place">{place}</div>
+            <div className="dream-sheet__title">昨夜的余韵</div>
+            <div className="dream-sheet__content">{dream.content}</div>
+            <div className="dream-sheet__note">这不是记忆，只是醒来时留下的一点想象。</div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -383,19 +404,20 @@ const DreamCard = () => {
   const [dream, setDream] = useState(null)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [hidden, setHidden] = useState(false)
   useEffect(() => {
     let alive = true
     const postcardP = fetch(`${NOWHERE_BASE}/postcards`).then(r => r.json()).catch(() => null)
     const awareP = fetch(`${API_BASE}/api/home/awareness`).then(r => r.json()).catch(() => null)
     Promise.all([postcardP, awareP]).then(([pd, ad]) => {
       if (!alive) return
-      // 他出门寄回明信片（≤7天）时，梦卡让位——桌上只留那张图片，不挤两张纸
+      // 他出门寄回明信片（≤7天）时，梦卡彻底隐退——桌面交给明信片（它会在角上标🌙、点开附梦余韵）
       if (Array.isArray(pd) && pd.length) {
         const sorted = [...pd].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
         const latest = sorted[0]
         if (latest && latest.created_at) {
           const age = Math.floor((Date.now() - new Date(latest.created_at).getTime()) / 86400000)
-          if (age <= 7) { setLoading(false); return }
+          if (age <= 7) { setHidden(true); setLoading(false); return }
         }
       }
       const moments = (ad && ad.homeMoments) || []
@@ -404,7 +426,7 @@ const DreamCard = () => {
     })
     return () => { alive = false }
   }, [])
-  if (loading) return null
+  if (loading || hidden) return null
   if (!dream) {
     return (
       <div className="dream-card dream-card--empty">

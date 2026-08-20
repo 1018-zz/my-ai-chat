@@ -213,6 +213,18 @@ body[data-time='night'] .lair-room    { background: var(--weather-tint, transpar
   margin-top: 6px;
   opacity: .7;
 }
+/* 旅行中他也做了梦：图片角上的月光紫弱标记，点开看余韵 */
+.postcard-shelf__moon {
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1;
+  background: rgba(251, 247, 240, 0.92);
+  box-shadow: 0 1px 4px rgba(120, 100, 90, 0.28);
+  z-index: 2;
+}
 
 /* —— 布置小家 · 头像卡片 —— */
 .decor-avatar-card {

@@ -94,5 +94,18 @@
   font-size: 12px; color: #A99BB8;
   text-align: center; line-height: 1.7;
 }
+/* 旅行明信片点开后的大图 + 地点（与梦余韵共用底部 sheet） */
+.postcard-sheet__img {
+  width: 100%;
+  max-height: 46vh;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(80, 60, 90, 0.15);
+}
+.postcard-sheet__place {
+  font-size: 12px; font-weight: 600;
+  color: #8E7FA6; margin-bottom: 14px; text-align: center;
+}
 @keyframes dreamUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes dreamFade { from { opacity: 0; } to { opacity: 1; } }
