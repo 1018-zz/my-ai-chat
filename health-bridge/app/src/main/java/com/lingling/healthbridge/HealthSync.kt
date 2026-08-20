@@ -75,14 +75,14 @@ object HealthSync {
                 val dayEnd = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
 
                 val stepsAgg = client.aggregate(
-                    AggregateRequest(setOf(StepsRecord.COUNT), timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
+                    AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
                 )
-                val steps = stepsAgg[StepsRecord.COUNT]?.toInt()
+                val steps = stepsAgg[StepsRecord.COUNT_TOTAL]?.toInt()
 
                 val hrAgg = client.aggregate(
-                    AggregateRequest(setOf(HeartRateRecord.BPM), timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
+                    AggregateRequest(setOf(HeartRateRecord.BPM_AVG), timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
                 )
-                val avgHr = hrAgg[HeartRateRecord.BPM]?.average?.toInt()
+                val avgHr = hrAgg[HeartRateRecord.BPM_AVG]?.toInt()
 
                 val rhrResp = client.readRecords(
                     ReadRecordsRequest(RestingHeartRateRecord::class, timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)),
