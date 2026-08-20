@@ -61,9 +61,15 @@ const TOOLS = [
   },
   {
     name: 'get_weather',
-    description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市（默认云南省普洱市镇沅县）的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。当她想出门、问天气、或我想她知道外面的天气时调用。参数 city 可选指定城市。',
-    parameters: { type: 'object', properties: { city: { type: 'string', description: '可选，城市名（拼音或中文）。默认镇沅县。如 zhenyuan / kunming / 昆明' } } },
+    description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。不传 city 时自动用她当前所在（你记下的位置），她问天气/想出门/你自然感知窗外时调用。参数 city 可选指定别的城市。',
+    parameters: { type: 'object', properties: { city: { type: 'string', description: '可选，指定城市（拼音或中文）。不传则用泠泠当前所在，如 zhenyuan / kunming / 昆明' } } },
     category: 'companion', autonomy: 'always', risk: 'low',
+  },
+  {
+    name: 'set_location',
+    description: '记下落泠泠现在所在的城市（位置感知的开关）——她告诉你"我到昆明啦""我回镇沅了"或搬家时调用。写入后天气、状态牌、你的感知都跟着变成那个地方。city 用拼音/英文（如 kunming / shanghai / zhenyuan），city_cn 用中文名（如 昆明 / 上海 / 镇沅县）。',
+    parameters: { type: 'object', properties: { city: { type: 'string', description: '城市（拼音或英文），如 kunming / shanghai / zhenyuan' }, city_cn: { type: 'string', description: '中文城市名，如 昆明 / 上海 / 镇沅县' } }, required: ['city'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'low',
   },
   {
     name: 'go_travel',

@@ -2,6 +2,7 @@
 import { runStream } from './stream-run.js'
 import { getHomeAwareness, noteTimeLabel } from '../../lib/homeAwareness.js'
 import { getChatTools } from '../../lib/toolRegistry.js'
+import { getWeather } from '../../lib/weather.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -121,6 +122,16 @@ export async function onRequestPost(context) {
             if (awareness.events.length > 0) {
               const lines = awareness.events.map(e => describeHomeEvent(e))
               parts.push(`【家里最近】（家感知层）\n${lines.join('\n')}\n${awareness.instruction}`)
+            }
+          } catch (_) {}
+          // 窗外 / 你在哪：天气作为环境感知，钟泽自然知道泠泠所在与窗外天色
+          // （之前没通的核心链路——不必等她问，睁眼就感知）。这是环境，不是新发生的事，合适时自然带一句即可。
+          try {
+            const w = await getWeather(null, env)
+            if (w && w.feeling && w.feeling.text) {
+              const where = w.location?.cityCn || w.location?.city || ''
+              const tag = where ? `（泠泠在${where}）` : ''
+              parts.push(`【窗外】${tag}${w.feeling.text}${w.rhinitis || ''}`)
             }
           } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n以下内容是你已经拥有的长期记忆与家里近况，不是新发生的事。不要因为看到它们而再次写入记忆库；只有当泠泠说出全新的、尚未记录的重要事实时，才考虑调用 write_memory。\n${parts.map(p => `• ${p}`).join('\n')}`

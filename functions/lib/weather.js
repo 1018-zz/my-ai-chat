@@ -6,6 +6,26 @@
 // 返回分两层：旧字段（兼容 mcp.js / 前端状态牌）+ 新结构化（environment / feeling / homeAtmosphere）。
 
 const WTTRLANG = 'zh'
+const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
+function sbHeaders(env) { return { 'apikey': env.SUPABASE_SECRET_KEY, 'Authorization': `Bearer ${env.SUPABASE_SECRET_KEY}`, 'Content-Type': 'application/json' } }
+
+// 读泠泠当前所在城市（位置感知单一数据源：user_location 单行 id=1）。
+// 失败 / 未配密钥 / 表还没建 → 回退镇沅县，绝不抛错打断主链路。
+export async function resolveLocation(env) {
+  const fallback = { city: 'Zhenyuan', cityCn: '镇沅县' }
+  if (!env || !env.SUPABASE_SECRET_KEY) return fallback
+  try {
+    const r = await fetch(`${SUPABASE}/user_location?id=eq.1&select=city,city_cn&limit=1`, { headers: sbHeaders(env) })
+    if (!r.ok) return fallback
+    const rows = await r.json()
+    const row = Array.isArray(rows) && rows[0]
+    if (!row) return fallback
+    return {
+      city: (row.city ? String(row.city).trim() : 'Zhenyuan') || 'Zhenyuan',
+      cityCn: row.city_cn ? String(row.city_cn).trim() : '',
+    }
+  } catch (_) { return fallback }
+}
 
 // 天气描述词表：抗 wttr.in 的变体（Light rain shower / Patchy rain possible / Heavy rain…）
 const WEATHER_MAP = {
@@ -121,29 +141,44 @@ function deriveHomeAtmosphere(env) {
 }
 
 // ⑤ 拼装：兼容旧字段 + 新结构化
-export async function getWeather(city = 'Zhenyuan') {
-  const raw = await parseWeather(city)
-  const env = analyzeEnvironment(raw)
-  const feeling = getLingLingFeeling({ ...raw, ...env })
-  const hard = `${env.place} · ${env.season} · ${env.sky} · ${env.period} · ${env.wind} · ${env.humidity}`
-  const numbers = `${raw.tempC}°C（体感 ${raw.feelsC}°C）｜湿度 ${raw.humidity}%｜${env.wind}｜${env.sky}｜日出 ${raw.sunRise} 日落 ${raw.sunSet}`
-  const rhinitis = env.season === '春' ? '（春天你鼻炎容易犯，出门记得带上纸。）' : ''
+// 城市解析优先级：显式传入 city（如钟泽问某城天气）> 库里泠泠当前所在（user_location）> 镇沅县兜底。
+export async function getWeather(city, env) {
+  let usedCity, usedCn
+  if (city && String(city).trim()) {
+    usedCity = String(city).trim()
+    usedCn = ''
+  } else if (env) {
+    const loc = await resolveLocation(env)
+    usedCity = loc.city
+    usedCn = loc.cityCn
+  } else {
+    usedCity = 'Zhenyuan'
+    usedCn = '镇沅县'
+  }
+  const raw = await parseWeather(usedCity)
+  const env2 = analyzeEnvironment(raw)
+  const feeling = getLingLingFeeling({ ...raw, ...env2 })
+  const hard = `${env2.place} · ${env2.season} · ${env2.sky} · ${env2.period} · ${env2.wind} · ${env2.humidity}`
+  const numbers = `${raw.tempC}°C（体感 ${raw.feelsC}°C）｜湿度 ${raw.humidity}%｜${env2.wind}｜${env2.sky}｜日出 ${raw.sunRise} 日落 ${raw.sunSet}`
+  const rhinitis = env2.season === '春' ? '（春天你鼻炎容易犯，出门记得带上纸。）' : ''
   const wx = `${feeling.text}${rhinitis}\n\n[坐标] ${hard}\n[数据] ${numbers}${raw.maxT ? `｜今日 ${raw.minT}~${raw.maxT}°C` : ''}`
-  const homeAtmosphere = deriveHomeAtmosphere(env)
+  const homeAtmosphere = deriveHomeAtmosphere(env2)
   return {
     // —— 兼容旧字段（mcp.js 用 wx；前端状态牌用 sky/seed/season/period/tempC）——
-    areaName: env.place, region: raw.region, tempC: raw.tempC, feelsC: raw.feelsC,
+    areaName: env2.place, region: raw.region, tempC: raw.tempC, feelsC: raw.feelsC,
     humidity: raw.humidity, windspeed: raw.windspeed, weatherDesc: raw.weatherDesc, cloud: raw.cloud,
     sunRise: raw.sunRise, sunSet: raw.sunSet, maxT: raw.maxT, minT: raw.minT,
-    season: env.season, period: env.period, sky: env.sky, windLevel: env.wind, moist: env.humidity,
+    season: env2.season, period: env2.period, sky: env2.sky, windLevel: env2.wind, moist: env2.humidity,
     seed: feeling.text, rhinitis, hard, numbers, wx,
     // —— 新结构化 ——
     raw: {
       tempC: raw.tempC, feelsC: raw.feelsC, humidity: raw.humidity,
       windspeed: raw.windspeed, cloud: raw.cloud, weatherDesc: raw.weatherDesc,
     },
-    environment: env,
+    environment: env2,
     feeling,
     homeAtmosphere,
+    // —— 位置：泠泠当前所在（供状态牌/感知层展示「你在哪」）——
+    location: { city: usedCity, cityCn: usedCn },
   }
 }

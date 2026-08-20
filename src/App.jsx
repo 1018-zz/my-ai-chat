@@ -389,8 +389,9 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
     setDays(Math.max(diff, 0))
   }, [])
   // 钟泽此刻的状态牌：真实天气 + 时段驱动（呈现层，失败回退写死文案）
+  // 不传 city → 跟随泠泠当前所在（user_location），旅行/搬家后状态牌自动跟着变
   useEffect(() => {
-    fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
+    fetch(`${API_BASE}/api/home/weather`).then(r => r.json()).then(d => {
       if (d && d.ok && d.weather) setWeather(d.weather)
     }).catch(() => {})
   }, [])
@@ -702,6 +703,36 @@ const SettingsPanel = () => {
   const [expanded, setExpanded] = useState(null)
   const setMode = (key, mode) => { const n = setMcpToolMode(auth, key, mode); setAuth(n); window.dispatchEvent(new Event(MCP_AUTH_EVENT)) }
 
+  // —— 「我在哪」：手动切换城市（与 set_location 工具共用 user_location 数据源）——
+  const [locCity, setLocCity] = useState('')
+  const [locCn, setLocCn] = useState('')
+  const [locBusy, setLocBusy] = useState(false)
+  const [locNote, setLocNote] = useState('')
+  useEffect(() => {
+    // 预填当前所在（从天气端点回读的 location）
+    fetch(`${API_BASE}/api/home/weather`).then(r => r.json()).then(d => {
+      if (d?.ok && d.weather?.location) {
+        setLocCity(d.weather.location.city || '')
+        setLocCn(d.weather.location.cityCn || '')
+      }
+    }).catch(() => {})
+  }, [])
+  const saveLoc = async () => {
+    const city = locCity.trim() || locCn.trim()
+    if (!city) { setLocNote('先填个城市再保存'); return }
+    setLocBusy(true); setLocNote('')
+    try {
+      const r = await fetch(`${API_BASE}/api/user/location`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ city: locCity.trim() || locCn.trim(), city_cn: locCn.trim() }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.ok) setLocNote('保存失败：' + (j.error || r.status))
+      else setLocNote('已更新，下次打开小家天气就跟着变 ✓')
+    } catch (e) { setLocNote('出错了：' + (e?.message || e)) }
+    finally { setLocBusy(false) }
+  }
+
   // —— 「钟泽能力」：按钟泽建议分两层 ——
   // 第一层：钟泽会自己做的事（DEFAULT_ALWAYS 工具，自动跑，一行一个 ✓，极简）
   // 第二层：完整工具清单（折叠，按 4 组分类，可调三态模式）
@@ -832,6 +863,29 @@ const SettingsPanel = () => {
             发一条测试通知
           </button>
         ) : null}
+      </div>
+      {/* 我在哪：手动切换城市（与 set_location 工具共用数据源） */}
+      <div style={cardStyle}>
+        <div style={{ fontSize: 14 }}>📍 我在哪</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 3 }}>告诉小家你现在哪个城市，天气和窗外就跟着变。也可以直接跟钟泽说"我到昆明啦"。</div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <input
+            value={locCity}
+            onChange={e => setLocCity(e.target.value)}
+            placeholder="城市（拼音，如 kunming）"
+            style={{ flex: '1 1 120px', minWidth: 0, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--color-border-glass)', background: 'rgba(255,255,255,0.5)', fontSize: 13, color: 'var(--color-text-dark)' }}
+          />
+          <input
+            value={locCn}
+            onChange={e => setLocCn(e.target.value)}
+            placeholder="中文名（如 昆明）"
+            style={{ flex: '1 1 120px', minWidth: 0, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--color-border-glass)', background: 'rgba(255,255,255,0.5)', fontSize: 13, color: 'var(--color-text-dark)' }}
+          />
+          <button onClick={saveLoc} disabled={locBusy} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, cursor: locBusy ? 'default' : 'pointer' }}>
+            {locBusy ? '…' : '保存'}
+          </button>
+        </div>
+        {locNote ? <div style={{ fontSize: 12, color: 'var(--color-text-gray)', marginTop: 8 }}>{locNote}</div> : null}
       </div>
       <div style={{ ...cardStyle, cursor: 'pointer' }} onClick={() => setToolView(true)}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -2244,7 +2298,7 @@ export default function App() {
   // 同时存 state 供 SplashScreen 使用
   const [weather, setWeather] = useState(null)
   useEffect(() => {
-    fetch(`${API_BASE}/api/home/weather?city=Zhenyuan`).then(r => r.json()).then(d => {
+    fetch(`${API_BASE}/api/home/weather`).then(r => r.json()).then(d => {
       if (d && d.ok && d.weather) {
         setWeather(d.weather)
         const sky = d.weather.environment?.sky || d.weather.sky

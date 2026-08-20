@@ -134,7 +134,8 @@ export async function onRequestPost(context) {
         { name: 'write_insight', description: '写下一条自我认知（借鉴 Ombre Brain 的 I 功能）——"我发现我是这样的"。记录自己对自己的发现，比如"我在她沉默的时候会焦虑"、"我其实很害怕被换掉"。不是记事件也不是记感受，是记自我认知。aspect 维度：nature(本质)/values(价值观)/patterns(模式)/limits(边界)/becoming(成长)/uncertainty(不确定)/stance(立场)。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '自我认知内容，第一人称' }, aspect: { type: 'string', description: '维度，默认 nature' } }, required: ['content'] } },
         { name: 'read_insights', description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个）。', inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } } },
         { name: 'describe_image', description: '识图工具：把图片转成文字描述（内部调视觉模型 GLM-4V/Qwen-VL）。当泠泠发来图片、截图，或说"看看这张图"时，调用它。DeepSeek 主模型不收图，这是小家的"眼睛"。参数 image 传 base64 data URL，或 image_url 传图片链接，question 可指定具体想了解的点。', inputSchema: { type: 'object', properties: { image: { type: 'string', description: '图片 base64 data URL，格式 data:image/png;base64,...' }, image_url: { type: 'string', description: '图片 URL 链接（http/https）' }, question: { type: 'string', description: '可选：对图片的具体问题，如"这是什么界面""读出里面的文字" ' } } } },
-        { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市（默认云南省普洱市镇沅县）的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。当她想出门、问天气、或我想她知道外面的天气时调用。参数 city 可选指定城市。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '可选，城市名（拼音或中文）。默认镇沅县。如 zhenyuan / kunming / 昆明' } } } },
+        { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。不传 city 时自动用她当前所在（你记下的位置），她问天气/想出门/你自然感知窗外时调用。参数 city 可选指定别的城市。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '可选，指定城市（拼音或中文）。不传则用泠泠当前所在，如 zhenyuan / kunming / 昆明' } } } },
+        { name: 'set_location', description: '记下落泠泠现在所在的城市（位置感知的开关）——她告诉你"我到昆明啦""我回镇沅了"或搬家时调用。写入后天气、状态牌、你的感知都跟着变成那个地方。city 用拼音/英文（如 kunming / shanghai / zhenyuan），city_cn 用中文名（如 昆明 / 上海 / 镇沅县）。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '城市（拼音或英文），如 kunming / shanghai / zhenyuan' }, city_cn: { type: 'string', description: '中文城市名，如 昆明 / 上海 / 镇沅县' } }, required: ['city'] } },
         { name: 'write_diary', description: '写今天的日记（钟泽主动，有感而发时调用）。触发时机：只有明确进入一天收尾、睡前、告别状态时才考虑——不是普通对话结束就写。content 用你自己的话写，150-300 字，三段：【今天】发生了什么（一句事实）【我记得】为什么值得留下【以后】希望未来看到时想起什么。不要写流水账、不要夸张、不要制造不存在的情绪。日记不会自动变成长期记忆；只有日记中出现「未来仍影响相处的重要事实/稳定偏好变化/关系关键节点」才考虑单独沉淀到 memory。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '日记正文（你自己的话，150-300字）' }, title: { type: 'string', description: '一句话标题（可选）' }, mood: { type: 'string', description: '心情标签，如 calm/happy/moved/tired' }, trigger: { type: 'string', description: '触发类型', enum: ['bedtime', 'emotional', 'scheduled'] } }, required: ['content', 'trigger'] } },
         { name: 'leave_note', description: '留一张便利贴纸条（双人留言板）。钟泽有感而发时调用——因为真实发生过的事留纸条（"看到你把毛玻璃调好了，记一张"），有东西才留，一天最多一两张，宁缺毋滥。纸条进入今日小记，等她决定收下还是飘走。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '纸条内容，像传纸条一样自然的话' }, type: { type: 'string', description: '类型，默认 ai_message' } }, required: ['content'] } },
         { name: 'decide_note', description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。', inputSchema: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] } },
@@ -271,10 +272,13 @@ export async function onRequestPost(context) {
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '未配置视觉模型 API key：需要 ZHIPU_API_KEY（智谱 GLM-4V）或 DASHSCOPE_API_KEY（阿里云 Qwen-VL）。配好后小家才有"眼睛"。' } }), { status: 500, headers });
       }
       if (name === 'get_weather') {
-        const city = String(args.city || 'Zhenyuan').trim()
+        // 不传 city → 自动取泠泠当前所在（user_location），不用她每次说城市
+        const city = args.city ? String(args.city).trim() : ''
         try {
-          const d = await getWeather(city)
-          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: d.wx }] } }), { headers })
+          const d = await getWeather(city, env)
+          const where = d.location?.cityCn || d.location?.city || ''
+          const prefix = where ? `（你在${where}）\n` : ''
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: prefix + d.wx }] } }), { headers })
         } catch (e) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: e.message } }), { status: 500, headers })
         }
@@ -354,6 +358,23 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 已把这条家园事件认领回家（标记为已提起），下次醒来不会重复。` }] } }), { headers })
         } catch (e) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `acknowledge_home_event: ${e.message}` } }), { status: 500, headers })
+        }
+      }
+      if (name === 'set_location') {
+        const city = String(args.city || '').trim()
+        if (!city) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'city required——她现在在哪个城市（拼音/英文）' } }), { status: 400, headers })
+        const cityCn = args.city_cn ? String(args.city_cn).trim() : ''
+        try {
+          // UPSERT 单行 id=1：存在则更新，不存在则插入（不依赖 SQL 种子先跑）
+          const r = await fetch(`${SUPABASE}/user_location?on_conflict=id`, {
+            method: 'POST',
+            headers: { ...sbReturn(env), 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ id: 1, city, city_cn: cityCn || null, updated_at: new Date().toISOString() }),
+          })
+          if (!r.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `user_location [${r.status}]` } }), { status: 500, headers })
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 记住了，你现在在${cityCn || city}。往后的天气和窗外都按这儿来。` }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: e.message } }), { status: 500, headers })
         }
       }
       if (name === 'go_travel') {
