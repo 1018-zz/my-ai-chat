@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace 'com.lingling.healthbridge'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.lingling.healthbridge"
