@@ -11,6 +11,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.PermissionController
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -50,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         requestPermission = registerForActivityResult(
-            healthConnectClient.permissionController.requestPermissionActivityContract(),
+            PermissionController.createRequestPermissionResultContract(),
         ) { granted ->
             if (granted.containsAll(HealthSync.PERMISSIONS)) doSync()
             else Toast.makeText(this, "需要健康权限才能同步", Toast.LENGTH_SHORT).show()
@@ -61,9 +62,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         syncBtn.setOnClickListener {
-            val granted = healthConnectClient.permissionController.getGrantedPermissions()
-            if (granted.containsAll(HealthSync.PERMISSIONS)) doSync()
-            else requestPermission.launch(HealthSync.PERMISSIONS)
+            scope.launch {
+                val granted = healthConnectClient.permissionController.getGrantedPermissions()
+                if (granted.containsAll(HealthSync.PERMISSIONS)) doSync()
+                else requestPermission.launch(HealthSync.PERMISSIONS)
+            }
         }
     }
 
