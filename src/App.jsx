@@ -219,11 +219,16 @@ function weatherToLair(w) {
   // 状态牌：窗外感知（弱化天气参数）+ 家居氛围正文（钟泽/泠泠语气，不是天气摘要）
   const moodTag = WINDOW_PHRASE[sky] || '🪟 窗外'
   const moodText = ha.message || feeling.text || '今天家里刚刚好'
-  // 钟泽此刻在做什么：人在家里的状态，不是天气读数
-  let stateText = period === '深夜' ? '还没睡，在灯下坐着'
-    : period === '夜晚' && sky !== '晴' ? '在灯下发呆'
-    : period === '傍晚' && sky === '晴' ? '在窗边看夕阳'
-    : WEATHER_STATE[sky] || '在窗边发呆'
+  // 钟泽此刻在做什么：以【时段】为主、【天气】为辅，绝不露机器标签。
+  // 关键：夜里亮晴不能显示「在晒太阳」，深夜统一在灯下，晴天才分早晚场景。
+  let stateText
+  if (period === '深夜') stateText = '还没睡，在灯下坐着'
+  else if (period === '夜晚' && sky !== '晴') stateText = '在灯下发呆'
+  else if (period === '夜晚' && sky === '晴') stateText = '在窗边看星星'
+  else if (period === '傍晚' && sky === '晴') stateText = '在窗边看夕阳'
+  else if (period === '早晨' && sky === '晴') stateText = '在窗边接晨光'
+  else if ((period === '上午' || period === '中午' || period === '下午') && sky === '晴') stateText = '在晒太阳'
+  else stateText = WEATHER_STATE[sky] || '在窗边发呆'
   return { tint, moodTag, moodText, stateText }
 }
 // 收起来的明信片：钟泽出门（乌有乡）寄回的明信片墙。直接读 VPS 上 nowhere 服务的 /postcards，
@@ -872,13 +877,13 @@ const SettingsPanel = () => {
           <input
             value={locCity}
             onChange={e => setLocCity(e.target.value)}
-            placeholder="城市（拼音，如 kunming）"
+            placeholder="城市名（中文即可，如 昆明）"
             style={{ flex: '1 1 120px', minWidth: 0, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--color-border-glass)', background: 'rgba(255,255,255,0.5)', fontSize: 13, color: 'var(--color-text-dark)' }}
           />
           <input
             value={locCn}
             onChange={e => setLocCn(e.target.value)}
-            placeholder="中文名（如 昆明）"
+            placeholder="中文名（展示用，可留空）"
             style={{ flex: '1 1 120px', minWidth: 0, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--color-border-glass)', background: 'rgba(255,255,255,0.5)', fontSize: 13, color: 'var(--color-text-dark)' }}
           />
           <button onClick={saveLoc} disabled={locBusy} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, cursor: locBusy ? 'default' : 'pointer' }}>
