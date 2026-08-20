@@ -53,8 +53,15 @@ class MainActivity : AppCompatActivity() {
         requestPermission = registerForActivityResult(
             PermissionController.createRequestPermissionResultContract(),
         ) { granted ->
-            if (granted.containsAll(HealthSync.PERMISSIONS)) doSync()
-            else Toast.makeText(this, "需要健康权限才能同步", Toast.LENGTH_SHORT).show()
+            val missing = HealthSync.PERMISSIONS - granted
+            if (missing.isEmpty()) {
+                doSync()
+            } else {
+                // 没授全：告诉用户具体缺哪些，并自动再弹一次授权页（只请求缺失的）
+                val names = missing.map(HealthSync::permissionLabel).joinToString("、")
+                statusText.text = "还缺：$names。请把这几项都勾上（授权页里每一项都要开）"
+                requestPermission.launch(missing)
+            }
         }
 
         autoToggle.setOnCheckedChangeListener { _, on ->
@@ -64,8 +71,13 @@ class MainActivity : AppCompatActivity() {
         syncBtn.setOnClickListener {
             scope.launch {
                 val granted = healthConnectClient.permissionController.getGrantedPermissions()
-                if (granted.containsAll(HealthSync.PERMISSIONS)) doSync()
-                else requestPermission.launch(HealthSync.PERMISSIONS)
+                val missing = HealthSync.PERMISSIONS - granted
+                if (missing.isEmpty()) doSync()
+                else {
+                    val names = missing.map(HealthSync::permissionLabel).joinToString("、")
+                    statusText.text = "需要先授权：$names（授权页里每一项都要开）"
+                    requestPermission.launch(missing)
+                }
             }
         }
     }

@@ -33,6 +33,20 @@ object HealthSync {
         HealthPermission.getReadPermission(RestingHeartRateRecord::class),
     )
 
+    private val SLEEP_PERM = HealthPermission.getReadPermission(SleepSessionRecord::class)
+    private val STEPS_PERM = HealthPermission.getReadPermission(StepsRecord::class)
+    private val HR_PERM = HealthPermission.getReadPermission(HeartRateRecord::class)
+    private val RHR_PERM = HealthPermission.getReadPermission(RestingHeartRateRecord::class)
+
+    /** 权限字符串 → 中文名，给授权提示用 */
+    fun permissionLabel(p: String): String = when (p) {
+        SLEEP_PERM -> "睡眠"
+        STEPS_PERM -> "步数"
+        HR_PERM -> "心率"
+        RHR_PERM -> "静息心率"
+        else -> p
+    }
+
     data class SleepAgg(
         var minutes: Int = 0,
         var deep: Int = 0,
