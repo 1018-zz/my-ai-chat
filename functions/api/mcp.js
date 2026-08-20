@@ -417,7 +417,6 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: msg } }), { status: 500, headers })
         }
       }
-    }
       if (name === 'get_health') {
         try {
           const d = await getHealthSummary(env, args.date ? String(args.date).trim() : '')
@@ -426,6 +425,7 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: e.message } }), { status: 500, headers })
         }
       }
+    }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'Unknown method' } }), { status: 400, headers });
   } catch (error) { return new Response(JSON.stringify({ jsonrpc: '2.0', error: { message: error.message } }), { status: 500, headers }); }
 }

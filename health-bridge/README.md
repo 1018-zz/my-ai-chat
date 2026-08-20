@@ -25,26 +25,21 @@ Supabase health_data 表
 
 ## 部署步骤
 
-### 1. VPS 端（小家后端）
-- 在 VPS 的 `.env` 增加一行（与 App 端 `Config.HEALTH_TOKEN` 完全一致）：
-  ```
-  HEALTH_SYNC_TOKEN=xiaojia-health-bridge-change-me
-  ```
-  改成你自己的随机串。
-- 在 Supabase 后台 SQL Editor 执行：`supabase/health_data.sql`
-- 部署小家（含新增的 `functions/api/health/sync.js` 与 `get_health` 工具）：
-  ```
-  ./deploy.sh
-  ```
+### 1. VPS 端（小家后端）—— 已完成 ✅
+- `HEALTH_SYNC_TOKEN` 已写入 VPS `.env`（随机串，不进 git）。
+- `functions/api/health/sync.js` 与 `get_health` 工具已部署：`/healthz` 200、无 token → 401。
+- **唯一待办**：Supabase 后台 SQL Editor 执行 `supabase/health_data.sql`（建表 + RLS）。
 
 ### 2. App 端（本目录）
-1. 改 `app/src/main/java/com/lingling/healthbridge/Config.kt`：
-   - `SERVER_URL`：你的小家域名（如 `https://ling1018.com`）。
-   - `HEALTH_TOKEN`：与 VPS 端 `HEALTH_SYNC_TOKEN` 完全相同。
-2. 用 **Android Studio** 打开本目录（Gradle 会自动同步；Android 14+ 或 Android 13 装好 Health Connect App）。
+1. `Config.kt` 的 `SERVER_URL` 确认是你的小家域名（当前 `https://ling1018.com`）；`HEALTH_TOKEN` 已与 VPS 端对齐，本机保留真值、已 `skip-worktree` 保护——**不会被 push 到 GitHub**。若要改 token，先执行：
+   ```
+   git update-index --no-skip-worktree health-bridge/app/src/main/java/com/lingling/healthbridge/Config.kt
+   ```
+2. 用 **Android Studio** 打开本目录（首次会下载 AGP 8.5.2 / Kotlin 1.9.24 等依赖；用 Studio 自带 Gradle 即可，工程未带 wrapper）。
 3. `Build → Build Bundle(s) / APK → Build APK`，装到手机。
 4. 打开 App → 授权 Health Connect（睡眠 / 步数 / 心率）→ 点「立即同步」。
 5. 如需每天自动同步，打开「每天自动同步」开关（WorkManager 每日执行）。
+6. Android 14+ 系统自带 Health Connect；Android 13 需先装 Health Connect App。
 
 ## 同步字段
 
