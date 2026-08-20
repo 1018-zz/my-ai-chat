@@ -36,3 +36,6 @@ build-check
 
 # Agent private memory / runtime
 .workbuddy/
+
+# 部署临时包（VPS 打包遗留，不入库）
+wake.zip
