@@ -32,6 +32,16 @@ function checkToken(request, env) {
   return expect && token === expect
 }
 
+// GET 场景：浏览器地址栏直接触发时 token 在 query 参数里，这里兼容 query token
+function checkTokenWithQuery(request, env) {
+  if (checkToken(request, env)) return true
+  try {
+    const params = new URL(request.url).searchParams
+    const expect = env.DRIFT_TOKEN || DEFAULT_TOKEN
+    return expect && params.get('token') === expect
+  } catch { return false }
+}
+
 async function forward(payload) {
   const r = await fetch(GARDEN_URL, {
     method: 'POST',
@@ -76,13 +86,13 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-export async function onRequestGet({ request, env, url }) {
-  // 仅支持 prepare，方便泠泠在浏览器地址栏直接触发
+export async function onRequestGet({ request, env }) {
+  // 仅支持 prepare，方便泠泠在浏览器地址栏直接触发（token 走 query 或 x-drift-token 头）
   try {
-    if (!checkToken(request, env)) {
+    if (!checkTokenWithQuery(request, env)) {
       return json(401, { ok: false, error: 'unauthorized' })
     }
-    const params = new URL(url).searchParams
+    const params = new URL(request.url).searchParams
     if (params.get('action') !== 'prepare') {
       return json(400, { ok: false, error: 'GET only supports action=prepare' })
     }
