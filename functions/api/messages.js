@@ -32,11 +32,13 @@ export async function onRequestGet(context) {
   }
   const includeDeleted = url.searchParams.get('includeDeleted') === '1'
   const includeTools = url.searchParams.get('includeTools') === '1'
-  // 瘦身查询：不拉 thinking（思考链全文）大字段；默认过滤 role=tool（工具结果，每条最多几千字符）
+  // ⚠️ thinking 字段必须拉取：DeepSeek thinking 模式要求历史里带思考链的 assistant 消息
+  // 原样回传 reasoning_content，否则刷新后（thinking 从内存丢失）下一轮请求直接 400。
+  // 思考链确实是大字段，但无法截断（截断同样 400），由前端 40 条历史 + 后端 token 裁剪兜底体积。
   // 注意：PostgREST 默认 limit=1000，会话超 1000 条时升序查询会截断掉最新消息
   // （表现：刷新后停在旧消息，刚聊的新消息没了）。改为 desc 取最新 2000 条再逆序，保证最新消息必达。
   const MSG_MAX = 2000
-  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,meta,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.desc&limit=${MSG_MAX}`
+  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,meta,thinking,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.desc&limit=${MSG_MAX}`
   if (!includeDeleted) q += `&deleted_at=is.null`
   if (!includeTools) q += `&role=neq.tool`
   const res = await fetch(q, { headers: sbHeaders(env) })
