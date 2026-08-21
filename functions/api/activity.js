@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SECRET_PATH = path.join(__dirname, '..', '..', 'phone_secret.txt')
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 const CORS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-const DEDUP_WINDOW_MS = 3 * 60_000  // 同 App 去重窗口：3 分钟
+const DEDUP_WINDOW_MS = 30 * 60_000  // 同 App 去重窗口：30 分钟
 
 function readSecret() {
   try { return fs.readFileSync(SECRET_PATH, 'utf8').trim() } catch { return '' }
