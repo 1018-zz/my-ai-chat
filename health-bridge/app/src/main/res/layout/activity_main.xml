@@ -51,8 +51,15 @@
         android:id="@+id/gbImportBtn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="从 Gadgetbridge 导入"
+        android:text="从 Gadgetbridge 导入（手动选文件）"
         android:layout_marginTop="24dp" />
+
+    <Button
+        android:id="@+id/gbDirBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="设置自动导入目录（一次即可）"
+        android:layout_marginTop="12dp" />
 
     <TextView
         android:id="@+id/statusText"

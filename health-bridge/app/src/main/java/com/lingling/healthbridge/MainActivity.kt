@@ -59,6 +59,25 @@ class MainActivity : AppCompatActivity() {
             pickGbDb.launch(arrayOf("*/*"))
         }
 
+        // 自动导入：授权一个 Gadgetbridge 自动导出目录（SAF 持久授权），之后打开 App / 定时任务自动读最新文件
+        val gbDirBtn = findViewById<Button>(R.id.gbDirBtn)
+        val pickGbDir = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    getSharedPreferences("gb_dir", MODE_PRIVATE).edit().putString("uri", uri.toString()).apply()
+                    statusText.text = "自动导入目录已设置 ✅"
+                    scope.launch { tryAutoImport() }
+                } catch (e: Exception) {
+                    statusText.text = "目录授权失败：${e.message}"
+                }
+            }
+        }
+        gbDirBtn.setOnClickListener { pickGbDir.launch(null) }
+
+        // 打开 App 时：已有授权目录就自动尝试一次导入
+        if (loadGbDirUri() != null) scope.launch { tryAutoImport() }
+
         // 先确认 Health Connect 可用性，再初始化 client
         when (HealthConnectClient.getSdkStatus(this)) {
             HealthConnectClient.SDK_AVAILABLE -> {
@@ -105,10 +124,36 @@ class MainActivity : AppCompatActivity() {
                         launchPermission(missing)
                     }
                 } catch (e: Exception) {
-                    // Health Connect 组件损坏时 getGrantedPermissions 可能抛异常，别让它崩 App
-                    statusText.text = "Health Connect 组件异常（${e.message}）。可以试试右下角「从 Gadgetbridge 导入」"
+                    // Health Connect 组件异常：自动回退到 Gadgetbridge 目录导入
+                    statusText.text = "Health Connect 不可用，尝试从 Gadgetbridge 目录导入…"
+                    if (!tryAutoImport()) {
+                        statusText.text = "Health Connect 组件异常（${e.message}）。\n请先点「设置自动导入目录」或「从 Gadgetbridge 导入」"
+                    }
                 }
             }
+        }
+    }
+
+    /** 读取已授权的 Gadgetbridge 导出目录（SAF 持久 Uri） */
+    private fun loadGbDirUri(): Uri? {
+        val s = getSharedPreferences("gb_dir", MODE_PRIVATE).getString("uri", null) ?: return null
+        return try {
+            Uri.parse(s)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** 从已授权目录自动导入；没有目录或失败都返回 false（不打扰用户） */
+    private suspend fun tryAutoImport(): Boolean {
+        val dir = loadGbDirUri() ?: return false
+        return try {
+            val ok = HealthSync.importFromDir(this, dir)
+            if (ok) statusText.text = "✅ 已自动导入（今天/昨天）"
+            ok
+        } catch (e: Exception) {
+            statusText.text = "自动导入失败：${e.message}"
+            false
         }
     }
 

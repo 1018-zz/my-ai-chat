@@ -2,6 +2,8 @@ package com.lingling.healthbridge
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
@@ -223,6 +225,34 @@ object HealthSync {
             } finally {
                 db.close()
             }
+        }
+    }
+
+    /**
+     * 从用户授权的 Gadgetbridge 自动导出目录里找最新的数据库文件并导入。
+     * 目录通过 SAF 一次性授权（takePersistableUriPermission），之后 App 可长期读取。
+     */
+    suspend fun importFromDir(context: Context, dirUri: Uri): Boolean {
+        return withContext(Dispatchers.IO) {
+            val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return@withContext false
+            var best: Pair<Long, Uri>? = null
+            for (f in dir.listFiles()) {
+                if (f.isDirectory) continue
+                val name = f.name?.lowercase() ?: continue
+                if (name == "gadgetbridge" || name.endsWith(".db")) {
+                    val lm = f.lastModified()
+                    if (best == null || lm > best!!.first) best = lm to f.uri
+                }
+            }
+            val target = best ?: return@withContext false
+            val tmp = java.io.File(context.cacheDir, "gadgetbridge_auto.db")
+            val copied = context.contentResolver.openInputStream(target.second)?.use { input ->
+                tmp.outputStream().use { out -> input.copyTo(out) }
+                true
+            } ?: false
+            if (!copied) return@withContext false
+            importGadgetbridgeDb(tmp)
+            true
         }
     }
 
