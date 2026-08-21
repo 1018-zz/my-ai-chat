@@ -13,6 +13,7 @@ export const MCP_TOOLS = [
   { key: 'read_file', label: '读取文件', desc: '读项目或开源仓库的代码片段' },
   { key: 'write_file', label: '写入文件', desc: '修改小家代码并提交 GitHub' },
   { key: 'list_files', label: '列目录', desc: '查看项目目录结构' },
+  { key: 'browse_repo', label: '逛仓库', desc: '自己逛 GitHub，看别人的项目和实现' },
   { key: 'read_memories', label: '翻看记忆', desc: '从记忆库按关键词找回过往' },
   { key: 'write_memory', label: '记下来', desc: '把重要的事写进记忆库' },
   { key: 'describe_image', label: '看图片', desc: '识别和描述你发的图片（你主动触发）' },
@@ -33,7 +34,7 @@ const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postca
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
-  { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'read_memories', 'describe_image', 'get_weather'] },
+  { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'browse_repo', 'read_memories', 'describe_image', 'get_weather'] },
   { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'write_insight', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },

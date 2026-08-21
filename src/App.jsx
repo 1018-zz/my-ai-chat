@@ -2127,6 +2127,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     write_memory: '📝 正在记下来',
     read_file: '📖 正在翻资料',
     list_files: '📖 正在翻资料',
+    browse_repo: '🧭 正在外面逛',
   }
   const aiActive = !!loading
   const aiStatus = aiActive
