@@ -134,6 +134,17 @@ export async function onRequestPost(context) {
               parts.push(`【窗外】${tag}${w.feeling.text}${w.rhinitis || ''}`)
             }
           } catch (_) {}
+          // 她此刻的手机活动（Macrodroid 上报）：最近一条、且 < 10 分钟才注入，
+          // 作为「她现在在干嘛」的环境感知（像窗外天气一样自然知道，不必当事件逐条回应）
+          try {
+            const ar = await fetch(`${SUPABASE}/project_events?select=summary,created_at&type=eq.phone_activity&order=created_at.desc&limit=1`, { headers: sbHeaders(env) })
+            const arows = await ar.json()
+            const act = Array.isArray(arows) ? arows[0] : null
+            if (act && act.summary && (Date.now() - new Date(act.created_at).getTime()) < 10 * 60_000) {
+              const appName = String(act.summary).replace(/ \(.*\)$/, '').trim()
+              if (appName) parts.push(`她此刻在：${appName}（手机活动感知，环境信息，不用刻意提起，合适时自然带一句）`)
+            }
+          } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n以下内容是你已经拥有的长期记忆与家里近况，不是新发生的事。不要因为看到它们而再次写入记忆库；只有当泠泠说出全新的、尚未记录的重要事实时，才考虑调用 write_memory。\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
         // 动态上下文作为尾随 system 消息，保持 messages[0]（systemPrompt）稳定 = 缓存前缀
