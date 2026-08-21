@@ -23,12 +23,12 @@ export async function fetchConversations() {
   return res.data.conversations
 }
 
-// 获取某个会话的历史消息
+// 获取某个会话的历史消息（附带会话分层摘要，供「更早的对话」卡片）
 export async function fetchMessages(conversationId) {
   const res = await axios.get(`${API_BASE}/api/messages`, {
     params: { conversationId },
   })
-  return res.data.messages
+  return { messages: res.data.messages, summary: res.data.summary || '' }
 }
 
 // 创建新会话

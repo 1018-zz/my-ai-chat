@@ -1593,6 +1593,8 @@ const Terminal = ({ open, onClose }) => {
 
 const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, setAvatarPick }) => {
   const [msgList, setMsgList] = useState([])
+  const [earlierSummary, setEarlierSummary] = useState('') // 更早对话的分层摘要（压缩后）
+  const [showEarlier, setShowEarlier] = useState(false)    // 「更早的对话」摘要卡片展开/收起
   // 时间氛围色（小家跟着一天呼吸）：按当前小时设置 body[data-time]
   useEffect(() => {
     const applyTime = () => {
@@ -1767,12 +1769,19 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   useEffect(() => { baseTitleRef.current = document.title || '小家' }, [])
 
   useEffect(() => {
-    if (chatInfo?.id) fetchMessages(chatInfo.id).then(msgs => {
+    if (chatInfo?.id) fetchMessages(chatInfo.id).then(({ messages: msgs, summary }) => {
+      // 显示压缩：消息太多时只渲染最近 DISPLAY_MAX 条原文，更早的收进摘要卡片
+      // （旧消息原文仍在数据库，钟泽对话时用压缩摘要 + 最近 20 条，见 stream-compress）
+      const DISPLAY_MAX = 60
+      const hadMore = (msgs || []).length > DISPLAY_MAX
+      const visibleMsgs = hadMore ? (msgs || []).slice(-DISPLAY_MAX) : (msgs || [])
+      setEarlierSummary(summary || (hadMore ? '更早的对话已收进摘要。' : ''))
+      setShowEarlier(false)
       // P0.7c：工具结果回填——tool 消息按消息序列聚合回对应 assistant 的 toolCalls
       // 数据库存原子消息（assistant→tool→assistant），Run 是前端聚合出来的
       const restored = []
       let pending = null, idx = 0
-      for (const m of msgs) {
+      for (const m of visibleMsgs) {
         if (m.role === 'tool') {
           if (pending && idx < pending.toolCalls.length && typeof m.content === 'string' && m.content) {
             pending.toolCalls[idx] = { ...pending.toolCalls[idx], result: m.content }
@@ -2176,6 +2185,26 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
         {(() => {
           // 聚合渲染：连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
           const nodes = []
+          // 「更早的对话」摘要卡片：旧消息压缩后不逐条渲染，收进可展开的摘要
+          if (earlierSummary) {
+            nodes.push(
+              <div key="earlier-summary" className="msg-enter" style={{ alignSelf: 'center', maxWidth: '86%', margin: '8px auto 4px' }}>
+                <div
+                  onClick={() => setShowEarlier(s => !s)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--color-text-gray)', background: 'var(--color-card-glass)', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: '8px 14px', boxShadow: 'var(--shadow-soft)', userSelect: 'none' }}
+                >
+                  <span style={{ fontSize: 14 }}>{showEarlier ? '📕' : '📜'}</span>
+                  <span style={{ flex: 1 }}>{showEarlier ? '收起更早的对话' : '更早的对话（已收进摘要）'}</span>
+                  <span style={{ opacity: 0.7 }}>{showEarlier ? '▴' : '▾'}</span>
+                </div>
+                {showEarlier && (
+                  <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.7, color: 'var(--color-text-secondary)', background: 'var(--color-card-glass-dark, rgba(0,0,0,0.25))', border: '1px solid var(--color-border-glass)', borderRadius: 'var(--radius-md)', padding: '12px 16px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {earlierSummary}
+                  </div>
+                )}
+              </div>
+            )
+          }
           let i = 0
           while (i < msgList.length) {
             const msg = msgList[i]

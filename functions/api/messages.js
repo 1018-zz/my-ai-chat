@@ -65,7 +65,17 @@ export async function onRequestGet(context) {
       )
     }
   } catch (_) { /* 灰字不可达不影响主消息流 */ }
-  return new Response(JSON.stringify({ messages }), {
+  // 附带会话分层摘要（conversation_summaries，由 stream-compress 维护）：前端「更早的对话」卡片用
+  let summary = ''
+  try {
+    const sr = await fetch(
+      `${SUPABASE}/conversation_summaries?conversation_id=eq.${cid}&select=summary&limit=1`,
+      { headers: sbHeaders(env) }
+    )
+    const srows = await sr.json()
+    if (Array.isArray(srows) && srows[0]?.summary) summary = String(srows[0].summary)
+  } catch (_) {}
+  return new Response(JSON.stringify({ messages, summary }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
