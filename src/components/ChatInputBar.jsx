@@ -71,7 +71,7 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
 
   const removePending = (i) => setPendingImages(p => p.filter((_, idx) => idx !== i))
 
-  // 发送：并行识图 → 组装消息（描述仅给 AI，不进气泡）
+  // 发送：vision 模型直传图片（不转文字）；否则走识图转文字 → 组装消息
   const send = async () => {
     const t = text.trim()
     if ((!t && pendingImages.length === 0) || loading || sending) return
@@ -79,7 +79,10 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
     let imgs = []
     try {
       if (pendingImages.length) {
+        const isVision = model === 'deepseek-v4-flash-vision-exp'
         imgs = await Promise.all(pendingImages.map(async (it) => {
+          // vision 模型能直接看图：跳过 describe_image，原图直传（direct 标记给上层）
+          if (isVision) return { dataUrl: it.dataUrl, desc: '', direct: true }
           try {
             const res = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'describe_image', arguments: { image: it.dataUrl } }, id: 1 }) })
             const d = await res.json()

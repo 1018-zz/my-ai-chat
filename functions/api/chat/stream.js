@@ -49,11 +49,21 @@ export async function onRequestPost(context) {
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
   // 查找最后一条真正的 user 消息（消息数组末尾可能是系统提醒或工具结果，不能按 length-1 取）
+  // content 可能是字符串（普通消息）或数组（vision 直传：text + image_url 多模态）
   let userMsg = null
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i] && messages[i].role === 'user' && typeof messages[i].content === 'string') { userMsg = messages[i]; break }
+    const m = messages[i]
+    if (!m || m.role !== 'user') continue
+    const c = m.content
+    if (typeof c === 'string' && c.trim()) { userMsg = m; break }
+    if (Array.isArray(c)) {
+      const textPart = c.find(p => p && p.type === 'text' && typeof p.text === 'string' && p.text.trim())
+      if (textPart) { userMsg = { ...m, content: textPart.text }; break }
+      userMsg = m
+      break
+    }
   }
-  if (!userMsg || !userMsg.content.trim()) return json(400, { error: 'no user message found' })
+  if (!userMsg || !(typeof userMsg.content === 'string' ? userMsg.content.trim() : true)) return json(400, { error: 'no user message found' })
 
   try {
     let convId = conversationId

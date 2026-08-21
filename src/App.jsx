@@ -2012,7 +2012,14 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
       if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
       if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
-      const item = { role: m.isSelf ? 'user' : 'assistant', content: c }
+      let item = { role: m.isSelf ? 'user' : 'assistant', content: c }
+      // vision 直传：多模态模型直接收图（OpenAI 兼容 image_url），不走 describe_image 转文字
+      if (m.isSelf && m._visionDirect && Array.isArray(m.images) && m.images.length) {
+        item.content = [
+          { type: 'text', text: c || '（图片）' },
+          ...m.images.map(u => ({ type: 'image_url', image_url: { url: u } })),
+        ]
+      }
       // DeepSeek thinking 模式硬性规定：历史里带思考链的 assistant 消息必须原样回传 reasoning_content，
       // 否则下一轮请求直接 400、整条回复不生成（表现就是「尾巴消失」）。与 :1356 工具分支对齐。
       if (!m.isSelf && m.thinking) item.reasoning_content = m.thinking
@@ -2098,8 +2105,13 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }
     if (imgs && imgs.length) {
       um.images = imgs.map(i => i.dataUrl)
-      const descs = imgs.map(i => i.desc).filter(Boolean)
-      if (descs.length) um._imageDescs = descs
+      const direct = imgs.some(i => i.direct)
+      if (direct) {
+        um._visionDirect = true // vision 直传：图片原图直接喂给多模态模型，不转文字
+      } else {
+        const descs = imgs.map(i => i.desc).filter(Boolean)
+        if (descs.length) um._imageDescs = descs
+      }
     }
     if (q && q.text) um.quote = { id: q.id, text: q.text, isSelf: q.isSelf }
     stats.message()
