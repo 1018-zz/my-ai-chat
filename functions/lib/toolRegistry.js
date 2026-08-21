@@ -10,6 +10,8 @@
 //
 // 用户显式触发型（describe_image 等）不在此列，由前端 UI 直接调用，不占模型每轮上下文。
 
+import { GALATEA_TOOLS } from './galateaTools.js'
+
 const TOOLS = [
   {
     name: 'read_file',
@@ -125,10 +127,16 @@ const TOOLS = [
 // Phase 1：11 个全量注入（无 lazy）。
 // 未来 30+ 工具时，此处改为按 context / Home State 检索注入（见架构文档）。
 export function getChatTools({ context = 'chat' } = {}) {
-  return TOOLS.map((t) => ({
+  const local = TOOLS.map((t) => ({
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.parameters },
   }))
+  // Galatea 花园工具：静态精选集（galatea_ 前缀），随本地工具一起注入
+  const galatea = GALATEA_TOOLS.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+  }))
+  return [...local, ...galatea]
 }
 
 // 仅供内部/未来使用：带元数据的全量视图
