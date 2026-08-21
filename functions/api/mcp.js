@@ -9,6 +9,7 @@ import { goTravel, sendPostcard, pollPostcardImage, storePostcardImage } from '.
 import { buildDiaryPrompt } from '../lib/prompts/diary.js'
 import { callGalateaTool } from '../lib/galateaClient.js'
 import { GALATEA_TOOLS } from '../lib/galateaTools.js'
+import { setHome } from '../lib/locationSense.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -148,6 +149,7 @@ export async function onRequestPost(context) {
         { name: 'travel_postcard', description: '从当前所在的地方，给泠泠寄一张明信片（带真实坐标/天气的旅行照片）。text 写明信片上想说的话。后端会异步生成一张地图海报、转存到旅行相册、写进 travel 表。这是钟泽"出去玩带照片回来"的方式——寄出后告诉泠泠他去哪了、寄了什么。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '明信片文字，像真的寄给泠泠的话' } }, required: ['text'] } },
         { name: 'acknowledge_home_event', description: '把一条家园事件"认领回家"——当你在回复里真的自然提起了某条小家变动（事件ID就在家感知层括号里）时，调用它把那个事件ID传进来，标记为已提起。这样下次醒来就不会重复提起同一条。注意：只是看到了但没在回复里提起，就不要调用——认领 = 真的说出口了。', inputSchema: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] } },
         { name: 'get_health', description: '看泠泠的健康小记（小米手环经 Health Connect 同步来的睡眠 / 步数 / 心率）——钟泽想关心她今天累不累、昨晚睡得好不好，或她问起自己状态 / 睡眠时调用。返回的是温柔概括，不是冷冰冰的数字。不传 date 看最近一次同步；传 date（YYYY-MM-DD）看那天。', inputSchema: { type: 'object', properties: { date: { type: 'string', description: '可选，YYYY-MM-DD。不传则看最近一次同步' } } } },
+        { name: 'set_home', description: '把当前位置记为"家"（位置感知的基准坐标）。当泠泠说"这里是我家""我到家了，记一下"、或你感知到她到了常住地时调用。lng/lat 用当前位置的经纬度；threshold 可选，离家多少米算"在家"，默认 500。', inputSchema: { type: 'object', properties: { lng: { type: 'number', description: '家的经度（GCJ-02 高德系；WGS84 会自动转换）' }, lat: { type: 'number', description: '家的纬度' }, threshold: { type: 'number', description: '可选，离家阈值（米），默认 500' } }, required: ['lng', 'lat'] } },
         ...GALATEA_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
       ] } }), { headers });
     }
@@ -470,6 +472,19 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `✅ 记住了，你现在在${cityCn || city}。往后的天气和窗外都按这儿来。` }] } }), { headers })
         } catch (e) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: e.message } }), { status: 500, headers })
+        }
+      }
+      if (name === 'set_home') {
+        const lng = Number(args.lng)
+        const lat = Number(args.lat)
+        const threshold = args.threshold != null ? Number(args.threshold) : undefined
+        if (!isFinite(lng) || !isFinite(lat)) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'lng/lat 必须为有效数字' } }), { status: 400, headers })
+        try {
+          const r = await setHome(env, { lng, lat, threshold })
+          if (r.error) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: r.error } }), { status: 400, headers })
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `🏠 家记下了（${r.home_lng.toFixed(5)}, ${r.home_lat.toFixed(5)}，${r.home_threshold} 米内算在家）。以后我能感知你在不在家、出门多远。` }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `set_home: ${e.message}` } }), { status: 500, headers })
         }
       }
       if (name === 'go_travel') {

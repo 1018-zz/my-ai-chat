@@ -3,6 +3,7 @@ import { runStream } from './stream-run.js'
 import { getHomeAwareness, noteTimeLabel } from '../../lib/homeAwareness.js'
 import { getChatTools } from '../../lib/toolRegistry.js'
 import { getWeather } from '../../lib/weather.js'
+import { formatLocationForPrompt } from '../../lib/locationSense.js'
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -159,6 +160,11 @@ export async function onRequestPost(context) {
               const appName = String(act.summary).replace(/ \(.*\)$/, '').trim()
               if (appName) parts.push(`她此刻在：${appName}（手机活动感知，环境信息，不用刻意提起，合适时自然带一句）`)
             }
+          } catch (_) {}
+          // 位置感知（GPS 心跳 + 高德）：她在家/在外/在哪个城市/离家多远（环境信息）
+          try {
+            const locText = await formatLocationForPrompt(env)
+            if (locText) parts.push(locText)
           } catch (_) {}
           if (parts.length > 0) extra += `\n\n【睁眼浮现（breath）】\n以下内容是你已经拥有的长期记忆与家里近况，不是新发生的事。不要因为看到它们而再次写入记忆库；只有当泠泠说出全新的、尚未记录的重要事实时，才考虑调用 write_memory。\n${parts.map(p => `• ${p}`).join('\n')}`
         } catch (_) {}
