@@ -289,11 +289,13 @@ export async function processHeartbeat(env, { lng, lat, accuracy = 0, is_gcj02 =
   }
 }
 
-// 写家的坐标（set_home 工具用）
+// 写家的坐标（set_home 工具用）。传入坐标按 WGS84 处理（手机 GPS 原始值），
+// 内部转 GCJ-02 存储——与心跳的坐标转换保持一致，保证离家距离计算正确。
 export async function setHome(env, { lng, lat, threshold }) {
   if (lng == null || lat == null || !isFinite(lng) || !isFinite(lat)) return { error: '需要合法的 lng/lat' }
+  const gcj = wgs84ToGcj02(Number(lng), Number(lat))
   const status = await loadStatus(env)
-  status.home_lng = Number(lng); status.home_lat = Number(lat)
+  status.home_lng = gcj.lng; status.home_lat = gcj.lat
   status.home_threshold = threshold ? Number(threshold) : (status.home_threshold ?? DEFAULTS.home_threshold)
   status.home_set_at = new Date().toISOString()
   await saveStatus(env, status)
