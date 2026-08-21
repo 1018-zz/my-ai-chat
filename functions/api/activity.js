@@ -1,5 +1,5 @@
 // functions/api/activity.js — 手机活动上报（Macrodroid / 自动化工具调用）
-// POST /api/phone/activity
+// POST /api/activity  （注意：路由按文件路径生成，是 /api/activity，不是 /api/phone/activity）
 //   Header: X-Auth-Token: <phone_secret>
 //   Body:   { "app": "小红书", "event": "switch" }
 // 写入 project_events(type=phone_activity)，供唤醒时让钟泽知道「她在用什么 App」
