@@ -2240,7 +2240,10 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
               // 连续的非自己消息（同一轮 AI 回复，可能跨多个工具轮）合并为一张统一卡片
               const run = []
               while (i < msgList.length && !msgList[i].isSelf) {
-                run.push(msgList[i]); i++
+                // 灰字 / 念头 / 梦余韵：存在痕不并入 AI 回复卡片，立刻切分（否则被 while 吞掉不渲染）
+                const cur = msgList[i]
+                if (cur.kind === 'wake_silent' || cur.kind === 'wake_intent' || cur.kind === 'wake_dream') break
+                run.push(cur); i++
                 const last = run[run.length - 1]
                 // 钟泽主动醒来消息自成一组：它自身、或紧接的下一条是唤醒消息时在此切分，
                 // 避免被上一条普通回复合并而丢失分隔符/角标
