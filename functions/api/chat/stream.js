@@ -40,6 +40,11 @@ export async function onRequestPost(context) {
   const defaultTools = getChatTools({ context: 'chat' })
 
   const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools, skipSave = false, awarenessSince, forceTool } = body
+  // 模型名兜底：只认官方白名单，拼错/乱写的模型名回退默认，避免 400
+  // （2026-08-23 用户手拼 vision 模型名多字少字 → DeepSeek 400 "supported API model names..."）
+  const CHAT_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp']
+  let safeModel = model
+  if (typeof safeModel !== 'string' || !CHAT_MODELS.includes(safeModel)) safeModel = 'deepseek-v4-flash'
   let messages = rawMessages
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
@@ -157,7 +162,7 @@ export async function onRequestPost(context) {
     // 参考 chuan-101/Hamster-Nest 的 resolveHistoryTokenBudget + selectNewestContextWindow
     try { messages = trimHistoryByBudget(messages, env) } catch (_) {}
 
-    const dsBody = { messages, model, temperature: 0.7, stream: true, max_tokens: 8192 }
+    const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 8192 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
     // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制 tool_choice，
     // 模型必须做工具决策，杜绝"光说不做"。auto 保留判断空间（非 any，避免纯聊天也被强迫）。

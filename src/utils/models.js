@@ -14,6 +14,7 @@ export const CHAT_KEY = 'xiaojia.chatModels'
 export const SEED_MODELS = [
   { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', desc: '默认 · 响应快', provider: 'deepseek', enabled: true },
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', desc: '更强 · 稍慢', provider: 'deepseek', enabled: true },
+  { id: 'deepseek-v4-flash-vision-exp', label: 'DeepSeek V4 Flash Vision', desc: '多模态 · 识图+聊天', provider: 'deepseek', enabled: true },
 ]
 
 export function getModelLibrary() {
