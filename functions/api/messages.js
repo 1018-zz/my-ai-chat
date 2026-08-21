@@ -33,12 +33,16 @@ export async function onRequestGet(context) {
   const includeDeleted = url.searchParams.get('includeDeleted') === '1'
   const includeTools = url.searchParams.get('includeTools') === '1'
   // 瘦身查询：不拉 thinking（思考链全文）大字段；默认过滤 role=tool（工具结果，每条最多几千字符）
-  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,meta,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.asc`
+  // 注意：PostgREST 默认 limit=1000，会话超 1000 条时升序查询会截断掉最新消息
+  // （表现：刷新后停在旧消息，刚聊的新消息没了）。改为 desc 取最新 2000 条再逆序，保证最新消息必达。
+  const MSG_MAX = 2000
+  let q = `${SUPABASE}/messages?conversation_id=eq.${cid}&select=id,conversation_id,role,content,tool_calls,meta,created_at,deleted_at,deleted_by,tool_call_id&order=created_at.desc&limit=${MSG_MAX}`
   if (!includeDeleted) q += `&deleted_at=is.null`
   if (!includeTools) q += `&role=neq.tool`
   const res = await fetch(q, { headers: sbHeaders(env) })
   const data = await res.json()
   let messages = Array.isArray(data) ? data : []
+  messages.reverse() // desc → asc，恢复时间顺序（与灰字合并排序兼容）
   // 合并「钟泽沉默唤醒」灰字 + 「她在想」小注 + 「梦的余韵」：无对话归属，按时间插入整段时间线，
   // 作为存在痕（不进对话气泡）。前端 normalize 识别 kind 渲染灰色小字。
   try {
