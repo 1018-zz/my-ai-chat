@@ -217,13 +217,24 @@ img.emoji {
 .chat-quote-preview__close:hover { background: rgba(0,0,0,0.08); }
 
 /* ═══ 图片直发（路径B·纯前端）：待发图片预览 + 消息内图片 ═══ */
-.chat-img-preview {
-  flex: 0 0 100%;
+/* 容器（JSX: chat-img-previews）：横向一排缩略图，不把输入栏挤扁 */
+.chat-img-previews {
   display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 2px 0;
+  margin-bottom: 6px;
+}
+.chat-img-previews::-webkit-scrollbar { height: 3px; }
+.chat-img-preview {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  padding: 8px 10px;
+  padding: 6px;
   border-radius: 12px;
   border: 1px solid var(--color-border-warm, rgba(201,184,166,0.5));
   background: var(--color-card-glass, rgba(255,255,255,0.06));
@@ -232,6 +243,41 @@ img.emoji {
   box-shadow: var(--shadow-soft);
   max-width: 100%;
 }
+/* 缩略图（JSX: chat-img-thumb）：固定 44px，不随原图尺寸撑开 */
+.chat-img-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.06);
+}
+/* 标签（JSX: chat-img-tag） */
+.chat-img-tag {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* 移除按钮（JSX: chat-img-remove） */
+.chat-img-remove {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-gray);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s;
+  padding: 0;
+}
+.chat-img-remove:hover { background: rgba(0,0,0,0.08); }
+
+/* 兼容旧 BEM 命名（历史遗留，部分页面仍引用） */
 .chat-img-preview__thumb {
   flex-shrink: 0;
   width: 44px;
