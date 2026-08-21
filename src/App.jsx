@@ -1921,12 +1921,12 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const getAwarenessSince = (chatId) => { try { return localStorage.getItem(`awareness_since_${chatId || 'default'}`) || '' } catch { return '' } }
   const setAwarenessSince = (chatId) => { try { localStorage.setItem(`awareness_since_${chatId || 'default'}`, new Date().toISOString()) } catch {} }
 
-  const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false, awarenessSince = '') => {
+  const streamChat = async (msgs, aiId, onText, onThinking, skipSave = false, awarenessSince = '', forceTool = false) => {
     const controller = new AbortController()
     abortRef.current = controller
     const timer = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave, awarenessSince }), signal: controller.signal })
+      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave, awarenessSince, forceTool }), signal: controller.signal })
       if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
       const reader = res.body.getReader(); const decoder = new TextDecoder()
       let ft = '', buf = '', tcs = [], th = ''
@@ -2005,7 +2005,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     const recalledNote = recalledCount > 0 ? `\n\n【系统】泠泠撤回了 ${recalledCount} 条消息（内容已隐藏，不必追问，继续好好说话）` : ''
     // 缓存结构：messages[0] 只放稳定 systemPrompt（=缓存前缀）；动态内容作为尾随 system 消息
     // （设计说明·固定内容放前面，动态内容后置；否则每轮前缀都变，缓存失效）
-    const dynCtx = [nowText, recalledNote, mc, pc, toolHistory ? `【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n${toolHistory}` : '', '【工具调用提醒】如果需要查看项目代码、目录或修改文件来回答泠泠，请立即调用 read_file / list_files / write_file 工具（会自动执行并把结果注入回来）。不要只输出"我去看看"之类的文字却不调用工具，也不要用文字描述 GET 请求。不确定路径时先 list_files，然后 read_file。'].filter(Boolean).join('\n\n')
+    const dynCtx = [nowText, recalledNote, mc, pc, toolHistory ? `【本会话工具调用记录】你之前已经调用过这些工具（路径已确认，无需重新探索）：\n${toolHistory}` : ''].filter(Boolean).join('\n\n')
     const cms = [
       { role: 'system', content: systemPrompt },
       ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
@@ -2021,11 +2021,14 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       { role: 'system', content: dynCtx }
     ]
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = '', curUsage = null
+    // 程序层工具门禁：用户消息疑似需要工具（提代码/文件/记忆/天气/健康/位置/仓库/看/查/改/找）时，
+    // 后端 forceTool=true 会带 tool_choice，模型必须做工具决策，杜绝"光说不做"。
+    const needsTool = /(代码|文件|目录|记忆|天气|健康|睡眠|步数|位置|城市|仓库|项目|看看|查一下|查查|读一下|改一下|找找|找到|去翻|读读|检查|确认.*(在|有)|还在吗|在哪)/.test(userText)
     const awarenessSince = getAwarenessSince(chatInfo?.id)
     const first = await streamChat(curMsgs, curAiId,
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
       (th) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, thinking: th, thinkingDone: false } : m)),
-      false, awarenessSince)
+      false, awarenessSince, needsTool)
     setAwarenessSince(chatInfo?.id)
     curFt = first.ft; curTcs = first.tcs; curReasoning = first.reasoningContent || ''; curUsage = first.usage || null
     if (first.aborted) setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: (m.text || '') + '\n\n⚠️ 回复中断了，可能是网络波动', loading: false } : m))
@@ -2134,6 +2137,8 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     write_diary: '✍️ 正在收好这一页',
     read_memories: '📖 翻了一下以前的记录',
     write_memory: '📝 正在记下来',
+    write_insight: '🧠 想明白了一件事',
+    read_insights: '🧠 翻看自己',
     read_file: '📖 正在翻资料',
     list_files: '📖 正在翻资料',
     browse_repo: '🧭 正在外面逛',
