@@ -39,7 +39,7 @@ export async function onRequestPost(context) {
   // 未来 30+ 工具时，改为按 context / Home State 检索注入（见 toolRegistry.js）。
   const defaultTools = getChatTools({ context: 'chat' })
 
-  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools, skipSave = false, awarenessSince } = body
+  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools, skipSave = false, awarenessSince, forceTool } = body
   let messages = rawMessages
   if (!messages || !Array.isArray(messages) || messages.length === 0) return json(400, { error: 'messages is required' })
 
@@ -159,6 +159,11 @@ export async function onRequestPost(context) {
 
     const dsBody = { messages, model, temperature: 0.7, stream: true, max_tokens: 8192 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
+    // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制 tool_choice，
+    // 模型必须做工具决策，杜绝"光说不做"。auto 保留判断空间（非 any，避免纯聊天也被强迫）。
+    if (forceTool && Array.isArray(tools) && tools.length > 0) {
+      dsBody.tool_choice = 'auto'
+    }
 
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
