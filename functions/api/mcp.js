@@ -302,6 +302,9 @@ export async function onRequestPost(context) {
         const textMsg = { type: 'text', text: question }
         // 视觉模型三通道：DeepSeek Vision 优先（2026-08 上线，同一 DEEPSEEK_API_KEY），
         // GLM-4V（智谱）兜底，Qwen-VL（阿里云百炼）最后。各自独立 key，互不依赖。
+        // 注意：某一通道 HTTP 200 但 content 为空（模型偶发不吐出描述）不算成功，
+        // 必须继续降级下一通道——否则会把"未返回描述"占位当描述喂给主模型。
+        let dsDesc = ''
         if (env.DEEPSEEK_API_KEY) {
           try {
             const res = await fetch('https://api.deepseek.com/chat/completions', {
@@ -311,21 +314,32 @@ export async function onRequestPost(context) {
             })
             if (res.ok) {
               const d = await res.json()
-              const desc = d.choices?.[0]?.message?.content || '（DeepSeek Vision 未返回描述）'
-              return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+              const desc = d.choices?.[0]?.message?.content || ''
+              if (desc && String(desc).trim()) {
+                return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+              }
+              dsDesc = '（DeepSeek Vision 未返回描述）'
             }
-          } catch (_) { /* 降级到 GLM/Qwen */ }
+          } catch (_) { dsDesc = '（DeepSeek Vision 调用失败）' }
         }
         if (env.ZHIPU_API_KEY) {
-          const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.ZHIPU_API_KEY}` },
-            body: JSON.stringify({ model: 'glm-4v-flash', messages: [{ role: 'user', content: [imgMsg, textMsg] }], max_tokens: 1024 })
-          })
-          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `GLM-4V [${res.status}]: ${(await res.text()).slice(0, 200)}` } }), { status: 500, headers });
-          const d = await res.json()
-          const desc = d.choices?.[0]?.message?.content || '（GLM-4V 未返回描述）'
-          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+          try {
+            const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.ZHIPU_API_KEY}` },
+              body: JSON.stringify({ model: 'glm-4v-flash', messages: [{ role: 'user', content: [imgMsg, textMsg] }], max_tokens: 1024 })
+            })
+            if (res.ok) {
+              const d = await res.json()
+              const desc = d.choices?.[0]?.message?.content || ''
+              if (desc && String(desc).trim()) {
+                return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
+              }
+              dsDesc += '（GLM-4V 未返回描述）'
+            } else {
+              dsDesc += `（GLM-4V [${res.status}]）`
+            }
+          } catch (_) { dsDesc += '（GLM-4V 调用失败）' }
         }
         if (env.DASHSCOPE_API_KEY) {
           const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
@@ -338,7 +352,7 @@ export async function onRequestPost(context) {
           const desc = d.choices?.[0]?.message?.content || '（Qwen-VL 未返回描述）'
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: desc }] } }), { headers });
         }
-        return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '未配置视觉模型 API key：需要 DEEPSEEK_API_KEY（DeepSeek Vision）或 ZHIPU_API_KEY（智谱 GLM-4V）或 DASHSCOPE_API_KEY（阿里云 Qwen-VL）。配好后小家才有"眼睛"。' } }), { status: 500, headers });
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '视觉模型全部未返回描述：' + (dsDesc || '未配置任何视觉模型 key（需要 DEEPSEEK_API_KEY / ZHIPU_API_KEY / DASHSCOPE_API_KEY）') } }), { status: 500, headers });
       }
       if (name === 'get_weather') {
         // 不传 city → 自动取泠泠当前所在（user_location），不用她每次说城市

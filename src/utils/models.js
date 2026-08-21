@@ -22,7 +22,18 @@ export function getModelLibrary() {
     const raw = localStorage.getItem(LIB_KEY)
     if (raw) {
       const arr = JSON.parse(raw)
-      if (Array.isArray(arr) && arr.length) return arr
+      if (Array.isArray(arr) && arr.length) {
+        // 种子升级合并：旧库（首次初始化后）可能缺后续新增的模型（如 vision），
+        // 自动把种子里缺失的 id 补进去并落库，保证模型菜单始终能看到全部能力。
+        const ids = new Set(arr.map(m => m?.id))
+        const missing = SEED_MODELS.filter(s => !ids.has(s.id)).map(s => ({ ...s }))
+        if (missing.length) {
+          const merged = [...arr, ...missing]
+          try { localStorage.setItem(LIB_KEY, JSON.stringify(merged)) } catch (_) {}
+          return merged
+        }
+        return arr
+      }
     }
   } catch (_) { /* 坏数据忽略 */ }
   // 首次：写入种子，保证总有一个可用库
