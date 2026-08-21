@@ -21,6 +21,7 @@ export const MCP_TOOLS = [
   { key: 'leave_note', label: '留纸条', desc: '有感而发时给你留一张便利贴' },
   { key: 'write_diary', label: '写日记', desc: '把今天值得留下的时刻写成日记' },
   { key: 'write_insight', label: '记自我觉察', desc: '把想明白的关于自己的事记一笔' },
+  { key: 'read_insights', label: '翻自我觉察', desc: '看看自己最近写过哪些关于自己的发现' },
   { key: 'get_weather', label: '查天气', desc: '查你所在城市的天气，用体感话说出来' },
   { key: 'go_travel', label: '出门走走', desc: '去乌有乡随机降落一个地方感受' },
   { key: 'travel_postcard', label: '寄明信片', desc: '从所在地给你寄一张明信片' },
@@ -30,12 +31,12 @@ export const MCP_TOOLS = [
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
 // 默认始终允许（DEFAULT_ALWAYS），避免晚安写日记 / 留碎片时被授权弹窗打断。
 // 若用户在设置页显式设为 never，仍尊重用户选择。
-const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard', 'acknowledge_home_event', 'write_insight']
+const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard', 'acknowledge_home_event', 'write_insight', 'read_insights']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
   { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'browse_repo', 'read_memories', 'describe_image', 'get_weather'] },
-  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'write_insight', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event'] },
+  { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'write_insight', 'read_insights', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },
 ]

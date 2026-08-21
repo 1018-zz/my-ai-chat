@@ -2134,6 +2134,8 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     write_diary: '✍️ 正在收好这一页',
     read_memories: '📖 翻了一下以前的记录',
     write_memory: '📝 正在记下来',
+    write_insight: '🧠 想明白了一件事',
+    read_insights: '🧠 翻看自己',
     read_file: '📖 正在翻资料',
     list_files: '📖 正在翻资料',
     browse_repo: '🧭 正在外面逛',
