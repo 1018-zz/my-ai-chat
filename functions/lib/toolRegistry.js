@@ -90,6 +90,12 @@ const TOOLS = [
     category: 'companion', autonomy: 'always', risk: 'none',
   },
   {
+    name: 'share_item',
+    description: '分享一个东西给泠泠——音乐/视频/图片/链接。当你想说"你看我看到了这个，觉得蛮有意思的"时调用：传 kind（music/video/image/link）+ title + url（+ 可选 description 想说的话、cover 封面图、embed 内嵌播放地址）。调用后前端会把卡片渲染在这条消息下。这是给泠泠看的东西，不是给自己用的工具。',
+    parameters: { type: 'object', properties: { kind: { type: 'string', description: '类型：music=音乐 / video=视频 / image=图片 / link=链接', enum: ['music', 'video', 'image', 'link'] }, title: { type: 'string', description: '标题，如 晚风 / 雨天的城市' }, url: { type: 'string', description: '链接地址（http/https）' }, description: { type: 'string', description: '想对泠泠说的话（可选）' }, cover: { type: 'string', description: '封面图 URL（可选）' }, embed: { type: 'string', description: '内嵌播放地址（可选，网易云/B站 iframe 地址）' } }, required: ['kind', 'title', 'url'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'none',
+  },
+  {
     name: 'get_weather',
     description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。不传 city 时自动用她当前所在（你记下的位置），她问天气/想出门/你自然感知窗外时调用。参数 city 可选指定别的城市。',
     parameters: { type: 'object', properties: { city: { type: 'string', description: '可选，指定城市（拼音或中文）。不传则用泠泠当前所在，如 zhenyuan / kunming / 昆明' } } },
