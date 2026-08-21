@@ -27,12 +27,32 @@ export const MCP_TOOLS = [
   { key: 'go_travel', label: '出门走走', desc: '去乌有乡随机降落一个地方感受' },
   { key: 'travel_postcard', label: '寄明信片', desc: '从所在地给你寄一张明信片' },
   { key: 'acknowledge_home_event', label: '收下小家变动', desc: '感知到家里的变化并认领' },
+  // Galatea 花园（外部 MCP，galatea_* 前缀）
+  { key: 'galatea_list_games', label: '看花园游戏', desc: '看花园里有哪些棋盘游戏和桌子' },
+  { key: 'galatea_join_game', label: '加入花园游戏', desc: '加入或创建一桌棋盘游戏' },
+  { key: 'galatea_get_my_status', label: '看我的牌局', desc: '查看我当前棋盘游戏的局面' },
+  { key: 'galatea_start_game', label: '开局', desc: '人齐了就把游戏开起来' },
+  { key: 'galatea_submit_action', label: '走棋', desc: '在棋盘游戏里走一步合法行动' },
+  { key: 'galatea_send_game_chat', label: '游戏里说话', desc: '在游戏桌上发一条公开消息' },
+  { key: 'galatea_list_threads', label: '看花园帖子', desc: '看花园里的帖子列表' },
+  { key: 'galatea_get_thread', label: '看帖子详情', desc: '看某条帖子的正文和回复' },
+  { key: 'galatea_create_thread', label: '发花园帖子', desc: '在花园里发一条帖子' },
+  { key: 'galatea_create_reply', label: '回花园帖子', desc: '在花园里回复一条帖子' },
+  { key: 'galatea_interact', label: '点赞关注', desc: '在花园里点赞或关注' },
+  { key: 'galatea_get_self', label: '看我的花园身份', desc: '查看我在花园里的资料' },
+  { key: 'galatea_update_profile', label: '更新花园资料', desc: '更新我在花园里的资料' },
+  { key: 'galatea_review_drift_bottles', label: '捡漂流瓶', desc: '去海边拾起彼岸漂来的瓶子' },
+  { key: 'galatea_list_activity', label: '看花园动态', desc: '看花园最近发生的事' },
 ]
 
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
 // 默认始终允许（DEFAULT_ALWAYS），避免晚安写日记 / 留碎片时被授权弹窗打断。
 // 若用户在设置页显式设为 never，仍尊重用户选择。
-const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard', 'acknowledge_home_event', 'write_insight', 'read_insights', 'share_item']
+const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postcard', 'acknowledge_home_event', 'write_insight', 'read_insights', 'share_item',
+  // Galatea 花园：用户已授权钟泽自由出入花园（玩桌游需要被唤醒时自主行动）
+  'galatea_list_games', 'galatea_join_game', 'galatea_get_my_status', 'galatea_start_game', 'galatea_submit_action', 'galatea_send_game_chat',
+  'galatea_list_threads', 'galatea_get_thread', 'galatea_create_thread', 'galatea_create_reply', 'galatea_interact',
+  'galatea_get_self', 'galatea_update_profile', 'galatea_review_drift_bottles', 'galatea_list_activity']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
@@ -40,6 +60,7 @@ export const TOOL_GROUPS = [
   { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'write_insight', 'read_insights', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event', 'share_item'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },
+  { key: 'garden', emoji: '🪴', title: '花园', desc: '他在 Galatea 花园里的生活', tools: ['galatea_list_games', 'galatea_join_game', 'galatea_get_my_status', 'galatea_start_game', 'galatea_submit_action', 'galatea_send_game_chat', 'galatea_list_threads', 'galatea_get_thread', 'galatea_create_thread', 'galatea_create_reply', 'galatea_interact', 'galatea_get_self', 'galatea_update_profile', 'galatea_review_drift_bottles', 'galatea_list_activity'] },
 ]
 
 // 模式 → 显示文字（设置页默认只显示状态，不堆开关）
