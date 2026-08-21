@@ -1,6 +1,7 @@
 package com.lingling.healthbridge
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
@@ -111,6 +112,116 @@ object HealthSync {
             // 3) 睡眠归属到更早于「昨天」的日期（前天的觉），补推一次
             for ((date, sleep) in sleepByDate) {
                 if (date.isBefore(LocalDate.now().minusDays(1))) postDay(date, sleep, null, null, null)
+            }
+        }
+    }
+
+    /**
+     * Plan B：直接读 Gadgetbridge 导出的 SQLite 数据库文件，绕开 Health Connect。
+     * 用户用 Gadgetbridge「导出数据库」，这里解析步数/心率/睡眠后照常上报给小家。
+     */
+    suspend fun importGadgetbridgeDb(dbFile: java.io.File) {
+        withContext(Dispatchers.IO) {
+            val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            try {
+                val tables = mutableListOf<String>()
+                db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'", null).use { c ->
+                    while (c.moveToNext()) tables.add(c.getString(0))
+                }
+
+                val sampleTable = tables.firstOrNull { it.uppercase().contains("ACTIVITY_SAMPLE") }
+                    ?: throw java.io.IOException("数据库里没找到活动数据表，确认选的是 Gadgetbridge 导出的文件")
+
+                val dates = listOf(LocalDate.now(), LocalDate.now().minusDays(1), LocalDate.now().minusDays(2))
+
+                // 1) 步数 / 心率：按天聚合（心率 255 = 无效测量，排除）
+                val stepsByDay = mutableMapOf<LocalDate, Int>()
+                val hrByDay = mutableMapOf<LocalDate, Int>()
+                db.rawQuery(
+                    "SELECT date(TIMESTAMP,'unixepoch','localtime') d, SUM(STEPS) s, " +
+                        "AVG(CASE WHEN HEART_RATE!=255 THEN HEART_RATE END) h " +
+                        "FROM \"$sampleTable\" GROUP BY d",
+                    null,
+                ).use { c ->
+                    while (c.moveToNext()) {
+                        val d = LocalDate.parse(c.getString(0))
+                        if (d in dates) {
+                            if (!c.isNull(1)) stepsByDay[d] = c.getInt(1)
+                            if (!c.isNull(2)) hrByDay[d] = c.getDouble(2).toInt()
+                        }
+                    }
+                }
+
+                // 2) 睡眠：优先专门的 sleep 表，否则用采样表 RAW_KIND=112（0x70=睡眠）识别连续段
+                val sleepByDate = mutableMapOf<LocalDate, SleepAgg>()
+                val sleepTable = tables.firstOrNull {
+                    it.lowercase().contains("sleep") && !it.lowercase().contains("sample")
+                }
+
+                if (sleepTable != null) {
+                    val cols = mutableSetOf<String>()
+                    db.rawQuery("PRAGMA table_info(\"$sleepTable\")", null).use { c ->
+                        val idx = c.getColumnIndex("name")
+                        while (c.moveToNext()) cols.add(c.getString(idx))
+                    }
+                    val stCol = listOf("timestamp", "start_time", "start").firstOrNull { it in cols }
+                    val etCol = listOf("end_timestamp", "end_time", "end").firstOrNull { it in cols }
+                    val intCol = listOf("intensity", "quality", "stage").firstOrNull { it in cols }
+                    if (stCol != null && etCol != null) {
+                        val q = "SELECT \"$stCol\" st, \"$etCol\" et" +
+                            (if (intCol != null) ", \"$intCol\" iv" else "") +
+                            " FROM \"$sleepTable\""
+                        db.rawQuery(q, null).use { c ->
+                            while (c.moveToNext()) {
+                                val st = Instant.ofEpochSecond(c.getLong(0))
+                                val et = Instant.ofEpochSecond(c.getLong(1))
+                                val wake = et.atZone(ZoneId.systemDefault()).toLocalDate()
+                                val agg = sleepByDate.getOrPut(wake) { SleepAgg() }
+                                val mins = ChronoUnit.MINUTES.between(st, et).toInt()
+                                agg.minutes += mins
+                                if (agg.start == null || st.isBefore(agg.start)) agg.start = st
+                                if (agg.end == null || et.isAfter(agg.end)) agg.end = et
+                                // intensity 无统一标准：粗略按 50 分深/浅
+                                if (intCol != null && !c.isNull(2)) {
+                                    if (c.getInt(2) > 50) agg.deep += mins else agg.light += mins
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val segs = mutableListOf<Pair<Long, Long>>()
+                    db.rawQuery(
+                        "SELECT TIMESTAMP FROM \"$sampleTable\" WHERE RAW_KIND=112 ORDER BY TIMESTAMP",
+                        null,
+                    ).use { c ->
+                        var segStart: Long? = null
+                        var prev: Long? = null
+                        while (c.moveToNext()) {
+                            val ts = c.getLong(0)
+                            if (segStart == null) {
+                                segStart = ts
+                                prev = ts
+                            } else if (ts - prev!! > 120L) {
+                                segs.add(segStart!! to prev!!)
+                                segStart = ts
+                            }
+                            prev = ts
+                        }
+                        if (segStart != null && prev != null) segs.add(segStart to prev)
+                    }
+                    for ((st, et) in segs) {
+                        val wake = Instant.ofEpochSecond(et).atZone(ZoneId.systemDefault()).toLocalDate()
+                        val agg = sleepByDate.getOrPut(wake) { SleepAgg() }
+                        agg.minutes += ChronoUnit.MINUTES.between(Instant.ofEpochSecond(st), Instant.ofEpochSecond(et)).toInt()
+                        if (agg.start == null || st < agg.start!!.epochSecond) agg.start = Instant.ofEpochSecond(st)
+                        if (agg.end == null || et > agg.end!!.epochSecond) agg.end = Instant.ofEpochSecond(et)
+                    }
+                }
+
+                // 3) 上报最近 3 天（睡眠按醒来日归属）
+                for (date in dates) postDay(date, sleepByDate[date], stepsByDay[date], null, hrByDay[date])
+            } finally {
+                db.close()
             }
         }
     }

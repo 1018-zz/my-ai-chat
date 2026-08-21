@@ -47,10 +47,17 @@
             android:layout_height="wrap_content" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/gbImportBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="从 Gadgetbridge 导入"
+        android:layout_marginTop="24dp" />
+
     <TextView
         android:id="@+id/statusText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text=""
-        android:layout_marginTop="24dp" />
+        android:layout_marginTop="16dp" />
 </LinearLayout>

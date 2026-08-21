@@ -17,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Constraints
 import kotlinx.coroutines.*
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -33,6 +34,30 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         val syncBtn = findViewById<Button>(R.id.syncBtn)
         val autoToggle = findViewById<Switch>(R.id.autoToggle)
+        val gbImportBtn = findViewById<Button>(R.id.gbImportBtn)
+
+        // Plan B：从 Gadgetbridge 导出的数据库文件导入（绕开 Health Connect）
+        val pickGbDb = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                statusText.text = "正在解析 Gadgetbridge 数据…"
+                scope.launch {
+                    try {
+                        val tmp = File(cacheDir, "gadgetbridge.db")
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            tmp.outputStream().use { output -> input.copyTo(output) }
+                        } ?: throw java.io.IOException("无法读取所选文件")
+                        HealthSync.importGadgetbridgeDb(tmp)
+                        statusText.text = "✅ 已从 Gadgetbridge 导入并同步（今天/昨天）"
+                    } catch (e: Exception) {
+                        statusText.text = "导入失败：${e.message}"
+                    }
+                }
+            }
+        }
+        gbImportBtn.setOnClickListener {
+            // 允许系统文件选择器访问 Android/data 时，可直接选 Gadgetbridge 的导出文件
+            pickGbDb.launch(arrayOf("*/*"))
+        }
 
         // 先确认 Health Connect 可用性，再初始化 client
         when (HealthConnectClient.getSdkStatus(this)) {
@@ -70,13 +95,18 @@ class MainActivity : AppCompatActivity() {
 
         syncBtn.setOnClickListener {
             scope.launch {
-                val granted = healthConnectClient.permissionController.getGrantedPermissions()
-                val missing = HealthSync.PERMISSIONS - granted
-                if (missing.isEmpty()) doSync()
-                else {
-                    val names = missing.map(HealthSync::permissionLabel).joinToString("、")
-                    statusText.text = "需要先授权：$names（授权页里每一项都要开）"
-                    launchPermission(missing)
+                try {
+                    val granted = healthConnectClient.permissionController.getGrantedPermissions()
+                    val missing = HealthSync.PERMISSIONS - granted
+                    if (missing.isEmpty()) doSync()
+                    else {
+                        val names = missing.map(HealthSync::permissionLabel).joinToString("、")
+                        statusText.text = "需要先授权：$names（授权页里每一项都要开）"
+                        launchPermission(missing)
+                    }
+                } catch (e: Exception) {
+                    // Health Connect 组件损坏时 getGrantedPermissions 可能抛异常，别让它崩 App
+                    statusText.text = "Health Connect 组件异常（${e.message}）。可以试试右下角「从 Gadgetbridge 导入」"
                 }
             }
         }
