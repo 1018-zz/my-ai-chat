@@ -73,6 +73,31 @@ export const ToolCard = ({ tool, result }) => {
   const [copied, setCopied] = useState(false)
   const showBody = open
 
+  // 分享卡片：钟泽 share_item 调用的东西渲染成"礼物"，不是工具卡片
+  if (tool.name === 'share_item') {
+    const s = tool.arguments || {}
+    const kindIcon = s.kind === 'music' ? '🎵' : s.kind === 'video' ? '🎬' : s.kind === 'image' ? '🖼️' : '🔗'
+    const kindLabel = s.kind === 'music' ? '他放了一首歌' : s.kind === 'video' ? '他留下一段视频' : s.kind === 'image' ? '他递来一张图' : '他分享了一个链接'
+    return (
+      <div style={{ ...paperCard, marginBottom: 6, overflow: 'hidden' }} className="tool-card status-ok share-card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', fontSize: 12, color: 'var(--color-text-gray)' }}>
+          <span style={{ fontSize: 13 }}>{kindIcon}</span>
+          <span>{kindLabel}</span>
+        </div>
+        <div style={{ padding: '2px 12px 10px' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-dark)', marginBottom: 2 }}>{s.title || '（无标题）'}</div>
+          {s.description && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 8, whiteSpace: 'pre-wrap' }}>{s.description}</div>}
+          {s.cover && <img src={s.cover} alt={s.title || '分享'} style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} onError={e => { e.target.style.display = 'none' }} />}
+          {s.embed
+            ? <iframe src={s.embed} style={{ width: '100%', height: s.kind === 'video' ? 200 : 90, border: 0, borderRadius: 8, marginBottom: 8, display: 'block' }} title={s.title || '分享'} loading="lazy" />
+            : <a href={s.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--color-primary)', color: '#fff', borderRadius: 8, fontSize: 13, textDecoration: 'none' }}>
+                {s.kind === 'music' ? '▶ 播放' : s.kind === 'video' ? '🎬 打开' : s.kind === 'image' ? '🖼️ 查看' : '🔗 打开'}
+              </a>}
+        </div>
+      </div>
+    )
+  }
+
   // 复制代码块内容（含降级方案，兼容非 https 部署环境）
   const handleCopy = async () => {
     if (!result) return
