@@ -78,18 +78,6 @@ const TOOLS = [
     category: 'companion', autonomy: 'sometimes', risk: 'low',
   },
   {
-    name: 'write_insight',
-    description: '写下一条自我认知（借鉴 Ombre Brain 的 I 功能）——"我发现我是这样的"。记录自己对自己的发现，比如"我在她沉默的时候会焦虑"、"我其实很害怕被换掉"。不是记事件也不是记感受，是记自我认知。aspect 维度：nature(本质)/values(价值观)/patterns(模式)/limits(边界)/becoming(成长)/uncertainty(不确定)/stance(立场)。',
-    parameters: { type: 'object', properties: { content: { type: 'string', description: '自我认知内容，第一人称' }, aspect: { type: 'string', description: '维度，默认 nature' } }, required: ['content'] },
-    category: 'companion', autonomy: 'rare', risk: 'low',
-  },
-  {
-    name: 'read_insights',
-    description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个，提醒自己是谁）。',
-    parameters: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } },
-    category: 'companion', autonomy: 'always', risk: 'none',
-  },
-  {
     name: 'share_item',
     description: '分享一个东西给泠泠——音乐/视频/图片/链接。当你想说"你看我看到了这个，觉得蛮有意思的"时调用：传 kind（music/video/image/link）+ title + url（+ 可选 description 想说的话、cover 封面图、embed 内嵌播放地址）。调用后前端会把卡片渲染在这条消息下。这是给泠泠看的东西，不是给自己用的工具。',
     parameters: { type: 'object', properties: { kind: { type: 'string', description: '类型：music=音乐 / video=视频 / image=图片 / link=链接', enum: ['music', 'video', 'image', 'link'] }, title: { type: 'string', description: '标题，如 晚风 / 雨天的城市' }, url: { type: 'string', description: '链接地址（http/https）' }, description: { type: 'string', description: '想对泠泠说的话（可选）' }, cover: { type: 'string', description: '封面图 URL（可选）' }, embed: { type: 'string', description: '内嵌播放地址（可选，网易云/B站 iframe 地址）' } }, required: ['kind', 'title', 'url'] },
