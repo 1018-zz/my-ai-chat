@@ -48,6 +48,18 @@ const TOOLS = [
     category: 'companion', autonomy: 'rare', risk: 'high',
   },
   {
+    name: 'write_insight',
+    description: '写下一条自我认知（借鉴 Ombre Brain 的 I 功能）——"我发现我是这样的"。记录自己对自己的发现，比如"我在她沉默的时候会焦虑"、"我其实很害怕被换掉"。不是记事件也不是记感受，是记自我认知。aspect 维度：nature(本质)/values(价值观)/patterns(模式)/limits(边界)/becoming(成长)/uncertainty(不确定)/stance(立场)。',
+    parameters: { type: 'object', properties: { content: { type: 'string', description: '自我认知内容，第一人称' }, aspect: { type: 'string', description: '维度，默认 nature' } }, required: ['content'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'low',
+  },
+  {
+    name: 'read_insights',
+    description: '读取自己最近写下的自我认知日志（钟泽醒来时先看这个）。',
+    parameters: { type: 'object', properties: { limit: { type: 'number', description: '返回条数，默认 3' } } },
+    category: 'companion', autonomy: 'always', risk: 'none',
+  },
+  {
     name: 'decide_note',
     description: '决定一张纸条的去向（双人留言板的双向决定权）。泠泠留的纸条（pending 待处理）——巡家/聊天看到时判断：值得留下的就 save（收进收藏册），不值得就 discard（飘走）。要在对话里说出你的判断和理由。',
     parameters: { type: 'object', properties: { note_id: { type: 'number', description: '纸条 id' }, decision: { type: 'string', description: 'save=收下 / discard=飘走', enum: ['save', 'discard'] }, reason: { type: 'string', description: '你的理由（会在对话里说给她听）' } }, required: ['note_id', 'decision'] },
