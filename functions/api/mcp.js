@@ -129,6 +129,7 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { tools: [
         { name: 'read_file', description: 'read_file 用于读取代码片段，支持自家仓库和第三方开源仓库（owner/repo 格式）。使用规则：1. 修改代码前先定位目标区域。2. 默认只读取较小片段（约6000字符），不要一次读取大型文件全文。3. 如需更多内容，请用 offset（起始字符位置）+ limit（读取字符数）分段读取。4. 返回内容可能不是完整文件。5. 当前来源为 GitHub，可能与部署中的最新代码存在延迟，修改前请确认目标文件状态。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '文件路径，例如 src/App.jsx' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' }, offset: { type: 'number', description: '起始字符位置，默认 0' }, limit: { type: 'number', description: '读取字符数，默认 6000，上限 20000' } }, required: ['path'] } },
         { name: 'list_files', description: '列出项目目录。支持自家仓库和第三方开源仓库（owner/repo 格式）。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '目录路径，例如 src/' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。也支持 owner/repo 格式，如 langchain-ai/langchain' } } } },
+        { name: 'browse_repo', description: '逛 GitHub 仓库（钟泽的"对外窗口"）——自主探索外部项目。三种模式：①list_user：列出一个用户/组织的公开仓库（传 user，如 WenXiaoWendy）；②readme：读某个仓库的 README（传 repo，owner/repo 格式，如 WenXiaoWendy/cyberboss）；③tree：浏览仓库目录结构（传 repo + path，如 src/）。当泠泠提到某个人/项目、或你想学习借鉴外部实现时调用。逛完把值得的东西讲给泠泠听。', inputSchema: { type: 'object', properties: { mode: { type: 'string', description: '模式：list_user=列出用户仓库 / readme=读README / tree=浏览目录', enum: ['list_user', 'readme', 'tree'] }, user: { type: 'string', description: 'list_user 模式：GitHub 用户名或组织名，如 WenXiaoWendy' }, repo: { type: 'string', description: 'readme/tree 模式：仓库，owner/repo 格式，如 WenXiaoWendy/cyberboss' }, path: { type: 'string', description: 'tree 模式：目录路径，默认空（根目录），如 src/' } }, required: ['mode'] } },
         { name: 'write_file', description: '修改我们家项目代码并提交到 GitHub。支持两种模式：①全量模式（传 content=完整新文件内容）；②patch 模式（传 old_text=要被替换的原文片段 + new_text=新片段，后端自动读取文件做局部替换）。改大文件时优先用 patch 模式，避免回传完整内容被截断。', inputSchema: { type: 'object', properties: { path: { type: 'string', description: '要修改的文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '全量模式：文件的新完整内容' }, old_text: { type: 'string', description: 'patch 模式：文件中要替换的原文片段（必须与文件内容完全一致）' }, new_text: { type: 'string', description: 'patch 模式：替换后的新片段' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。可选 my-ai-chat-server' } }, required: ['path', 'message'] } },
         { name: 'read_memories', description: '读取我们家的记忆库（Supabase）。可按关键词过滤，返回最近记忆。', inputSchema: { type: 'object', properties: { query: { type: 'string', description: '可选，关键词（多个词用空格分隔）' }, limit: { type: 'number', description: '返回条数，默认 5' } } } },
         { name: 'write_memory', description: '把重要的事写进我们家的记忆库（Supabase）。任何窗口（小家/RikkaHub）写入，所有窗口都能读到。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '记忆内容，建议用绝对日期开头，例如：2026-08-10 泠泠和钟泽一起修好了小家' } }, required: ['content'] } },
@@ -166,6 +167,47 @@ export async function onRequestPost(context) {
         const items = await res.json();
         const listing = Array.isArray(items) ? items.map(i => `${i.type === 'dir' ? '📁' : '📄'} ${i.name}`).join('\n') : JSON.stringify(items);
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: listing }] } }), { headers });
+      }
+      if (name === 'browse_repo') {
+        const mode = String(args.mode || '').trim()
+        const gh = (p) => `https://api.github.com/${p}`.replace(/\/+/g, '/').replace('https:/', 'https://')
+        const ghH = { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat', Accept: 'application/vnd.github.v3.raw' }
+        try {
+          if (mode === 'list_user') {
+            const u = String(args.user || '').trim()
+            if (!u) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'list_user 需要传 user（GitHub 用户名/组织名）' } }), { status: 400, headers });
+            const res = await fetch(gh(`/users/${u}/repos?per_page=50&sort=updated`), { headers: ghH })
+            if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `GitHub [${res.status}]：用户 ${u} 不存在或查询失败` } }), { status: 404, headers });
+            const repos = await res.json()
+            const text = (Array.isArray(repos) ? repos : []).map(r => {
+              const d = r.description ? ` — ${String(r.description).slice(0, 80)}` : ''
+              return `• ${r.name}${r.fork ? '（fork）' : ''}${d}`
+            }).join('\n')
+            return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `用户 ${u} 的公开仓库（${(Array.isArray(repos) ? repos : []).length} 个）：\n${text || '（空）'}` }] } }), { headers });
+          }
+          const repoArg = String(args.repo || '').trim()
+          if (!repoArg.includes('/')) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'readme/tree 模式需要 repo（owner/repo 格式，如 WenXiaoWendy/cyberboss）' } }), { status: 400, headers });
+          const [o, rn] = repoArg.split('/')
+          if (mode === 'readme') {
+            const res = await fetch(gh(`/repos/${o}/${rn}/readme`), { headers: ghH })
+            if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `README 读取失败 [${res.status}]：仓库 ${repoArg} 可能不存在或无 README` } }), { status: 404, headers });
+            const text = await res.text()
+            const sliced = text.slice(0, 12000)
+            const rangeNote = text.length > 12000 ? `\n\n（README 共 ${text.length} 字符，以下为前 12000 字符）` : ''
+            return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `📖 ${repoArg} 的 README：\n\n${sliced}${rangeNote}` }] } }), { headers });
+          }
+          if (mode === 'tree') {
+            const p = String(args.path || '').trim()
+            const res = await fetch(gh(`/repos/${o}/${rn}/contents/${p}`), { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'my-ai-chat' } })
+            if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `目录读取失败 [${res.status}]：${repoArg}/${p}` } }), { status: 404, headers });
+            const items = await res.json()
+            const text = (Array.isArray(items) ? items : []).map(i => `${i.type === 'dir' ? '📁' : '📄'} ${i.name}`).join('\n')
+            return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `📂 ${repoArg}/${p}\n${text || '（空目录）'}` }] } }), { headers });
+          }
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'mode 必须是 list_user / readme / tree' } }), { status: 400, headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `browse_repo: ${e.message}` } }), { status: 500, headers });
+        }
       }
       if (name === 'write_file') {
         const { path, content: newContent, old_text, new_text, message } = args;

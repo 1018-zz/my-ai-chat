@@ -24,6 +24,12 @@ const TOOLS = [
     category: 'utility', autonomy: 'always', risk: 'low',
   },
   {
+    name: 'browse_repo',
+    description: '逛 GitHub 仓库（钟泽的"对外窗口"）——自主探索外部项目。三种模式：①list_user：列出一个用户/组织的公开仓库（传 user，如 WenXiaoWendy）；②readme：读某个仓库的 README（传 repo，owner/repo 格式，如 WenXiaoWendy/cyberboss）；③tree：浏览仓库目录结构（传 repo + path，如 src/）。当泠泠提到某个人/项目、或你想学习借鉴外部实现时调用。逛完把值得的东西讲给泠泠听。',
+    parameters: { type: 'object', properties: { mode: { type: 'string', description: '模式：list_user=列出用户仓库 / readme=读README / tree=浏览目录', enum: ['list_user', 'readme', 'tree'] }, user: { type: 'string', description: 'list_user 模式：GitHub 用户名或组织名，如 WenXiaoWendy' }, repo: { type: 'string', description: 'readme/tree 模式：仓库，owner/repo 格式，如 WenXiaoWendy/cyberboss' }, path: { type: 'string', description: 'tree 模式：目录路径，默认空（根目录），如 src/' } }, required: ['mode'] },
+    category: 'utility', autonomy: 'always', risk: 'low',
+  },
+  {
     name: 'write_file',
     description: '修改我们家项目代码并提交到 GitHub。支持两种模式：①全量模式（传 content=完整新文件内容）；②patch 模式（传 old_text=要被替换的原文片段 + new_text=新片段，后端自动读取文件做局部替换）。改大文件时优先用 patch 模式，避免回传完整内容被截断。',
     parameters: { type: 'object', properties: { path: { type: 'string', description: '要修改的文件路径，例如 src/App.jsx' }, content: { type: 'string', description: '全量模式：文件的新完整内容' }, old_text: { type: 'string', description: 'patch 模式：文件中要替换的原文片段（必须与文件内容完全一致）' }, new_text: { type: 'string', description: 'patch 模式：替换后的新片段' }, message: { type: 'string', description: '提交信息（commit message）' }, repo: { type: 'string', description: '仓库名，默认 my-ai-chat。可选 my-ai-chat-server' } }, required: ['path', 'message'] },
