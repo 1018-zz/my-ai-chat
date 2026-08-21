@@ -7,6 +7,7 @@ import diary from './diary.js'
 import innerVoice from './innerVoice.js'
 import homeSensing from './homeSensing.js'
 import notes from './notes.js'
+import ops from './ops.js'
 
 export const capabilities = [
   projectStructure,
@@ -16,4 +17,5 @@ export const capabilities = [
   innerVoice,
   homeSensing,
   notes,
+  ops,
 ]
