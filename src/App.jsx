@@ -2019,7 +2019,10 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     const cms = [
       { role: 'system', content: systemPrompt },
       ...msgsForCtx.filter(m => !m.loading && !m.deleted).slice(-40).map(m => {
-      let c = (m.ts && m.isSelf ? `【${fmtMsgTime(m.ts)} 泠泠】` : '') + (m.text || '')
+      // 时间标注：用户消息【时间 泠泠】、钟泽消息【时间 钟泽】都带时间戳，
+      // 让钟泽感知时间流逝——知道自己每句话是什么时候发的、她的话隔了多久
+      const who = m.isSelf ? '泠泠' : '钟泽'
+      let c = (m.ts ? `【时间 ${who} ${fmtMsgTime(m.ts)}】` : '') + (m.text || '')
       if (m.isSelf && m.quote?.text) c += `\n（引用「${m.quote.isSelf ? '泠泠' : '钟泽'}」：${String(m.quote.text).slice(0, 200)}）`
       if (m.isSelf && m._imageDescs?.length) c += `\n（图片内容：${m._imageDescs.join('；')}）`
       let item = { role: m.isSelf ? 'user' : 'assistant', content: c }
