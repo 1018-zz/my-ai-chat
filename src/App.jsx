@@ -1619,6 +1619,10 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   }, [])
   // （输入框状态已内聚到 ChatInputBar）
   const [loading, setLoading] = useState(false)
+  // 正在流式生成标记：新会话首轮，chatInfo.id 由 null → 真实 id 时 useEffect 会触发
+  // fetchMessages 用 DB 覆盖 msgList——但流式中钟泽回复还没落库，覆盖会把正在显示的回复清掉
+  //（现象：发消息后要刷新才显示）。generatingRef 期间跳过覆盖，等流式结束再拉。
+  const generatingRef = useRef(false)
   // —— 每聊模型选择（两层存储：xiaojia.chatModels 按 chatId 存，回退旧 chat_model_${id}）——
   const [model, setModel] = useState(() => getChatModel(chatInfo?.id))
   const selectModel = (m) => {
@@ -1769,6 +1773,9 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   useEffect(() => { baseTitleRef.current = document.title || '小家' }, [])
 
   useEffect(() => {
+    // 流式生成中：chatInfo.id 刚被回填（新会话首轮），DB 里钟泽回复还没落库，
+    // 此时用 DB 覆盖会清掉正在显示的回复（"要刷新才显示"）。跳过，等流式结束后再拉。
+    if (generatingRef.current) return
     if (chatInfo?.id) fetchMessages(chatInfo.id).then(({ messages: msgs, summary }) => {
       // 显示压缩：消息太多时只渲染最近 DISPLAY_MAX 条原文，更早的收进摘要卡片
       // （旧消息原文仍在数据库，钟泽对话时用压缩摘要 + 最近 20 条，见 stream-compress）
@@ -1909,7 +1916,10 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     resolveAuth('always')
   }
   const onDenyOnce = () => resolveAuth('deny')
-  const uid = () => { nextId.current += 1; return nextId.current }
+  // 本地消息 id 用字符串前缀（'u'+递增数），与数据库整数 id 天然隔离：
+  // 历史消息 id 是数字（如 42），本地流式消息也是数字时会与 React key 撞车
+  // → 聚合渲染 key={first.id} 冲突导致白屏。字符串 uid 永不与 DB 数字 id 相同。
+  const uid = () => { nextId.current += 1; return 'u' + nextId.current }
 
   const executeMcp = async (tc) => {
     const r = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: tc.name, arguments: tc.arguments || {} }, id: 1 }) })
@@ -2101,6 +2111,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     const ut = (raw || '').trim()
     if ((!ut && (!imgs || imgs.length === 0)) || loading) return
     setLoading(true); stopRequestedRef.current = false
+    generatingRef.current = true
     const uidU = uid(), uidA = uid()
     const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }
     if (imgs && imgs.length) {
@@ -2131,7 +2142,40 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       if (chatInfo.id) updateChatPreview(chatInfo.id, (aiText && aiText.trim()) ? aiText : ut)
     } catch (e) {
       setMsgList(p => p.map(m => m.id === uidA ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m))
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      generatingRef.current = false
+      // 流式结束补拉一次：新会话 chatInfo.id 已回填，把 DB 落库结果（含工具结果）对齐到本地，
+      // 避免"要刷新才显示"（generatingRef 期间跳过了 useEffect 的覆盖）。
+      if (chatInfo?.id) {
+        fetchMessages(chatInfo.id).then(({ messages: msgs, summary }) => {
+          const DISPLAY_MAX = 60
+          const hadMore = (msgs || []).length > DISPLAY_MAX
+          const visibleMsgs = hadMore ? (msgs || []).slice(-DISPLAY_MAX) : (msgs || [])
+          setEarlierSummary(summary || (hadMore ? '更早的对话已收进摘要。' : ''))
+          const restored = []
+          let pending = null, idx = 0
+          for (const m of visibleMsgs) {
+            if (m.role === 'tool') {
+              if (pending && idx < pending.toolCalls.length && typeof m.content === 'string' && m.content) {
+                pending.toolCalls[idx] = { ...pending.toolCalls[idx], result: m.content }
+                idx++
+              }
+              continue
+            }
+            const nm = normalizeMessage(m)
+            restored.push(nm)
+            if (!nm.isSelf && Array.isArray(nm.toolCalls) && nm.toolCalls.length > 0) { pending = nm; idx = 0 }
+            else pending = null
+          }
+          setMsgList(restored)
+          atBottomRef.current = true
+          setUnseenCount(0); setShowNewPill(false)
+          prevMsgLenRef.current = restored.length
+          setTimeout(() => scrollMsgToBottom('auto'), 80)
+        }).catch(() => {})
+      }
+    }
   }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
