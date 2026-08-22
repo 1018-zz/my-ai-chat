@@ -122,7 +122,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
   // 单次消费一个 DeepSeek 流：解析 SSE → 转发 content/thinking → 收集 tool_calls。
   // 返回本次流的汇总（供外层判断 content 空 → 重试）。
   // opts.suppressThinking=true 时不再转发 thinking 事件（重试场景：首次 thinking 已展示）
-  async function consumeStream(resp, opts = {}) {
+  // controller 由调用方传入（ReadableStream start(controller) 的参数）——绝不能漏，
+  // 否则 enqueue 抛 ReferenceError 被 catch 吞掉 → content 只落库不转发（流式输出消失）
+  async function consumeStream(resp, controller, opts = {}) {
     const reader = resp.body.getReader()
     try {
       while (true) {
@@ -144,18 +146,21 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
               const visible = thinkFilter.feed(delta.content)
               if (visible) {
                 fullContent += visible
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: visible })}\n\n`))
+                // enqueue 抛错（流被客户端提前关闭/异常）时不能静默吞掉——
+                // 否则 content 只落库不转发（现象：回复要刷新才显示、流式输出消失）。
+                // 单独 try 记录错误，避免被外层 catch(_) 静默吞掉。
+                try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: visible })}\n\n`)) } catch (e) { console.warn('[stream-run] enqueue content ERR:', e.message) }
               }
               const thinkDelta = thinkFilter.takeReasoning()
               if (thinkDelta && !hasFieldReasoning && !opts.suppressThinking) {
                 reasoning += thinkDelta
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkDelta })}\n\n`))
+                try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkDelta })}\n\n`)) } catch (e) { console.warn('[stream-run] enqueue thinking ERR:', e.message) }
               }
             }
             if (delta?.reasoning_content) {
               reasoning += delta.reasoning_content
               if (!opts.suppressThinking) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: delta.reasoning_content })}\n\n`))
+                try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: delta.reasoning_content })}\n\n`)) } catch (e) { console.warn('[stream-run] enqueue reasoning ERR:', e.message) }
               }
             }
             if (delta?.tool_calls) {
@@ -189,7 +194,16 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
 
       for (const line of buffer.split('\n')) {
         if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
-        try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content } catch (_) {}
+        try {
+          const d = JSON.parse(line.slice(6))
+          const tailContent = d.choices?.[0]?.delta?.content
+          if (tailContent) {
+            fullContent += tailContent
+            // 收尾 buffer 里的 content 也必须转发给前端——否则 chunk 边界未换行的
+            // 正文只落库不显示（现象：回复要刷新才出现/看不到流式输出）
+            try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tailContent })}\n\n`)) } catch (_) {}
+          }
+        } catch (_) {}
       }
     }
   }
@@ -197,7 +211,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
   const sseStream = new ReadableStream({
     async start(controller) {
       // 首次消费
-      await consumeStream(dsRes)
+      await consumeStream(dsRes, controller)
 
       // content 空自动重试：DeepSeek V4 偶发只输出 reasoning_content、不输出 content
       //（thinking 占满 max_tokens 预算）。此时若带 retryBody（stream.js 传入的 dsBody），
@@ -219,7 +233,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
             console.error(`[stream-run] 重试请求失败 HTTP:${retryRes.status}`)
             aborted = true
           } else {
-            await consumeStream(retryRes, { suppressThinking: true })
+            await consumeStream(retryRes, controller, { suppressThinking: true })
             console.warn(`[stream-run] ✅ 重试成功 | content=${fullContent.slice(0, 40)}`)
           }
         } catch (e) {
