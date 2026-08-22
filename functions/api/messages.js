@@ -47,9 +47,10 @@ export async function onRequestGet(context) {
   messages.reverse() // desc → asc，恢复时间顺序（与灰字合并排序兼容）
   // 合并「钟泽沉默唤醒」灰字 + 「她在想」小注 + 「梦的余韵」：无对话归属，按时间插入整段时间线，
   // 作为存在痕（不进对话气泡）。前端 normalize 识别 kind 渲染灰色小字。
+  // 只取最近 20 条，避免历史灰字无限累积导致新建对话刷屏一堆。
   try {
     const wr = await fetch(
-      `${SUPABASE}/project_events?type=in.(wake_silent,wake_intent,wake_dream)&select=id,type,summary,created_at&order=created_at.asc`,
+      `${SUPABASE}/project_events?type=in.(wake_silent,wake_intent,wake_dream)&select=id,type,summary,created_at&order=created_at.desc&limit=20`,
       { headers: sbHeaders(env) }
     )
     const wrows = await wr.json()
@@ -61,7 +62,7 @@ export async function onRequestGet(context) {
         content: w.summary || '',
         created_at: w.created_at,
         meta: { wakeSilent: w.type === 'wake_silent', wakeIntent: w.type === 'wake_intent', wakeDream: w.type === 'wake_dream' },
-      }))
+      })).reverse() // desc → asc，与主消息流时间序一致
       messages = [...messages, ...gray].sort(
         (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
       )
