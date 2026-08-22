@@ -225,8 +225,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
 
         // 消息存储：原子消息全部落库（含工具轮次的 assistant 续写），
         // 形成 assistant(tool_calls) → tool(result) → assistant(续写) 标准链，
-        // 前端恢复时按序列聚合回 Run。空消息保护：完全无内容、无工具调用、无思考时不落库
-        if (fullContent.trim() || complete.length > 0 || reasoning.trim()) {
+        // 前端恢复时按序列聚合回 Run。空消息保护：仅当有实际内容或工具调用才落库
+        // （content 空但只思考了不落库——避免"整理思路后变空"的垃圾行污染历史）
+        if (fullContent.trim() || complete.length > 0) {
           const saveBody = { conversation_id: convId, role: 'assistant', content: fullContent }
           if (reasoning.trim()) saveBody.thinking = reasoning
           if (complete.length > 0) saveBody.tool_calls = JSON.stringify(complete.map(tc => ({ name: tc.name, arguments: tc.arguments })))
@@ -236,6 +237,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
           if (mm) await saveMemory({ summary: mm[1].trim(), type: 'note', source: 'remember_tag', env })
           trySummarize(env, convId)
           tryCompressConversation(env, convId)
+        } else if (reasoning.trim() && !aborted) {
+          // 诊断：模型思考了但没说出话（DeepSeek V4 偶发只输出 reasoning 不输出 content）
+          console.warn(`[stream-run] ⚠️ 思考了但没说出话（content 空）| thinking=${reasoning.slice(0, 60).replace(/\n/g, ' ')}`)
         }
 
         const donePayload = { done: true, conversationId: convId, aborted }
