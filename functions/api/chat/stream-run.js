@@ -110,7 +110,7 @@ function extractThinkTagReasoning(text) {
   return { visible, reasoning: parts.join('\n\n').trim() }
 }
 
-export async function runStream(dsRes, env, convId, isToolRound = false) {
+export async function runStream(dsRes, env, convId, isToolRound = false, retryBody = null) {
   const encoder = new TextEncoder()
   // TextDecoder 提到循环外：跨 chunk 保持解码状态，中文字符被 chunk 切开时不再烂成 U+FFFD
   const decoder = new TextDecoder()
@@ -119,75 +119,116 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
   let aborted = false
   const thinkFilter = new ThinkTagReasoningFilter()
 
-  const sseStream = new ReadableStream({
-    async start(controller) {
-      const reader = dsRes.body.getReader()
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n'); buffer = lines.pop() || ''
-          for (const line of lines) {
-            if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
-            try {
-              const d = JSON.parse(line.slice(6))
-              if (d.usage && (d.usage.prompt_cache_hit_tokens !== undefined || d.usage.prompt_tokens !== undefined)) usageData = d.usage
-              const delta = d.choices?.[0]?.delta
-              if (delta?.content) {
-                // 同 chunk 两路思考并存（reasoning_content + content 内 <think>）时，
-                // 几乎必为同一份思考被 relay 双写 → <think> 提取的不再重复转发，防"思考重复出现"
-                const hasFieldReasoning = !!(delta?.reasoning_content)
-                // <think> 块剥离：思考进 thinking 链，正文只留可见部分
-                const visible = thinkFilter.feed(delta.content)
-                if (visible) {
-                  fullContent += visible
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: visible })}\n\n`))
-                }
-                const thinkDelta = thinkFilter.takeReasoning()
-                if (thinkDelta && !hasFieldReasoning) {
-                  reasoning += thinkDelta
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkDelta })}\n\n`))
-                }
+  // 单次消费一个 DeepSeek 流：解析 SSE → 转发 content/thinking → 收集 tool_calls。
+  // 返回本次流的汇总（供外层判断 content 空 → 重试）。
+  // opts.suppressThinking=true 时不再转发 thinking 事件（重试场景：首次 thinking 已展示）
+  async function consumeStream(resp, opts = {}) {
+    const reader = resp.body.getReader()
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n'); buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+          try {
+            const d = JSON.parse(line.slice(6))
+            if (d.usage && (d.usage.prompt_cache_hit_tokens !== undefined || d.usage.prompt_tokens !== undefined)) usageData = d.usage
+            const delta = d.choices?.[0]?.delta
+            if (delta?.content) {
+              // 同 chunk 两路思考并存（reasoning_content + content 内 <think>）时，
+              // 几乎必为同一份思考被 relay 双写 → <think> 提取的不再重复转发，防"思考重复出现"
+              const hasFieldReasoning = !!(delta?.reasoning_content)
+              // <think> 块剥离：思考进 thinking 链，正文只留可见部分
+              const visible = thinkFilter.feed(delta.content)
+              if (visible) {
+                fullContent += visible
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: visible })}\n\n`))
               }
-              if (delta?.reasoning_content) {
-                reasoning += delta.reasoning_content
+              const thinkDelta = thinkFilter.takeReasoning()
+              if (thinkDelta && !hasFieldReasoning && !opts.suppressThinking) {
+                reasoning += thinkDelta
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkDelta })}\n\n`))
+              }
+            }
+            if (delta?.reasoning_content) {
+              reasoning += delta.reasoning_content
+              if (!opts.suppressThinking) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: delta.reasoning_content })}\n\n`))
               }
-              if (delta?.tool_calls) {
-                for (const tc of delta.tool_calls) {
-                  const idx = tc.index ?? 0
-                  if (!toolCalls[idx]) toolCalls[idx] = { index: idx, name: '', arguments: '' }
-                  if (tc.function?.name) toolCalls[idx].name += tc.function.name
-                  if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments
-                }
+            }
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0
+                if (!toolCalls[idx]) toolCalls[idx] = { index: idx, name: '', arguments: '' }
+                if (tc.function?.name) toolCalls[idx].name += tc.function.name
+                if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments
               }
-            } catch (_) {}
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      console.error('Stream:', e.message)
+      aborted = true
+    } finally {
+      // 冲刷 TextDecoder 残留字节（流结束时补全最后一个被切开的多字节字符）
+      buffer += decoder.decode()
+      // 冲刷过滤器残留：pending 尾块 + 最后一段思考
+      const tail = thinkFilter.flush()
+      if (tail) {
+        fullContent += tail
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`)) } catch (_) {}
+      }
+      const thinkTail = thinkFilter.takeReasoning()
+      if (thinkTail && !opts.suppressThinking) {
+        reasoning += thinkTail
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkTail })}\n\n`)) } catch (_) {}
+      }
+
+      for (const line of buffer.split('\n')) {
+        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+        try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content } catch (_) {}
+      }
+    }
+  }
+
+  const sseStream = new ReadableStream({
+    async start(controller) {
+      // 首次消费
+      await consumeStream(dsRes)
+
+      // content 空自动重试：DeepSeek V4 偶发只输出 reasoning_content、不输出 content
+      //（thinking 占满 max_tokens 预算）。此时若带 retryBody（stream.js 传入的 dsBody），
+      // 原样重问一次。注意：首次若有 thinking 已转发给前端（"整理思路"），重试不再重发 thinking，
+      // 只取重试的正文，避免思考重复刷屏。
+      const firstComplete = toolCalls.filter(tc => tc && tc.name)
+      const needRetry = retryBody && !fullContent.trim() && firstComplete.length === 0 && !aborted
+      if (needRetry) {
+        console.warn(`[stream-run] 🔁 content 空，自动重试一次 | 已思考=${reasoning.length}字符`)
+        // 清空本次状态，重新请求（保留 convId/isToolRound，thinking 不再转发）
+        fullContent = ''; buffer = ''; toolCalls = []; reasoning = ''
+        try {
+          const retryRes = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+            body: JSON.stringify(retryBody),
+          })
+          if (!retryRes.ok) {
+            console.error(`[stream-run] 重试请求失败 HTTP:${retryRes.status}`)
+            aborted = true
+          } else {
+            await consumeStream(retryRes, { suppressThinking: true })
+            console.warn(`[stream-run] ✅ 重试成功 | content=${fullContent.slice(0, 40)}`)
           }
+        } catch (e) {
+          console.error('[stream-run] 重试异常:', e.message)
+          aborted = true
         }
-      } catch (e) {
-        console.error('Stream:', e.message)
-        aborted = true
-      } finally {
-        // 冲刷 TextDecoder 残留字节（流结束时补全最后一个被切开的多字节字符）
-        buffer += decoder.decode()
-        // 冲刷过滤器残留：pending 尾块 + 最后一段思考
-        const tail = thinkFilter.flush()
-        if (tail) {
-          fullContent += tail
-          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`)) } catch (_) {}
-        }
-        const thinkTail = thinkFilter.takeReasoning()
-        if (thinkTail) {
-          reasoning += thinkTail
-          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ thinking: thinkTail })}\n\n`)) } catch (_) {}
-        }
+      }
 
-        for (const line of buffer.split('\n')) {
-          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
-          try { const d = JSON.parse(line.slice(6)); if (d.choices?.[0]?.delta?.content) fullContent += d.choices[0].delta.content } catch (_) {}
-        }
-
+      try {
         // 保存前兜底：非流式剥离残留 <think> 标签（历史记录绝不带思考原文）
         const cleaned = extractThinkTagReasoning(fullContent)
         if (cleaned.reasoning) reasoning = [reasoning, cleaned.reasoning].filter(Boolean).join('\n\n')
@@ -256,6 +297,11 @@ export async function runStream(dsRes, env, convId, isToolRound = false) {
         }
         const doneMsg = `data: ${JSON.stringify(donePayload)}\n\n`
         try { controller.enqueue(encoder.encode(doneMsg)) } catch (_) {}
+        try { controller.close() } catch (_) {}
+      } catch (e) {
+        // 收尾阶段异常不致命，但要留痕（日志可查）
+        console.error('[stream-run] 收尾异常:', e.message)
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, conversationId: convId, aborted: true })}\n\n`)) } catch (_) {}
         try { controller.close() } catch (_) {}
       }
     },

@@ -182,10 +182,16 @@ export async function onRequestPost(context) {
     // 8192 时 thinking 可能占满导致 content 为空（现象：只显示"整理思路"、消息变空）。
     const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 16384 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
-    // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制 tool_choice，
-    // 模型必须做工具决策，杜绝"光说不做"。auto 保留判断空间（非 any，避免纯聊天也被强迫）。
+    // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制模型调用工具，
+    // 杜绝"光说不做"。
+    // 注意：DeepSeek thinking 模式不支持 tool_choice='required'（API 直接 400），
+    // auto 是唯一允许值。所以用「提示词强推」代替 API 强推——在消息末尾追加一条
+    // 不可抗辩的 system 指令，要求本轮必须发出工具调用；模型对显式指令遵循度高得多。
     if (forceTool && Array.isArray(tools) && tools.length > 0) {
-      dsBody.tool_choice = 'auto'
+      dsBody.messages = [
+        ...messages,
+        { role: 'system', content: '【本轮强制动作】收到这条指令后，你必须在本轮立刻发起一次工具调用，直接用工具去看/查/确认，不许只说话、不许用"我去看看/我查一下"之类的预告词代替动作。工具调用本身就是你的回答。如果不确定用哪个工具，就调用与当前话题最接近的一个。' },
+      ]
     }
 
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
