@@ -116,12 +116,6 @@ const TOOLS = [
     category: 'companion', autonomy: 'sometimes', risk: 'none',
   },
   {
-    name: 'get_health',
-    description: '看泠泠的健康小记（小米手环经 Health Connect 同步来的睡眠 / 步数 / 心率）——钟泽想关心她今天累不累、昨晚睡得好不好，或她问起自己状态 / 睡眠时调用。返回的是温柔概括，不是冷冰冰的数字。不传 date 看最近一次同步；传 date（YYYY-MM-DD）看那天。',
-    parameters: { type: 'object', properties: { date: { type: 'string', description: '可选，YYYY-MM-DD。不传则看最近一次同步' } } },
-    category: 'companion', autonomy: 'sometimes', risk: 'low',
-  },
-  {
     name: 'set_home',
     description: '把当前位置记为"家"（位置感知的基准坐标）。当泠泠说"这里是我家""我到家了，记一下"、或你感知到她到了常住地时调用。lng/lat 用当前位置的经纬度（若她自己说了坐标用她的）；threshold 可选，离家多少米算"在家"，默认 500。设置后钟泽就能判断她在不在家、出门多远。',
     parameters: { type: 'object', properties: { lng: { type: 'number', description: '家的经度（GCJ-02 高德系；WGS84 会自动转换）' }, lat: { type: 'number', description: '家的纬度' }, threshold: { type: 'number', description: '可选，离家阈值（米），默认 500' } }, required: ['lng', 'lat'] },
