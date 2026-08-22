@@ -178,7 +178,9 @@ export async function onRequestPost(context) {
     // 参考 chuan-101/Hamster-Nest 的 resolveHistoryTokenBudget + selectNewestContextWindow
     try { messages = trimHistoryByBudget(messages, env) } catch (_) {}
 
-    const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 8192 }
+    // max_tokens 16384：DeepSeek 带思考（reasoning_content 与 content 共享输出预算），
+    // 8192 时 thinking 可能占满导致 content 为空（现象：只显示"整理思路"、消息变空）。
+    const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 16384 }
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
     // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制 tool_choice，
     // 模型必须做工具决策，杜绝"光说不做"。auto 保留判断空间（非 any，避免纯聊天也被强迫）。
@@ -196,7 +198,8 @@ export async function onRequestPost(context) {
       return json(dsRes.status, { error: `DS [${dsRes.status}]: ${t.slice(0, 200)}` })
     }
 
-    return runStream(dsRes, env, convId, isToolRound)
+    // retryBody：content 空时（DeepSeek 偶发只思考不输出）由 runStream 自动重问一次
+    return runStream(dsRes, env, convId, isToolRound, dsBody)
   } catch (error) { return json(500, { error: `catch: ${error.message}`.slice(0, 300) }) }
 }
 
