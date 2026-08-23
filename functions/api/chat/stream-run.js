@@ -247,6 +247,9 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
         const cleaned = extractThinkTagReasoning(fullContent)
         if (cleaned.reasoning) reasoning = [reasoning, cleaned.reasoning].filter(Boolean).join('\n\n')
         fullContent = cleaned.visible
+        // 时间感知标注【时间 钟泽/泠泠 …】仅用于模型上下文（让钟泽感知时间流逝），
+        // 前端不展示、落库前剥离——否则模型会回显该格式，导致每条回复开头带【时间 …】
+        fullContent = fullContent.replace(/^【时间 [^】]*】\s*/, '')
 
         const rawToolCount = toolCalls.filter(tc => tc).length
         const complete = toolCalls.filter(tc => tc && tc.name)

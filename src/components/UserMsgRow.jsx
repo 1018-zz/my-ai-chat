@@ -27,7 +27,7 @@ export default function UserMsgRow({ msg, avatar, onAvatarClick }) {
               </div>
             )}
             <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
-              <Markdown>{msg.text}</Markdown>
+              <Markdown>{String(msg.text || '').replace(/^【时间 [^】]*】\s*/, '')}</Markdown>
             </div>
             {(() => { const imgs = msg.images || (msg.image ? [msg.image] : []); return imgs.length ? <div className="msg-images">{imgs.map((src, i) => <img key={i} className="msg-image" src={src} alt="" />)}</div> : null })()}
             {showToggle && (
