@@ -98,6 +98,25 @@ export const ToolCard = ({ tool, result }) => {
     )
   }
 
+  // 小家诊断（run_command）：只读查服务状态/日志，用等宽代码块呈现（日志更适合等宽）
+  if (tool.name === 'run_command') {
+    const r = result || ''
+    const isErr = String(r).startsWith('执行失败')
+    return (
+      <div style={{ ...paperCard, marginBottom: 6 }} className={`tool-card ${isRunning ? 'status-thinking' : isErr ? 'status-err' : 'status-ok'}`}>
+        <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', cursor: 'pointer', fontSize: 12, userSelect: 'none' }}>
+          <ToolTypeIcon name="run_command" className="tool-icon" style={{ fontSize: 14 }} />
+          <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>查小家状态</span>
+          {tool.arguments?.op && <span style={{ color: 'var(--color-text-gray)', fontSize: 11 }}>{tool.arguments.op}</span>}
+          <span style={{ marginLeft: 'auto' }}><StatusIcon status={isRunning ? 'running' : isErr ? 'err' : 'ok'} style={{ fontSize: 14 }} /></span>
+        </div>
+        {open && (
+          <pre className="tool-code" style={{ maxHeight: 260, overflowY: 'auto', margin: 0, padding: '8px 12px', fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: isErr ? 'var(--color-danger)' : 'var(--color-text-gray)' }}>{r || '执行中…'}</pre>
+        )}
+      </div>
+    )
+  }
+
   // 复制代码块内容（含降级方案，兼容非 https 部署环境）
   const handleCopy = async () => {
     if (!result) return

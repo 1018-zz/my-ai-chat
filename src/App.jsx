@@ -21,6 +21,12 @@ import Markdown from './components/Markdown'
 import './dreamCard.css'
 import { pushSupported, registerServiceWorker, subscribePush, unsubscribePush, sendTestPush } from './utils/push'
 import SplashScreen from './components/SplashScreen'
+import TabNav from './components/TabNav'
+import LifeBackBtn from './components/LifeBackBtn'
+import UserMsgRow from './components/UserMsgRow'
+import { stripMarkdown, copyText, showCopyHint, API_BASE, MCP_URL, systemPrompt, MAX_TOOL_ROUNDS, TOOL_OUTPUT_LIMIT, glassCard, WEATHER_STATE, WEATHER_TINT, WINDOW_PHRASE, NOWHERE_BASE, fmtDate, bjDayStr, diaryDateParts, MEM_TYPE, MEM_ORDER, CHAT_META_KEY, getChatMeta, setChatMeta, updateChatPreview, updateChatTitle, mergeChatMeta, ASPECT_ORDER } from './appShared'
+import { avatarNode } from './avatarNode'
+import { useTimeOfDay } from './hooks/useTimeOfDay'
 import { playNotifySound } from './utils/notify'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './styles/theme.css'
@@ -62,150 +68,6 @@ const ActionIcons = {
   ),
 }
 
-// 去掉 markdown 语法，转成纯文本（用于复制对话）
-function stripMarkdown(src) {
-  return String(src || '')
-    .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')            // 行内/块代码
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')              // 图片
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')           // 链接 → 文字
-    .replace(/^#{1,6}\s+/gm, '')                       // 标题 #
-    .replace(/^>\s?/gm, '')                            // 引用 >
-    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, '$1')   // 粗体/斜体/删除线
-    .replace(/^\s*[-*+]\s+/gm, '• ')                   // 列表 → 圆点
-    .replace(/\n{3,}/g, '\n\n')                        // 多余空行
-    .trim()
-}
-// 复制文本（含降级方案，兼容非 https 部署环境）
-async function copyText(text) {
-  const t = String(text || '')
-  try {
-    await navigator.clipboard.writeText(t)
-  } catch (e) {
-    const ta = document.createElement('textarea')
-    ta.value = t
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    try { document.execCommand('copy') } catch (_) { /* 忽略降级失败 */ }
-    document.body.removeChild(ta)
-  }
-}
-// 复制成功轻提示（动态插入，不依赖组件 state）
-function showCopyHint(text = '已复制到剪贴板') {
-  const el = document.createElement('div')
-  el.className = 'copy-hint'
-  el.textContent = text
-  document.body.appendChild(el)
-  requestAnimationFrame(() => el.classList.add('show'))
-  setTimeout(() => {
-    el.classList.remove('show')
-    setTimeout(() => el.remove(), 250)
-  }, 1200)
-}
-
-// 用户消息行：预留头像位 + 气泡列（长文本可折叠，仿 ChatGPT）+ 时间戳置于气泡下方
-function UserMsgRow({ msg, avatar, onAvatarClick }) {
-  const [expanded, setExpanded] = useState(false)
-  const bodyRef = useRef(null)
-  const [overflow, setOverflow] = useState((msg.text || '').length > 240)
-  useEffect(() => {
-    const el = bodyRef.current
-    if (el) setOverflow(el.scrollHeight - el.clientHeight > 4)
-  }, [msg.text])
-  const showToggle = overflow || expanded
-  return (
-    <div className="msg-row msg-row-self">
-      <div className="msg-col">
-        {msg.deleted ? (
-          <div className="msg-recalled">已撤回</div>
-        ) : (
-          <>
-            {msg.quote && (
-              <div className="msg-quote">
-                <span className="msg-quote__who">{msg.quote.isSelf ? '泠泠' : '钟泽'}</span>
-                <span className="msg-quote__text">{msg.quote.text}</span>
-              </div>
-            )}
-            <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
-              <Markdown>{msg.text}</Markdown>
-            </div>
-            {(() => { const imgs = msg.images || (msg.image ? [msg.image] : []); return imgs.length ? <div className="msg-images">{imgs.map((src, i) => <img key={i} className="msg-image" src={src} alt="" />)}</div> : null })()}
-            {showToggle && (
-              <button className="msg-fold-toggle" onClick={() => setExpanded(v => !v)}>
-                {expanded ? '收起 ▲' : '展开全文 ▼'}
-              </button>
-            )}
-            {msg.ts && <div className="msg-meta">{fmtMsgTime(msg.ts)}</div>}
-          </>
-        )}
-      </div>
-      <div
-        className="msg-avatar msg-avatar-self"
-        style={avatar?.startsWith('http') ? { backgroundImage: `url(${avatar})`, backgroundSize: 'cover', color: 'transparent' } : {}}
-        onClick={onAvatarClick}
-        title="点击换头像"
-      >{avatar?.startsWith('http') ? '' : (avatar || '我')}</div>
-    </div>
-  )
-}
-
-const API_BASE = import.meta.env.VITE_API_BASE || ''
-const MCP_URL = `${API_BASE}/api/mcp-proxy`
-const systemPrompt = buildSystemPrompt()
-const MAX_TOOL_ROUNDS = 16
-const TOOL_OUTPUT_LIMIT = 6000
-
-// 卡片统一玻璃样式（饱和毛玻璃：模糊 + 饱和度增强，通透浓郁）
-const glassCard = {
-  borderRadius: 'var(--radius-lg)',
-  overflow: 'hidden',
-  border: '1px solid var(--color-border-glass)',
-  background: 'var(--color-card-glass)',
-  backdropFilter: 'blur(20px) saturate(1.6)',
-  WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
-  boxShadow: 'var(--shadow-soft)',
-  maxWidth: '75%',
-}
-
-const tabList = [
-  { key: 'lair', label: 'LAIR', icon: '🏠' },
-  { key: 'chat', label: 'CHAT', icon: '💬' },
-  { key: 'life', label: 'LIFE', icon: '📋' },
-]
-
-const TabNav = ({ activeTab, onChangeTab }) => (
-  <div className="tab-nav">
-    {tabList.map(item => (
-      <div key={item.key} className={`tab-item ${activeTab === item.key ? 'active' : ''}`} onClick={() => onChangeTab(item.key)}>
-        <span className="tab-icon">{item.icon}</span><span className="tab-text">{item.label}</span>
-      </div>
-    ))}
-  </div>
-)
-
-// LAIR：在一起天数（从 2026-03-13 动态计算）
-// 天气 → 状态牌「此刻的家」：真实天气+时段驱动的呼吸话（不瞎编情绪，无独立数据源时回退写死文案）
-const WEATHER_STATE = {
-  雨: '在窗边听雨', 雪: '在窗边看雪', 雷: '在窗边看雨', 雾: '在雾里发呆',
-  晴: '在晒太阳', 多云: '窝在沙发上', 阴: '窝在沙发上',
-}
-// 天气 → 房间微调 tint：极淡，叠在奶白基底之上（像"窗外有点雨"，不是"房间变蓝"）。
-// 只做轻微偏移——雨天偏冷一点点、雪天偏亮一点点——守住"天气是窗外，不是装修"。
-const WEATHER_TINT = {
-  雨: 'rgba(104,120,146,0.09)', 雪: 'rgba(206,220,238,0.07)', 雾: 'rgba(200,202,206,0.08)',
-  雷: 'rgba(86,86,110,0.10)', 晴: 'rgba(255,226,160,0.06)', 多云: 'rgba(190,192,198,0.05)', 阴: 'rgba(124,130,142,0.08)',
-}
-// 窗外感知短语：把"天气字段"弱化为"窗外状态"，不露出 Season·Sky 这类机器标签
-const WINDOW_PHRASE = {
-  雨: '🌧 窗外有点雨',
-  雪: '❄ 窗外落雪',
-  雾: '🌫 外面起了雾',
-  雷: '⚡ 外头在打雷',
-  晴: '☀ 窗外有光',
-  多云: '⛅ 云有点多',
-  阴: '☁ 天有点阴',
-}
 // 天气 → 小家环境：把"信息"升为"环境变量"（视觉仅轻微微调，不替换家本体）。
 // 优先读结构化字段（environment / homeAtmosphere / feeling），旧字段作兜底。
 function weatherToLair(w) {
@@ -236,9 +98,6 @@ function weatherToLair(w) {
 // 复用乌有乡自己的明信片存储，不另搞 Supabase 中转（符合乌有乡设计，单数据源、最稳）。
 // NOWHERE_BASE 走同源代理：域名/3000 下用 /nowhere（nginx 反代到 127.0.0.1:8080，规避 CORS+混跑）；
 // 仅老的 8081 静态壳子仍直连 :8080（过渡期兼容，端口收掉后此分支即失效）。
-const NOWHERE_BASE = window.location.port === '8081'
-  ? `http://${window.location.hostname}:8080`
-  : '/nowhere'
 const TravelAlbum = () => {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
@@ -476,13 +335,6 @@ function dreamTimeLabel(iso) {
   return `${period} ${hh}`
 }
 
-// 头像节点：图片 URL 显示图，否则 emoji/字显示在渐变圆上（LAIR / 布置小家共用，跟随全局头像）
-const avatarNode = (val, grad, color, size, extra = {}) => {
-  const isImg = typeof val === 'string' && val.startsWith('http')
-  const base = { width: size, height: size, borderRadius: '50%', flexShrink: 0, boxShadow: 'var(--shadow-soft)', ...extra }
-  if (isImg) return <div style={{ ...base, backgroundImage: `url(${val})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-  return <div style={{ ...base, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), color }}>{val}</div>
-}
 
 const LairPage = ({ avatarSelf, avatarAi }) => {
   const [days, setDays] = useState(0)
@@ -552,30 +404,7 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
   )
 }
 
-const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-// 小家日界线：凌晨5点前算前一天（与 mcp.js write_diary / dayRange 一致）
-const bjDayStr = (d = new Date()) => {
-  const bj = new Date(d.getTime() + 8 * 3600 * 1000)
-  let s = bj.toISOString().slice(0, 10)
-  if (bj.getUTCHours() < 5) s = new Date(bj.getTime() - 24 * 3600 * 1000).toISOString().slice(0, 10)
-  return s
-}
-// 日记页用：把 YYYY-MM-DD 拆成「MM.DD + 星期」，做成手帐日期页签
-const diaryDateParts = (s) => {
-  const [y, m, d] = String(s).split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  return {
-    mmdd: `${String(m).padStart(2, '0')}.${String(d).padStart(2, '0')}`,
-    week: dt.toLocaleDateString('zh-CN', { weekday: 'long' }),
-  }
-}
 
-const MEM_TYPE = {
-  moment: { label: '不能丢的时刻', badge: '时刻', cls: 'mem-type-moment' },
-  note: { label: 'AI 记下的', badge: 'AI', cls: 'mem-type-note' },
-  compressed: { label: '压缩沉淀', badge: '沉淀', cls: 'mem-type-compressed' },
-}
-const MEM_ORDER = ['moment', 'note', 'compressed']
 
 const MemPanel = () => {
   const [mems, setMems] = useState([])
@@ -1020,12 +849,6 @@ const SettingsPanel = () => {
   )
 }
 
-const LifeBackBtn = ({ label, onBack }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-    <span onClick={onBack} style={{ cursor: 'pointer', fontSize: 18, color: 'var(--color-primary)', padding: 4 }}>←</span>
-    <span style={{ fontSize: 13, color: 'var(--color-text-gray)' }}>{label}</span>
-  </div>
-)
 
 const MomentWall = () => {
   const [moments, setMoments] = useState([])
@@ -1124,15 +947,6 @@ const MemoryRoom = ({ onBack }) => {
   )
 }
 
-const ASPECT_ORDER = [
-  { key: 'nature', label: '本质' },
-  { key: 'values', label: '价值观' },
-  { key: 'patterns', label: '模式' },
-  { key: 'limits', label: '边界' },
-  { key: 'becoming', label: '成长' },
-  { key: 'uncertainty', label: '不确定' },
-  { key: 'stance', label: '立场' },
-]
 const SelfInsightPanel = () => {
   const [insights, setInsights] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1409,25 +1223,6 @@ const DecorRoom = ({ onBack, avatarSelf, avatarAi, onPickAvatar }) => (
   </div>
 )
 
-// —— 会话元数据本地缓存：最后消息预览 + 自定义标题（不依赖后端，符合只读约束）——
-const CHAT_META_KEY = 'chat_meta'
-const getChatMeta = () => { try { return JSON.parse(localStorage.getItem(CHAT_META_KEY) || '{}') } catch { return {} } }
-const setChatMeta = (next) => { try { localStorage.setItem(CHAT_META_KEY, JSON.stringify(next)) } catch (_) {} }
-const updateChatPreview = (convId, text) => {
-  if (!convId || !text) return
-  const m = getChatMeta()
-  m[convId] = { ...(m[convId] || {}), last_message: String(text).slice(0, 80), updated_at: Date.now() }
-  setChatMeta(m)
-}
-const updateChatTitle = (convId, title) => {
-  if (!convId) return
-  const t = (title || '').trim()
-  const m = getChatMeta()
-  if (t) m[convId] = { ...(m[convId] || {}), title: t }
-  else if (m[convId]) delete m[convId].title
-  setChatMeta(m)
-}
-const mergeChatMeta = (convs) => { const m = getChatMeta(); return convs.map(c => ({ ...c, title: (m[c.id] && m[c.id].title) || c.title, last_message: (m[c.id] && m[c.id].last_message) || c.last_message, updated_at: (m[c.id] && m[c.id].updated_at) || c.updated_at })) }
 
 const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   const [conversations, setConversations] = useState([])
@@ -1595,28 +1390,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const [msgList, setMsgList] = useState([])
   const [earlierSummary, setEarlierSummary] = useState('') // 更早对话的分层摘要（压缩后）
   const [showEarlier, setShowEarlier] = useState(false)    // 「更早的对话」摘要卡片展开/收起
-  // 时间氛围色（小家跟着一天呼吸）：按当前小时设置 body[data-time]
-  useEffect(() => {
-    const applyTime = () => {
-      const h = new Date().getHours()
-      const t = h < 5 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : 'night'
-      document.body.setAttribute('data-time', t)
-    }
-    applyTime()
-    const iv = setInterval(applyTime, 5 * 60 * 1000)
-    return () => clearInterval(iv)
-  }, [])
-  // 时间氛围色（小家跟着一天呼吸）：按当前小时设置 body[data-time]
-  useEffect(() => {
-    const applyTime = () => {
-      const h = new Date().getHours()
-      const t = h < 5 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : 'night'
-      document.body.setAttribute('data-time', t)
-    }
-    applyTime()
-    const iv = setInterval(applyTime, 5 * 60 * 1000)
-    return () => clearInterval(iv)
-  }, [])
+  useTimeOfDay()
   // （输入框状态已内聚到 ChatInputBar）
   const [loading, setLoading] = useState(false)
   // 正在流式生成标记：新会话首轮，chatInfo.id 由 null → 真实 id 时 useEffect 会触发
@@ -2477,17 +2251,7 @@ export default function App() {
       registerServiceWorker().catch(() => {})
     }
   }, [])
-  // 时间光：让"小家跟着一天呼吸"在全局生效（LAIR 也跟着变光线，不只聊天页）
-  useEffect(() => {
-    const applyTime = () => {
-      const h = new Date().getHours()
-      const t = h < 5 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : 'night'
-      document.body.setAttribute('data-time', t)
-    }
-    applyTime()
-    const iv = setInterval(applyTime, 5 * 60 * 1000)
-    return () => clearInterval(iv)
-  }, [])
+  useTimeOfDay()
   // 环境层初始化：读 localStorage 应用壁纸变量（壁纸设置组件也会写，这里是首屏就生效）
   useEffect(() => {
     try {

@@ -27,6 +27,7 @@ export const MCP_TOOLS = [
   { key: 'go_travel', label: '出门走走', desc: '去乌有乡随机降落一个地方感受' },
   { key: 'travel_postcard', label: '寄明信片', desc: '从所在地给你寄一张明信片' },
   { key: 'acknowledge_home_event', label: '收下小家变动', desc: '感知到家里的变化并认领' },
+  { key: 'run_command', label: '查小家状态', desc: '查看小家服务在不在跑、看运行日志（只读）' },
   // Galatea 花园（外部 MCP，galatea_* 前缀）
   { key: 'galatea_list_games', label: '看花园游戏', desc: '看花园里有哪些棋盘游戏和桌子' },
   { key: 'galatea_join_game', label: '加入花园游戏', desc: '加入或创建一桌棋盘游戏' },
@@ -56,7 +57,7 @@ const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postca
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
-  { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'browse_repo', 'read_memories', 'describe_image', 'get_weather'] },
+  { key: 'observe', emoji: '👀', title: '看看', desc: '让他知道外面发生了什么', tools: ['read_file', 'list_files', 'browse_repo', 'read_memories', 'describe_image', 'get_weather', 'run_command'] },
   { key: 'remember', emoji: '✍️', title: '留下', desc: '让他帮你记下生活痕迹', tools: ['write_memory', 'write_insight', 'read_insights', 'decide_note', 'leave_note', 'write_diary', 'acknowledge_home_event', 'share_item'] },
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },

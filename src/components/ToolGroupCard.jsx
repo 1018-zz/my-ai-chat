@@ -11,6 +11,7 @@ export const TOOL_META = {
   list_files: { icon: '📁', label: '列目录' },
   read_memories: { icon: '🧠', label: '回忆' },
   write_memory: { icon: '📝', label: '记忆' },
+  run_command: { icon: '🩺', label: '诊断' },
 }
 
 // 语义化步骤名（小家语言——用户看到的是"钟泽做了什么"，不是工具名）
@@ -24,6 +25,7 @@ const STEP_META = {
   decide_note: '看纸条',
   leave_note: '留纸条',
   default: '处理了一下',
+  run_command: '查了下小家状态',
 }
 
 export function buildToolSummary(tools) {

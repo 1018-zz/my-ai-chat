@@ -48,6 +48,7 @@ const TOOL_ICONS = {
   list_files: Folder,
   read_memories: Brain,
   write_memory: StickyNote,
+  run_command: WrenchIcon,
 }
 export function ToolTypeIcon({ name, ...rest }) {
   const C = TOOL_ICONS[name] || Gear
