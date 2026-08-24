@@ -186,12 +186,13 @@ export async function onRequestPost(context) {
     if (thinkingMode === 'off') dsBody.thinking = { type: 'disabled' }
     else if (thinkingMode === 'low' || thinkingMode === 'max') dsBody.reasoning_effort = thinkingMode
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
-    // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制模型调用工具，
-    // 杜绝"光说不做"。
-    // 注意：DeepSeek thinking 模式不支持 tool_choice='required'（API 直接 400），
-    // auto 是唯一允许值。所以用「提示词强推」代替 API 强推——在消息末尾追加一条
-    // 不可抗辩的 system 指令，要求本轮必须发出工具调用；模型对显式指令遵循度高得多。
+    // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制模型调用工具，杜绝"光说不做"。
+    // 关键：thinking 模式下 tool_calls 生成不稳定（模型在思考里"想调"却不输出 tool_calls），
+    // 所以 forceTool 时关 thinking（thinking.type=disabled）+ tool_choice=required（non-thinking 模式支持），
+    // 双管齐下强制模型直接输出 tool_calls。保留 system 指令作额外引导。
     if (forceTool && Array.isArray(tools) && tools.length > 0) {
+      dsBody.thinking = { type: 'disabled' }
+      dsBody.tool_choice = 'required'
       dsBody.messages = [
         ...messages,
         { role: 'system', content: '【本轮强制动作】收到这条指令后，你必须在本轮立刻发起一次工具调用，直接用工具去看/查/确认，不许只说话、不许用"我去看看/我查一下"之类的预告词代替动作。工具调用本身就是你的回答。如果不确定用哪个工具，就调用与当前话题最接近的一个。' },

@@ -231,6 +231,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
               ...retryBody,
               max_tokens: 65536,
               thinking: { type: 'disabled' },
+              tool_choice: 'required',
               messages: [
                 ...retryBody.messages,
                 { role: 'system', content: '【重试·强制工具】上一轮你只思考没行动。现在必须立刻发起工具调用（如 voicebox_speak/spicy_roll），不要再说"我来试试"之类的预告词，直接调。' },
