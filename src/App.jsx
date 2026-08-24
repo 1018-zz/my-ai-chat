@@ -1824,7 +1824,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     let curMsgs = cms, curFt = '', curTcs = [], curAiId = aiMsgId, rounds = 0, curReasoning = '', curUsage = null
     // 程序层工具门禁：用户消息疑似需要工具（提代码/文件/记忆/天气/健康/位置/仓库/看/查/改/找）时，
     // 后端 forceTool=true 会带 tool_choice，模型必须做工具决策，杜绝"光说不做"。
-    const needsTool = /(代码|文件|目录|记忆|天气|健康|睡眠|步数|位置|城市|仓库|项目|看看|查一下|查查|读一下|改一下|找找|找到|去翻|读读|检查|确认.*(在|有)|还在吗|在哪)/.test(userText)
+    const needsTool = /(代码|文件|目录|记忆|天气|健康|睡眠|步数|位置|城市|仓库|项目|看看|查一下|查查|读一下|改一下|找找|找到|去翻|读读|检查|确认.*(在|有)|还在吗|在哪|说句话|用语音|出声|朗读|念出来|掷骰|走棋|结算|大富翁|开局)/.test(userText)
     const awarenessSince = getAwarenessSince(chatInfo?.id)
     const first = await streamChat(curMsgs, curAiId,
       (t) => setMsgList(p => p.map(m => m.id === curAiId ? { ...m, text: t, loading: false } : m)),
