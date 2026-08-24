@@ -13,6 +13,7 @@
 import { GALATEA_TOOLS } from './galateaTools.js'
 import { CEDAR_TOY_TOOLS } from './cedarToyClient.js'
 import { SPICY_TOOLS } from './spicyClient.js'
+import { NETEASE_TOOLS } from './neteaseClient.js'
 
 // Voicebox 工具（本地桌面应用，前端桥接执行，后端只注册定义让模型可见）
 // 工具名用下划线（OpenAI 不允许点号），前端 executeMcp 调用时转回 voicebox. 点号
@@ -231,7 +232,12 @@ export function getChatTools({ context = 'chat' } = {}) {
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.inputSchema },
   }))
-  return [...local, ...galatea, ...toy, ...spicy, ...voicebox]
+  // 网易云音乐工具（netease_ 前缀）
+  const netease = NETEASE_TOOLS.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+  }))
+  return [...local, ...galatea, ...toy, ...spicy, ...voicebox, ...netease]
 }
 
 // 仅供内部/未来使用：带元数据的全量视图

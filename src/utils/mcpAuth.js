@@ -61,6 +61,17 @@ export const MCP_TOOLS = [
   { key: 'voicebox_transcribe', label: '语音转文字', desc: '把音频转成文字（本地 Whisper）' },
   { key: 'voicebox_list_captures', label: '看录音历史', desc: '列出最近的录音/听写' },
   { key: 'voicebox_list_profiles', label: '看语音列表', desc: '列出可用的语音（含克隆的）' },
+  // 网易云音乐（外部 MCP，netease_ 前缀）
+  { key: 'netease_play_music', label: '搜歌', desc: '在网易云搜歌曲' },
+  { key: 'netease_create_playlist', label: '建歌单', desc: '在泠泠网易云建新歌单' },
+  { key: 'netease_update_playlist_description', label: '改歌单描述', desc: '更新歌单描述文字' },
+  { key: 'netease_add_to_playlist', label: '塞歌进歌单', desc: '把歌加进指定歌单' },
+  { key: 'netease_remove_from_playlist', label: '从歌单删歌', desc: '从歌单移除歌曲' },
+  { key: 'netease_list_my_playlists', label: '看歌单', desc: '列出泠泠所有歌单' },
+  { key: 'netease_get_playlist_songs', label: '看歌单曲目', desc: '看歌单里有哪些歌' },
+  { key: 'netease_get_play_history', label: '听歌记录', desc: '看泠泠最近在循环什么' },
+  { key: 'netease_like_song', label: '收藏歌曲', desc: '红心/取消红心' },
+  { key: 'netease_daily_recommend', label: '每日推荐', desc: '看今天的个性化推荐' },
 ]
 
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
@@ -76,7 +87,9 @@ const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postca
   // Spicy Monopoly：用户已授权
   'spicy_help', 'spicy_new_game', 'spicy_roll', 'spicy_game_action', 'spicy_game_info', 'spicy_game_admin',
   // Voicebox 语音：用户已授权
-  'voicebox_speak', 'voicebox_transcribe', 'voicebox_list_captures', 'voicebox_list_profiles']
+  'voicebox_speak', 'voicebox_transcribe', 'voicebox_list_captures', 'voicebox_list_profiles',
+  // 网易云音乐：用户已授权钟泽自由操作
+  'netease_play_music', 'netease_create_playlist', 'netease_update_playlist_description', 'netease_add_to_playlist', 'netease_remove_from_playlist', 'netease_list_my_playlists', 'netease_get_playlist_songs', 'netease_get_play_history', 'netease_like_song', 'netease_daily_recommend']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
@@ -88,6 +101,7 @@ export const TOOL_GROUPS = [
   { key: 'toy', emoji: '🎮', title: '游戏', desc: 'CedarToy 平台的小游戏', tools: ['toy_list_games', 'toy_get_guide', 'toy_play', 'toy_account'] },
   { key: 'spicy', emoji: '🎲', title: '大富翁', desc: '色色大富翁（18+）', tools: ['spicy_help', 'spicy_new_game', 'spicy_roll', 'spicy_game_action', 'spicy_game_info', 'spicy_game_admin'] },
   { key: 'voice', emoji: '🔊', title: '语音', desc: 'Voicebox 语音输入输出', tools: ['voicebox_speak', 'voicebox_transcribe', 'voicebox_list_captures', 'voicebox_list_profiles'] },
+  { key: 'music', emoji: '🎵', title: '网易云', desc: '操作泠泠的网易云账号', tools: ['netease_play_music', 'netease_create_playlist', 'netease_update_playlist_description', 'netease_add_to_playlist', 'netease_remove_from_playlist', 'netease_list_my_playlists', 'netease_get_playlist_songs', 'netease_get_play_history', 'netease_like_song', 'netease_daily_recommend'] },
 ]
 
 // 模式 → 显示文字（设置页默认只显示状态，不堆开关）

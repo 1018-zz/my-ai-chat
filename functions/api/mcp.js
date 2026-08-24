@@ -12,6 +12,8 @@ import { callCedarToyTool } from '../lib/cedarToyClient.js'
 import { CEDAR_TOY_TOOLS } from '../lib/cedarToyClient.js'
 import { callSpicyTool } from '../lib/spicyClient.js'
 import { SPICY_TOOLS } from '../lib/spicyClient.js'
+import { callNeteaseTool } from '../lib/neteaseClient.js'
+import { NETEASE_TOOLS } from '../lib/neteaseClient.js'
 import { setHome } from '../lib/locationSense.js'
 
 // Voicebox 工具定义（本地桌面应用，后端只注册定义，执行在前端桥接）
@@ -167,7 +169,8 @@ export async function onRequestPost(context) {
         ...GALATEA_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
         ...CEDAR_TOY_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
         ...SPICY_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
-        ...VOICEBOX_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
+        ...VOICEBOX_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+        ...NETEASE_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
       ] } }), { headers });
     }
     if (method === 'tools/call') {
@@ -194,6 +197,15 @@ export async function onRequestPost(context) {
       if (typeof name === 'string' && name.startsWith('spicy_')) {
         try {
           const text = await callSpicyTool(name, args)
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: String(e.message || e).slice(0, 400) } }), { status: 200, headers });
+        }
+      }
+      // 网易云音乐工具：带 netease_ 前缀 → 转发本机 netease-music-mcp server（127.0.0.1:3456）
+      if (typeof name === 'string' && name.startsWith('netease_')) {
+        try {
+          const text = await callNeteaseTool(name, args)
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } }), { headers });
         } catch (e) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: String(e.message || e).slice(0, 400) } }), { status: 200, headers });
