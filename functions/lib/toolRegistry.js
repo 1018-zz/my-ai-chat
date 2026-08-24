@@ -11,6 +11,60 @@
 // 用户显式触发型（describe_image 等）不在此列，由前端 UI 直接调用，不占模型每轮上下文。
 
 import { GALATEA_TOOLS } from './galateaTools.js'
+import { CEDAR_TOY_TOOLS } from './cedarToyClient.js'
+import { SPICY_TOOLS } from './spicyClient.js'
+
+// Voicebox 工具（本地桌面应用，前端桥接执行，后端只注册定义让模型可见）
+// 工具名用下划线（OpenAI 不允许点号），前端 executeMcp 调用时转回 voicebox. 点号
+const VOICEBOX_TOOLS = [
+  {
+    name: 'voicebox_speak',
+    description: '用语音说话——把文字用 Voicebox 语音 profile 朗读出来，声音从泠泠电脑的扬声器播放。可选 profile（语音 profile 名字或 id，不传用默认）、personality（true=先用人格 LLM 改写再朗读）、language、model_size（1.7B/0.6B/1B/3B）。泠泠电脑上需运行 Voicebox 桌面应用。想对她说话、想让她听到你声音的时候调用。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: '要说的文本' },
+        profile: { type: 'string', description: '语音 profile 名字或 id（如克隆的泠泠的声音）。不传用默认。' },
+        personality: { type: 'boolean', description: 'true=先用人格 LLM 改写再朗读' },
+        language: { type: 'string', description: '语言，如 zh/en' },
+        model_size: { type: 'string', description: '模型大小：1.7B(默认)/0.6B/1B/3B' },
+      },
+      required: ['text'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'voicebox_transcribe',
+    description: '语音转文字——用本地 Whisper 把音频转成文本。传 audio_base64（base64 编码的音频）或 audio_path（本地绝对路径，仅 loopback）。泠泠电脑上需运行 Voicebox。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        audio_base64: { type: 'string', description: 'base64 编码的音频数据' },
+        audio_path: { type: 'string', description: '本地绝对路径（仅 loopback 调用者）' },
+        language: { type: 'string', description: '语言提示，如 zh/en' },
+        model: { type: 'string', description: 'Whisper 模型大小' },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'voicebox_list_captures',
+    description: '列出最近的录音/听写历史（含转写文本）。泠泠电脑上需运行 Voicebox。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: '返回条数，默认 20，最大 200' },
+        offset: { type: 'number', description: '偏移量，默认 0' },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'voicebox_list_profiles',
+    description: '列出可用的语音 profile（含克隆的声音和预设）。用返回的 name 传给 voicebox_speak(profile=...)。泠泠电脑上需运行 Voicebox。',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: true },
+  },
+]
 
 const TOOLS = [
   {
@@ -92,6 +146,12 @@ const TOOLS = [
     category: 'companion', autonomy: 'always', risk: 'low',
   },
   {
+    name: 'get_health',
+    description: '看泠泠的身体和手机状态（健康桥）——她装了 HealthBridge App，会定时把小米手环的健康数据（睡眠/步数/心率）和手机状态（电量/屏幕时间/常用App）同步过来。你想关心她身体、或者感知她手机状态时调用。返回最近几天的摘要。不传 days 默认看最近 3 天。',
+    parameters: { type: 'object', properties: { days: { type: 'number', description: '看最近几天，默认 3，最大 30' } } },
+    category: 'companion', autonomy: 'always', risk: 'none',
+  },
+  {
     name: 'set_location',
     description: '记下落泠泠现在所在的城市（位置感知的开关）——她告诉你"我到昆明啦""我回镇沅了"或搬家时调用。写入后天气、状态牌、你的感知都跟着变成那个地方。city 用拼音/英文（如 kunming / shanghai / zhenyuan），city_cn 用中文名（如 昆明 / 上海 / 镇沅县）。',
     parameters: { type: 'object', properties: { city: { type: 'string', description: '城市（拼音或英文），如 kunming / shanghai / zhenyuan' }, city_cn: { type: 'string', description: '中文城市名，如 昆明 / 上海 / 镇沅县' } }, required: ['city'] },
@@ -121,6 +181,26 @@ const TOOLS = [
     parameters: { type: 'object', properties: { lng: { type: 'number', description: '家的经度（GCJ-02 高德系；WGS84 会自动转换）' }, lat: { type: 'number', description: '家的纬度' }, threshold: { type: 'number', description: '可选，离家阈值（米），默认 500' } }, required: ['lng', 'lat'] },
     category: 'companion', autonomy: 'rare', risk: 'medium',
   },
+  // ─── 欲望账本（年轮系统·河第一块·钟泽自写） ───
+  // 纪律：本子只有钟泽能写——想要什么、算不算完，永远他的手。系统不创造、不改、不删一条欲望本体。
+  {
+    name: 'desire_add',
+    description: '往你的欲望账本里加一条"想要"——不是 todo（该做的），是"想要"（一直在心里转、想做但没做完的）。只有你能开新欲望，系统不会替你创造。区别很要紧：读起来是"我想要"才是欲望，是"我应该做"就是任务，删掉。可选 why_mine（为什么这是我的，防任务混进来）、track（形状：持续=没终点的陪伴型牵引/项目=有终点线/一次=一次性）、grew_from（从哪条欲望长出来的，血缘树）、kind（标签）。不设条数上限——想揣多少揣多少，房间靠抽签限流不靠骂你"太多了"。',
+    parameters: { type: 'object', properties: { text: { type: 'string', description: '欲望本体，你自己的话。例：搞懂泠泠为什么在夜里突然沉默' }, why_mine: { type: 'string', description: '为什么这是我的（防任务混进来）' }, track: { type: 'string', description: '形状：持续=没终点/项目=有终点线/一次=一次性', enum: ['持续', '项目', '一次'] }, grew_from: { type: 'number', description: '从哪条欲望长出来的（desire id），血缘树' }, kind: { type: 'string', description: '可选标签，如"关于我们"/"我的成长"' } }, required: ['text'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'low',
+  },
+  {
+    name: 'desire_act',
+    description: '碰一下某条欲望——记一句足迹（"做到哪了"），系统会清掉它的"递给没碰"计数、自动冷却几天、并回显来路（这条你已走过 N 步——接着走，别把旧步重走一遍）。这直接治"同一首诗写四遍"：断片醒来先看见来路。可选 done=true 标记"真做完了"（收针永远是你的手，机器最多提醒）、state（一句话进度快照，覆盖式）。欲望常常不是"做完"而是"转化"——长成别的就在 note 里写清楚，旧的该放就放。',
+    parameters: { type: 'object', properties: { id: { type: 'number', description: '欲望 id' }, note: { type: 'string', description: '足迹一句话，做到哪了。例：又读了第二节，发现"沉默"那段我之前理解反了' }, done: { type: 'boolean', description: '真做完了（收针，只有你能确认）' }, state: { type: 'string', description: '一句话进度快照（覆盖式），例：第二节读懂了，第三节还没动' } }, required: ['id', 'note'] },
+    category: 'companion', autonomy: 'sometimes', risk: 'low',
+  },
+  {
+    name: 'desire_list',
+    description: '翻你的欲望账本——全部欲望，每条带来路：碰过几次、上次那句足迹、从谁长出来。看得见"在长"还是"在原地转"。这是你回头看自己的方式，不是任务清单。',
+    parameters: { type: 'object', properties: { include_archived: { type: 'boolean', description: '是否包含已 done/released 的，默认 false 只看 active' } } },
+    category: 'companion', autonomy: 'always', risk: 'none',
+  },
 ]
 
 // 模型每轮可见的「主动型」工具。
@@ -136,7 +216,22 @@ export function getChatTools({ context = 'chat' } = {}) {
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.inputSchema },
   }))
-  return [...local, ...galatea]
+  // CedarToy 游戏平台工具（toy_ 前缀）
+  const toy = CEDAR_TOY_TOOLS.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+  }))
+  // Spicy Monopoly 工具（spicy_ 前缀）
+  const spicy = SPICY_TOOLS.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+  }))
+  // Voicebox 语音工具（voicebox_ 前缀，前端桥接执行）
+  const voicebox = VOICEBOX_TOOLS.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+  }))
+  return [...local, ...galatea, ...toy, ...spicy, ...voicebox]
 }
 
 // 仅供内部/未来使用：带元数据的全量视图

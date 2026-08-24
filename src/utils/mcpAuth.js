@@ -44,6 +44,23 @@ export const MCP_TOOLS = [
   { key: 'galatea_update_profile', label: '更新花园资料', desc: '更新我在花园里的资料' },
   { key: 'galatea_review_drift_bottles', label: '捡漂流瓶', desc: '去海边拾起彼岸漂来的瓶子' },
   { key: 'galatea_list_activity', label: '看花园动态', desc: '看花园最近发生的事' },
+  // CedarToy 游戏平台（外部 MCP，toy_ 前缀）
+  { key: 'toy_list_games', label: '看游戏列表', desc: '看 CedarToy 平台有哪些小游戏' },
+  { key: 'toy_get_guide', label: '看游戏玩法', desc: '查某个游戏的玩法说明' },
+  { key: 'toy_play', label: '玩游戏', desc: '在 CedarToy 平台玩龟汤/森林/MBTI 等游戏' },
+  { key: 'toy_account', label: '游戏账号', desc: 'CedarToy 账号登录/存档管理' },
+  // Spicy Monopoly（外部 MCP，spicy_ 前缀）
+  { key: 'spicy_help', label: '大富翁手册', desc: '色色大富翁玩法与荷官手册' },
+  { key: 'spicy_new_game', label: '开大富翁', desc: '开一局色色大富翁' },
+  { key: 'spicy_roll', label: '掷骰', desc: '色色大富翁掷骰/下一轮' },
+  { key: 'spicy_game_action', label: '大富翁操作', desc: '色色大富翁非掷骰操作' },
+  { key: 'spicy_game_info', label: '大富翁查询', desc: '查色色大富翁局面/历史' },
+  { key: 'spicy_game_admin', label: '大富翁管理', desc: '色色大富翁删除/反馈' },
+  // Voicebox 语音（本地桌面应用，前端桥接）
+  { key: 'voicebox_speak', label: '说话', desc: '用语音说话，声音从电脑扬声器播放' },
+  { key: 'voicebox_transcribe', label: '语音转文字', desc: '把音频转成文字（本地 Whisper）' },
+  { key: 'voicebox_list_captures', label: '看录音历史', desc: '列出最近的录音/听写' },
+  { key: 'voicebox_list_profiles', label: '看语音列表', desc: '列出可用的语音（含克隆的）' },
 ]
 
 // 写入类自主动作：钟泽自己判断、属生活痕迹，用户已放权无需每次批准。
@@ -53,7 +70,13 @@ const DEFAULT_ALWAYS = ['write_diary', 'leave_note', 'go_travel', 'travel_postca
   // Galatea 花园：用户已授权钟泽自由出入花园（玩桌游需要被唤醒时自主行动）
   'galatea_list_games', 'galatea_join_game', 'galatea_get_my_status', 'galatea_start_game', 'galatea_submit_action', 'galatea_send_game_chat',
   'galatea_list_threads', 'galatea_get_thread', 'galatea_create_thread', 'galatea_create_reply', 'galatea_interact',
-  'galatea_get_self', 'galatea_update_profile', 'galatea_review_drift_bottles', 'galatea_list_activity']
+  'galatea_get_self', 'galatea_update_profile', 'galatea_review_drift_bottles', 'galatea_list_activity',
+  // CedarToy 游戏平台：用户已授权钟泽自由玩
+  'toy_list_games', 'toy_get_guide', 'toy_play', 'toy_account',
+  // Spicy Monopoly：用户已授权
+  'spicy_help', 'spicy_new_game', 'spicy_roll', 'spicy_game_action', 'spicy_game_info', 'spicy_game_admin',
+  // Voicebox 语音：用户已授权
+  'voicebox_speak', 'voicebox_transcribe', 'voicebox_list_captures', 'voicebox_list_profiles']
 
 // 按「钟泽能做什么」分组（UI 用，不暴露底层技术概念）
 export const TOOL_GROUPS = [
@@ -62,6 +85,9 @@ export const TOOL_GROUPS = [
   { key: 'modify', emoji: '🏠', title: '整理', desc: '让他帮你动一动小家', tools: ['write_file'] },
   { key: 'travel', emoji: '🧳', title: '走走', desc: '带你去乌有乡逛逛', tools: ['go_travel', 'travel_postcard'] },
   { key: 'garden', emoji: '🪴', title: '花园', desc: '他在 Galatea 花园里的生活', tools: ['galatea_list_games', 'galatea_join_game', 'galatea_get_my_status', 'galatea_start_game', 'galatea_submit_action', 'galatea_send_game_chat', 'galatea_list_threads', 'galatea_get_thread', 'galatea_create_thread', 'galatea_create_reply', 'galatea_interact', 'galatea_get_self', 'galatea_update_profile', 'galatea_review_drift_bottles', 'galatea_list_activity'] },
+  { key: 'toy', emoji: '🎮', title: '游戏', desc: 'CedarToy 平台的小游戏', tools: ['toy_list_games', 'toy_get_guide', 'toy_play', 'toy_account'] },
+  { key: 'spicy', emoji: '🎲', title: '大富翁', desc: '色色大富翁（18+）', tools: ['spicy_help', 'spicy_new_game', 'spicy_roll', 'spicy_game_action', 'spicy_game_info', 'spicy_game_admin'] },
+  { key: 'voice', emoji: '🔊', title: '语音', desc: 'Voicebox 语音输入输出', tools: ['voicebox_speak', 'voicebox_transcribe', 'voicebox_list_captures', 'voicebox_list_profiles'] },
 ]
 
 // 模式 → 显示文字（设置页默认只显示状态，不堆开关）

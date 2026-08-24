@@ -1,8 +1,13 @@
 package com.lingling.healthbridge
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
+import android.app.usage.UsageStatsManager
+import android.app.usage.UsageEvents
+import android.os.BatteryManager
 import androidx.documentfile.provider.DocumentFile
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
@@ -58,6 +63,76 @@ object HealthSync {
         var end: Instant? = null,
     )
 
+    // ═══ 手机状态（合二为一：原 LoverConnect 字段） ═══
+
+    data class PhoneStatus(
+        var batteryLevel: Int? = null,
+        var batteryCharging: Boolean? = null,
+        var screenMinutes: Int? = null,
+        var topApps: List<AppUsage>? = null,
+    )
+
+    data class AppUsage(
+        val pkg: String,
+        val minutes: Int,
+    )
+
+    /** 读电量（sticky broadcast，不需动态权限） */
+    private fun readBattery(context: Context): Pair<Int?, Boolean?> {
+        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val batteryStatus = context.registerReceiver(null, intentFilter) ?: return null to null
+        val level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val pct = if (scale > 0) (level * 100 / scale) else null
+        val status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val charging = if (status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL) true else false
+        return pct to charging
+    }
+
+    /**
+     * 读屏幕使用时间 + App 时间线（需用户在设置里授权"使用情况访问权限"）。
+     * 失败（未授权）静默返回 null，不阻塞健康数据同步。
+     */
+    private fun readScreenTime(context: Context, date: LocalDate): Pair<Int?, List<AppUsage>?> {
+        return try {
+            val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val zone = ZoneId.systemDefault()
+            val start = date.atStartOfDay(zone).toInstant()
+            val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+
+            // 屏幕总时长：按 UsageStats 聚合 foreground 时间
+            val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start.toEpochMilli(), end.toEpochMilli())
+            val totalMs = stats.filter { it.totalTimeInForeground > 0 }.sumOf { it.totalTimeInForeground }
+            val screenMin = (totalMs / 60000).toInt()
+
+            // App 时间线：取 top10（按 foreground 时长）
+            val topApps = stats
+                .filter { it.totalTimeInForeground > 60000 } // 只看 ≥1分钟的
+                .sortedByDescending { it.totalTimeInForeground }
+                .take(10)
+                .map { AppUsage(it.packageName, (it.totalTimeInForeground / 60000).toInt()) }
+
+            (if (screenMin > 0) screenMin else null) to (if (topApps.isNotEmpty()) topApps else null)
+        } catch (_: Exception) {
+            null to null // 未授权或不可用，静默跳过
+        }
+    }
+
+    /** 采集今日手机状态（电量是实时的，屏幕时间按今日自然日） */
+    private fun collectPhoneStatus(context: Context): PhoneStatus {
+        val (battery, charging) = readBattery(context)
+        val (screenMin, topApps) = readScreenTime(context, LocalDate.now())
+        return PhoneStatus(battery, charging, screenMin, topApps)
+    }
+
+    /** 采集指定日期的手机状态（用于补报昨天等——电量只采今日，历史日期只报屏幕时间） */
+    private fun collectPhoneStatusForDate(context: Context, date: LocalDate): PhoneStatus {
+        if (date == LocalDate.now()) return collectPhoneStatus(context)
+        // 历史日期：电量不可追溯，只采屏幕时间
+        val (screenMin, topApps) = readScreenTime(context, date)
+        return PhoneStatus(null, null, screenMin, topApps)
+    }
+
     suspend fun sync(context: Context, client: HealthConnectClient) {
         withContext(Dispatchers.IO) {
             val end = Instant.now()
@@ -84,7 +159,7 @@ object HealthSync {
                 if (agg.end == null || s.endTime.isAfter(agg.end)) agg.end = s.endTime
             }
 
-            // 2) 逐日聚合步数 + 心率（今天、昨天）
+            // 2) 逐日聚合步数 + 心率 + 手机状态（今天、昨天）
             val dates = listOf(LocalDate.now(), LocalDate.now().minusDays(1))
             for (date in dates) {
                 val dayStart = date.atStartOfDay(ZoneId.systemDefault()).toInstant()
@@ -108,12 +183,16 @@ object HealthSync {
                     null // 静息心率非必须权限，读不到就跳过
                 }
 
-                postDay(date, sleepByDate[date], steps, restingHr, avgHr)
+                val phone = collectPhoneStatusForDate(context, date)
+                postDay(date, sleepByDate[date], steps, restingHr, avgHr, phone)
             }
 
             // 3) 睡眠归属到更早于「昨天」的日期（前天的觉），补推一次
             for ((date, sleep) in sleepByDate) {
-                if (date.isBefore(LocalDate.now().minusDays(1))) postDay(date, sleep, null, null, null)
+                if (date.isBefore(LocalDate.now().minusDays(1))) {
+                    val phone = collectPhoneStatusForDate(context, date)
+                    postDay(date, sleep, null, null, null, phone)
+                }
             }
         }
     }
@@ -220,8 +299,8 @@ object HealthSync {
                     }
                 }
 
-                // 3) 上报最近 3 天（睡眠按醒来日归属）
-                for (date in dates) postDay(date, sleepByDate[date], stepsByDay[date], null, hrByDay[date])
+                // 3) 上报最近 3 天（睡眠按醒来日归属）—— Gadgetbridge 模式不采手机状态（focus 在手环数据）
+                for (date in dates) postDay(date, sleepByDate[date], stepsByDay[date], null, hrByDay[date], null)
             } finally {
                 db.close()
             }
@@ -262,6 +341,7 @@ object HealthSync {
         steps: Int?,
         restingHr: Int?,
         avgHr: Int?,
+        phone: PhoneStatus?,
     ) {
         val body = JSONObject().apply {
             put("date", date.toString())
@@ -276,6 +356,24 @@ object HealthSync {
             if (steps != null) put("steps", steps)
             if (restingHr != null) put("resting_hr", restingHr)
             if (avgHr != null) put("avg_hr", avgHr)
+            // 手机状态（合二为一）
+            if (phone != null) {
+                phone.batteryLevel?.let { put("battery_level", it) }
+                phone.batteryCharging?.let { put("battery_charging", it) }
+                phone.screenMinutes?.let { put("screen_minutes", it) }
+                phone.topApps?.let { apps ->
+                    if (apps.isNotEmpty()) {
+                        val arr = org.json.JSONArray()
+                        for (a in apps) {
+                            val obj = JSONObject()
+                            obj.put("pkg", a.pkg)
+                            obj.put("minutes", a.minutes)
+                            arr.put(obj)
+                        }
+                        put("top_apps", arr)
+                    }
+                }
+            }
         }
 
         val conn = URL("${Config.SERVER_URL}/api/health/sync").openConnection() as HttpURLConnection

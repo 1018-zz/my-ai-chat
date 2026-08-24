@@ -1,23 +1,32 @@
--- 每日健康摘要（小米手环 → Health Connect → 极简安卓桥 → /api/health/sync）
+-- 每日健康摘要 + 手机状态（小米手环 → Health Connect + 手机系统 → 极简安卓桥 → /api/health/sync）
 -- 隐私优先级高于位置数据：仅 service_role 可读写，anon 不可读（不加公开读策略）。
--- 运行：Supabase 后台 → SQL Editor 粘贴执行。
+-- 2026-08-24 扩展：合二为一，把 LoverConnect 那些字段（电量/屏幕时间/App时间线/天气）也收进来，
+--          共用一条上报通道 + 一张表 + get_health 工具。
+-- 运行：Supabase 后台 → SQL Editor 粘贴执行（可重复执行，ALTER 用 IF NOT EXISTS）。
 
 create table if not exists public.health_data (
   id             uuid primary key default gen_random_uuid(),
-  user_id        int  not null default 1,            -- 单机单用户，固定 1（与 user_location 同思路）
-  date           date not null,                      -- 「起床日」归属：跨午夜的睡眠归醒来那天
-  sleep_minutes  int,                                -- 总睡眠分钟
-  sleep_deep_min int,                                -- 深睡分钟
-  sleep_light_min int,                               -- 浅睡分钟
-  sleep_rem_min  int,                                -- REM 分钟
-  sleep_start    timestamptz,                        -- 入睡时刻（本机时区存 UTC）
-  sleep_end      timestamptz,                        -- 醒来时刻
-  steps          int,                                -- 当日步数
-  resting_hr     int,                                -- 静息心率
-  avg_hr         int,                                -- 平均心率
+  user_id        int  not null default 1,
+  date           date not null,
+  sleep_minutes  int,
+  sleep_deep_min int,
+  sleep_light_min int,
+  sleep_rem_min  int,
+  sleep_start    timestamptz,
+  sleep_end      timestamptz,
+  steps          int,
+  resting_hr     int,
+  avg_hr         int,
   synced_at      timestamptz not null default now(),
   unique (user_id, date)
 );
+
+-- 2026-08-24 扩展字段（手机状态，原 LoverConnect）
+alter table public.health_data add column if not exists battery_level int;
+alter table public.health_data add column if not exists battery_charging boolean;
+alter table public.health_data add column if not exists screen_minutes int;
+alter table public.health_data add column if not exists top_apps jsonb;
+alter table public.health_data add column if not exists current_weather jsonb;
 
 -- 按日期取最新
 create index if not exists health_data_user_date_idx on public.health_data (user_id, date desc);

@@ -11,6 +11,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- 手机状态（合二为一：原 LoverConnect 字段） -->
+    <!-- 电池：READ_BATTERY_STATS 已废弃，sticky broadcast 不需权限；保留声明兼容旧设备 -->
+    <uses-permission android:name="android.permission.READ_BATTERY_STATS" />
+    <!-- 屏幕时间 / App 使用时间线：需用户在设置里授权"使用情况访问权限" -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- 让本 App 能找到 Health Connect -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />

@@ -11,6 +11,7 @@ import HomeWidgets, { widgets } from './components/HomeWidgets'
 import NoteCard from './components/NoteCard'
 import NotePanel from './components/NotePanel'
 import JournalBook from './components/JournalBook'
+import DesireLedger from './components/DesireLedger'
 import CompressionRoom from './components/CompressionRoom'
 import WallpaperSettings from './components/WallpaperSettings'
 import ModelManager from './components/ModelManager'
@@ -340,6 +341,7 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
   const [days, setDays] = useState(0)
   const [notePanel, setNotePanel] = useState(false)
   const [journalBook, setJournalBook] = useState(false)
+  const [desireLedger, setDesireLedger] = useState(false)
   const [weather, setWeather] = useState(null)
   useEffect(() => {
     const start = new Date('2026-03-13T00:00:00+08:00')
@@ -392,13 +394,14 @@ const LairPage = ({ avatarSelf, avatarAi }) => {
       {/* —— 我的空间 · Widget 模块区（配置驱动，未来可扩展开关/排序/自定义） —— */}
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 10 }}>我的空间</div>
-        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today') }} />
+        <HomeWidgets items={widgets} onOpen={(w) => { if (w.id === 'diary') setJournalBook('today'); if (w.id === 'desires') setDesireLedger(true) }} />
       </div>
       {/* —— 收起来的明信片 · 钟泽出门寄回的明信片（复用乌有乡，落库 travel 表）—— */}
       <TravelAlbum />
       {/* —— 小纸条 · 双人留言板（便利贴 v0.4，已接真数据） —— */}
       <NoteCard onOpenPanel={() => setJournalBook(true)} />
       {journalBook && <JournalBook onClose={() => setJournalBook(false)} />}
+      {desireLedger && <DesireLedger onClose={() => setDesireLedger(false)} />}
       {notePanel && <NotePanel onClose={() => setNotePanel(false)} />}
     </div>
   )
@@ -1403,6 +1406,12 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     setModel(m)
     if (chatInfo?.id) setChatModel(chatInfo.id, m)
   }
+  // 思考模式（DeepSeek V4 reasoning_effort / thinking.type）：全局持久化，不按聊天区分
+  const [thinking, setThinking] = useState(() => { try { return localStorage.getItem('xiaojia.thinking') || 'high' } catch { return 'high' } })
+  const selectThinking = (t) => {
+    setThinking(t)
+    try { localStorage.setItem('xiaojia.thinking', t) } catch {}
+  }
   const prevChatIdRef = useRef(chatInfo?.id)
   useEffect(() => {
     const id = chatInfo?.id
@@ -1430,49 +1439,11 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const sessionAuthRef = useRef({})
   const sleepTimer = useRef(null)
   const [termOpen, setTermOpen] = useState(false)
-  // 引用回复：暂存被引用的消息（id/text/isSelf），发送时挂到用户消息上
+  // 引用回复：暂存被引用的整条消息（id/text/isSelf），发送时挂到用户消息上
+  // （整段引用：引用的是整条消息原文，不是选区的一句）
   const [quote, setQuote] = useState(null)
-  // 选字引用：用户在任意气泡里选中一段文字时，在选区上方浮出「引用」按钮
-  // 点它只把【选中的文字】塞进 quote，下游渲染/发送/注入钟泽上下文都会自动只显示那一句
-  const [selQuote, setSelQuote] = useState(null) // { text, msgId, isSelf, x, y }
-  useEffect(() => {
-    const calc = () => {
-      const sel = window.getSelection()
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) { setSelQuote(null); return }
-      const text = sel.toString().trim()
-      if (!text) { setSelQuote(null); return }
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      if (!rect || (rect.width === 0 && rect.height === 0)) { setSelQuote(null); return }
-      // 往上找最近的带 data-msg-id 的气泡，确定引用的是哪条消息
-      let node = range.commonAncestorContainer
-      if (node && node.nodeType === 3) node = node.parentElement
-      const bubble = node && node.closest ? node.closest('[data-msg-id]') : null
-      if (!bubble) { setSelQuote(null); return }
-      setSelQuote({
-        text,
-        msgId: bubble.getAttribute('data-msg-id'),
-        isSelf: bubble.getAttribute('data-is-self') === '1',
-        x: rect.left + rect.width / 2,
-        y: rect.top,
-      })
-    }
-    const onUp = () => setTimeout(calc, 0) // 等浏览器落定选区再读
-    document.addEventListener('mouseup', onUp)
-    document.addEventListener('touchend', onUp)
-    document.addEventListener('selectionchange', calc)
-    return () => {
-      document.removeEventListener('mouseup', onUp)
-      document.removeEventListener('touchend', onUp)
-      document.removeEventListener('selectionchange', calc)
-    }
-  }, [])
-  const applySelQuote = () => {
-    if (!selQuote) return
-    setQuote({ id: selQuote.msgId, text: selQuote.text, isSelf: selQuote.isSelf })
-    setSelQuote(null)
-    const s = window.getSelection(); if (s) s.removeAllRanges()
-  }
+  // 正在编辑的消息（时间戳旁小灰标触发）：{ id, text }
+  const [editing, setEditing] = useState(null)
   // 聊天容器 ref：用于把头像 emoji / 选择器 emoji 也替换成 Twemoji 彩色 SVG
   const chatDetailRef = useRef(null)
   useEffect(() => { applyTwemoji(chatDetailRef.current) }, [avatarSelf, avatarAi, avatarPick])
@@ -1488,7 +1459,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const longPressTimer = useRef(null)
   const closeActionMenu = () => { setActionMenu(a => ({ ...a, visible: false })) }
   const handleMsgLongPressStart = (e, msg) => {
-    // 若用户正在选区（移动端长按选字），不抢弹长按菜单，留给「选字引用」浮条
+    // 若用户正在选区（长按选字复制），不抢弹长按菜单，留给复制选区
     const sel = window.getSelection()
     if (sel && !sel.isCollapsed && sel.toString().trim()) return
     const el = e.currentTarget
@@ -1513,13 +1484,13 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       case 'quote': setQuote({ id: msg.id, text: msg.text, isSelf: msg.isSelf }); break
       case 'copy': copyText(stripMarkdown(msg.text)); showCopyHint(); break
       case 'recall': recallMessage(msg); break
-      case 'delete':
-        if (window.confirm('从本地移除这条消息？')) setMsgList(p => p.filter(m => m.id !== msg.id))
-        break
+      case 'regenerate': regenerateReply(msg.id); break
+      case 'delete': deleteMessage(msg); break
       default: break
     }
   }
   const messagesEndRef = useRef(null)
+  const hiddenAtRef = useRef(0) // 进入后台的时间戳，用于判断离开是否够久（冻结生成流才中断）
   let nextId = useRef(Date.now())
   const abortRef = useRef(null)
   const stopRequestedRef = useRef(false)
@@ -1595,19 +1566,32 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     }
   }, [msgList])
 
-  // 回到前台：清横幅、复原标题，并把当前最新助手消息标记为已看
+  // 回到前台：清横幅、复原标题，并把当前最新助手消息标记为已看；
+  // 顺带修复「切窗/退出后 API 断连」——后台被冻结的生成流在回来时可能已经死掉，
+  // 长时离开（>8s）就中断卡住的流并从后端补拉已落库的消息，让用户能立刻继续发。
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState !== 'visible') return
+      if (document.visibilityState !== 'visible') { hiddenAtRef.current = Date.now(); return }
       const last = [...msgList].reverse().find(m => !m.isSelf)
       if (last?.ts) seenTsRef.current = Math.max(seenTsRef.current, last.ts)
       setInPageToast(null)
       if (titleTimerRef.current) { clearTimeout(titleTimerRef.current); titleTimerRef.current = null }
       document.title = baseTitleRef.current
+      const hiddenDur = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : 0
+      const cid = chatInfo?.id
+      if (!cid) return
+      if (generatingRef.current && hiddenDur > 8000) {
+        // 后台生成被冻结，几乎肯定已断：中断卡住的流，再从后端补拉已完成的回复
+        abortRef.current?.abort()
+        setTimeout(() => { if (cid) resyncFromBackend(cid) }, 300)
+      } else if (!generatingRef.current) {
+        // 没在生成：补拉后台期间新到的消息（包括钟泽主动发来的）
+        resyncFromBackend(cid)
+      }
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [msgList])
+  }, [msgList, chatInfo?.id])
 
   // 后台轮询：网页收在后台时，钟泽发了新消息就弹横幅 + 提示音 + 标题闪动（不依赖推送）
   useEffect(() => {
@@ -1696,6 +1680,29 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
   const uid = () => { nextId.current += 1; return 'u' + nextId.current }
 
   const executeMcp = async (tc) => {
+    // Voicebox 工具：本地桌面应用，浏览器直接打 127.0.0.1:17493（不走云端后端）
+    // 工具名 voicebox_speak → 转回 voicebox.speak（Voicebox MCP 认点号）
+    if (tc.name && tc.name.startsWith('voicebox_')) {
+      const realName = tc.name.replace(/^voicebox_/, 'voicebox.')
+      try {
+        const r = await fetch('http://127.0.0.1:17494/mcp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Voicebox-Client-Id': 'xiaojia' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: realName, arguments: tc.arguments || {} }, id: 1 }),
+        })
+        if (!r.ok) return `Voicebox 返回错误（HTTP ${r.status}）。请确认泠泠电脑上 Voicebox 桌面应用已启动、代理在跑。`
+        const txt = await r.text()
+        // Voicebox MCP 用 SSE 流式响应（event: message\ndata: {...}），不能 r.json()，需解析 data 行
+        const dataLines = txt.split('\n').filter(l => l.startsWith('data:')).map(l => l.replace(/^data:\s*/, ''))
+        const jsonStr = dataLines.join('\n').trim()
+        if (!jsonStr) return `Voicebox 返回为空。原始响应：${txt.slice(0, 200)}`
+        const d = JSON.parse(jsonStr)
+        if (d.error) return `Voicebox 报错：${d.error.message || JSON.stringify(d.error)}`
+        return d.result?.content?.[0]?.text || JSON.stringify(d)
+      } catch (e) {
+        return `Voicebox 未运行或不可达（${e.message}）。请确认泠泠电脑上 Voicebox 桌面应用已启动、代理在跑。`
+      }
+    }
     const r = await fetch(MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: tc.name, arguments: tc.arguments || {} }, id: 1 }) })
     const d = await r.json(); return d.result?.content?.[0]?.text || JSON.stringify(d)
   }
@@ -1710,7 +1717,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     abortRef.current = controller
     const timer = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, conversationId: chatInfo?.id || null, skipSave, awarenessSince, forceTool }), signal: controller.signal })
+      const res = await fetch(`${API_BASE}/api/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs, model, thinking, conversationId: chatInfo?.id || null, skipSave, awarenessSince, forceTool }), signal: controller.signal })
       if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`后端 ${res.status}: ${t.slice(0, 120)}`) }
       const reader = res.body.getReader(); const decoder = new TextDecoder()
       let ft = '', buf = '', tcs = [], th = ''
@@ -1954,6 +1961,90 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
       }
     }
   }
+  // 回到前台/断连恢复：从后端把会话最新消息整段拉回，覆盖本地（含后台期间新到的）
+  const resyncFromBackend = async (cid) => {
+    try {
+      const { messages: msgs, summary } = await fetchMessages(cid)
+      const DISPLAY_MAX = 60
+      const hadMore = (msgs || []).length > DISPLAY_MAX
+      const visibleMsgs = hadMore ? (msgs || []).slice(-DISPLAY_MAX) : (msgs || [])
+      setEarlierSummary(summary || (hadMore ? '更早的对话已收进摘要。' : ''))
+      const restored = []
+      let pending = null, idx = 0
+      for (const m of visibleMsgs) {
+        if (m.role === 'tool') {
+          if (pending && idx < pending.toolCalls.length && typeof m.content === 'string' && m.content) {
+            pending.toolCalls[idx] = { ...pending.toolCalls[idx], result: m.content }
+            idx++
+          }
+          continue
+        }
+        const nm = normalizeMessage(m)
+        restored.push(nm)
+        if (!nm.isSelf && Array.isArray(nm.toolCalls) && nm.toolCalls.length > 0) { pending = nm; idx = 0 }
+        else pending = null
+      }
+      setMsgList(restored)
+      atBottomRef.current = true
+      setUnseenCount(0); setShowNewPill(false)
+      prevMsgLenRef.current = restored.length
+      setTimeout(() => scrollMsgToBottom('auto'), 80)
+    } catch (_) {}
+  }
+  // 删除消息：直接真删 Supabase（不可恢复），不止本地移除
+  const deleteMessage = async (msg) => {
+    if (!window.confirm('从聊天和云端都删除这条消息？此操作不可恢复。')) return
+    try {
+      await fetch(`${API_BASE}/api/messages?id=${msg.id}&hard=1&conversationId=${encodeURIComponent(chatInfo?.id || '')}&content=${encodeURIComponent(msg.text || '')}`, { method: 'DELETE' })
+    } catch (_) {}
+    setMsgList(p => p.filter(m => m.id !== msg.id))
+  }
+  // 以某条用户消息为锚，重新生成其后的 AI 回复（overrideText 不传=用原文本；传=编辑后新文本）
+  const regenerateFromUser = async (userMsgId, overrideText) => {
+    const list = msgList
+    const uIdx = list.findIndex(m => m.id === userMsgId)
+    if (uIdx < 0) return
+    let end = uIdx + 1
+    while (end < list.length && !list[end].isSelf) end++
+    if (end <= uIdx + 1) return // 后面没有 AI 回复，无需重生成
+    const oldAiRows = list.slice(uIdx + 1, end).map(m => ({ id: m.id, text: m.text || '' }))
+    const newAiId = uid()
+    const userMsg = { ...list[uIdx], text: overrideText !== undefined ? overrideText : list[uIdx].text }
+    const baseMsgs = [...list.slice(0, uIdx), userMsg]
+    setMsgList(p => [...p.slice(0, uIdx), userMsg, { id: newAiId, text: '', isSelf: false, loading: true, ts: Date.now() }])
+    setLoading(true); stopRequestedRef.current = false; generatingRef.current = true
+    // 后端硬删旧 AI 回复，避免刷新后新旧并存（带 content 兜底匹配，因本地 uid≠DB id）
+    await Promise.all(oldAiRows.map(r => fetch(`${API_BASE}/api/messages?id=${r.id}&hard=1&conversationId=${encodeURIComponent(chatInfo?.id || '')}&content=${encodeURIComponent(r.text)}`, { method: 'DELETE' }).catch(() => {})))
+    try {
+      await runChatTurn(baseMsgs, newAiId)
+    } catch (e) {
+      setMsgList(p => p.map(m => m.id === newAiId ? { ...m, text: (m.text || '') + (m.text ? '\n\n' : '') + `🌱 刚才没接上话（${e.message}）。要继续吗？`, loading: false, interrupted: true } : m))
+    } finally {
+      // 不回拉后端：用户消息的本地 id 与 DB id 不一致，回拉会把刚改的文本/重生成的回复又覆盖回旧的
+      setLoading(false); generatingRef.current = false
+    }
+  }
+  // 钟泽某条回复触发「重新回复」：找到它前面的用户消息，重生成这一轮
+  const regenerateReply = async (aiId) => {
+    const list = msgList
+    const aiIdx = list.findIndex(m => m.id === aiId)
+    if (aiIdx < 0) return
+    let uIdx = aiIdx - 1
+    while (uIdx >= 0 && !list[uIdx].isSelf) uIdx--
+    if (uIdx < 0) return
+    await regenerateFromUser(list[uIdx].id)
+  }
+  // 编辑用户消息：更新本地+后端，再重生成其后的 AI 回复
+  const saveEdit = async (msg, newText) => {
+    const t = (newText || '').trim()
+    if (!t) return
+    setMsgList(p => p.map(m => m.id === msg.id ? { ...m, text: t } : m))
+    if (msg.id && !String(msg.id).startsWith('local')) {
+      fetch(`${API_BASE}/api/messages?id=${msg.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update', content: t }) }).catch(() => {})
+    }
+    setEditing(null)
+    await regenerateFromUser(msg.id, t)
+  }
   // 撤回消息（③消息撤回/删除）：软删 + 本地标记 deleted → 占位"已撤回"，钟泽上下文也看不到内容
   // id 优先（历史消息有 DB id），新消息（本地 uid）靠 conversationId+content 兜底匹配
   const recallMessage = async (msg) => {
@@ -2101,7 +2192,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
-                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} />
+                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} editing={editing} onEdit={(m) => setEditing({ id: m.id, text: m.text || '' })} onSaveEdit={(t) => saveEdit(msg, t)} onCancelEdit={() => setEditing(null)} />
                 </div>
               )
               i++
@@ -2145,7 +2236,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
                       title="点击换头像"
                     >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
                     <div className="msg-col msg-col-ai">
-                      <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} wakeMeta={first.meta?.wake} />
+                      <RunCard msgs={run} showThinking={showThinking} expanded={showTools || expandedRuns.has(first.id)} onToggle={toggleRun} wakeMeta={first.meta?.wake} onRegenerate={regenerateReply} />
                     </div>
                   </div>
                 </div>
@@ -2162,10 +2253,12 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           const items = [
             { action: 'quote', label: '引用回复' },
             { action: 'copy', label: '复制' },
-            { action: 'delete', label: '本地删除', danger: true },
+            { action: 'delete', label: '删除', danger: true },
           ]
           if (actionMenu.isSelf) {
             items.push({ action: 'recall', label: '撤回', danger: true })
+          } else {
+            items.push({ action: 'regenerate', label: '重新回复' })
           }
           return (
             <div className="msg-action-menu-overlay" onClick={closeActionMenu}>
@@ -2189,15 +2282,6 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           )
         })()}
       </div>
-      {/* 选字引用浮条：在气泡内选中一段文字后，浮在选区上方，点它只引用选中的那一句 */}
-      {selQuote && (
-        <button
-          className="sel-quote-btn"
-          style={{ left: selQuote.x, top: Math.max(selQuote.y - 40, 8) }}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={applySelQuote}
-        >引用这句</button>
-      )}
       {/* 微信式：上翻历史后浮出"跳到新消息"，点击平滑回到底部 */}
       {showNewPill && (
         <button className="new-msg-pill show" onClick={jumpToNew}>
@@ -2216,7 +2300,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
           </div>
         </div>
       )}
-      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} model={model} onSelectModel={selectModel} />
+      <ChatInputBar loading={loading} mcpEnabled={Object.values(mcpAuth).some(v => v && v !== 'never')} onSend={handleSend} onStop={stopGen} quote={quote} onClearQuote={() => setQuote(null)} model={model} onSelectModel={selectModel} thinking={thinking} onSelectThinking={selectThinking} />
     </div>
   )
 }

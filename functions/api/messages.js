@@ -89,33 +89,39 @@ export async function onRequestDelete(context) {
   const id = url.searchParams.get('id')
   const cid = url.searchParams.get('conversationId')
   const content = url.searchParams.get('content')
+  const hard = url.searchParams.get('hard') === '1'
   if (!id && !(cid && content)) return json(400, { error: 'id 或 conversationId+content 必填' })
   const by = url.searchParams.get('by') || 'user'
-  // 优先按 id 软删（历史消息有真实 DB id）
-  let deleted = 0
-  if (id) {
-    const res = await fetch(`${SUPABASE}/messages?id=eq.${id}&deleted_at=is.null`, {
-      method: 'PATCH',
-      headers: sbReturn(env),
+  // 前端消息 id 是本地 uid()，与 Supabase 自增/UUID 不一致，所以必须支持「按会话+内容兜底匹配」。
+  // 硬删（聊天里"删除"用）直接 DELETE 命中的行；软删（撤回用）PATCH deleted_at 保留可恢复。
+  const delById = async (rid) => {
+    const res = await fetch(`${SUPABASE}/messages?id=eq.${rid}`, { method: 'DELETE', headers: sbHeaders(env) })
+    return res.ok
+  }
+  const softById = async (rid) => {
+    const res = await fetch(`${SUPABASE}/messages?id=eq.${rid}&deleted_at=is.null`, {
+      method: 'PATCH', headers: sbReturn(env),
       body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: by }),
     })
-    if (res.ok) deleted = (await res.json()).length || 0
+    return res.ok ? (await res.json()).length || 0 : 0
   }
-  // id 未命中（前端本地 uid 消息未回传 DB id）→ 按会话+内容匹配最近一条
-  if (!deleted && cid && content) {
-    const q = `${SUPABASE}/messages?conversation_id=eq.${encodeURIComponent(cid)}&role=eq.user&content=eq.${encodeURIComponent(content)}&deleted_at=is.null&select=id&order=id.desc&limit=1`
+  let handled = 0
+  // 1) 优先按 id 直接处理（历史消息若已拿到 DB id）
+  if (id) handled = hard ? (await delById(id) ? 1 : 0) : await softById(id)
+  // 2) id 未命中（本地 uid）→ 按 conversation_id+content 匹配最近一条，自我/AI 消息都适用
+  if (!handled && cid && content) {
+    // like 后缀匹配：DB 里用户消息 content 带【时间 泠泠 …】前缀（runChatTurn 给上下文加的），
+    // eq 精确匹配会 miss，用 like.*xxx 匹配以原文结尾的行（转义 * 避免通配符干扰）
+    const escContent = content.replace(/[\\*]/g, m => '\\' + m)
+    const q = `${SUPABASE}/messages?conversation_id=eq.${encodeURIComponent(cid)}&content=like.*${encodeURIComponent(escContent)}&deleted_at=is.null&select=id&order=id.desc&limit=1`
     const look = await fetch(q, { headers: sbHeaders(env) })
     const rows = await look.json()
     if (Array.isArray(rows) && rows[0]?.id) {
-      const res = await fetch(`${SUPABASE}/messages?id=eq.${rows[0].id}`, {
-        method: 'PATCH',
-        headers: sbReturn(env),
-        body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: by }),
-      })
-      if (res.ok) deleted = (await res.json()).length || 0
+      const rid = rows[0].id
+      handled = hard ? (await delById(rid) ? 1 : 0) : await softById(rid)
     }
   }
-  return json(200, { ok: deleted > 0, deleted })
+  return json(200, { ok: handled > 0, hard: !!hard })
 }
 
 export async function onRequestPatch(context) {
@@ -124,7 +130,21 @@ export async function onRequestPatch(context) {
   const id = url.searchParams.get('id')
   if (!id) return json(400, { error: 'id required' })
   const body = await request.json().catch(() => ({}))
-  if (body.action !== 'restore') return json(400, { error: 'action must be restore' })
+  // action=update：修改消息正文（编辑用户/AI 消息用），可选同步 thinking
+  if (body.action === 'update') {
+    const patch = {}
+    if (typeof body.content === 'string') patch.content = body.content
+    if (typeof body.thinking === 'string') patch.thinking = body.thinking
+    if (!Object.keys(patch).length) return json(400, { error: 'content or thinking required' })
+    const res = await fetch(`${SUPABASE}/messages?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: sbReturn(env),
+      body: JSON.stringify(patch),
+    })
+    if (!res.ok) return json(500, { error: `supabase [${res.status}]` })
+    return json(200, { ok: true })
+  }
+  if (body.action !== 'restore') return json(400, { error: 'action must be restore|update' })
   const res = await fetch(`${SUPABASE}/messages?id=eq.${id}`, {
     method: 'PATCH',
     headers: sbReturn(env),

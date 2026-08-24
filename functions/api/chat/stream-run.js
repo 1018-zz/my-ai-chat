@@ -227,7 +227,7 @@ export async function runStream(dsRes, env, convId, isToolRound = false, retryBo
           const retryRes = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
-            body: JSON.stringify(retryBody),
+            body: JSON.stringify({ ...retryBody, max_tokens: 65536, thinking: { type: 'disabled' } }),
           })
           if (!retryRes.ok) {
             console.error(`[stream-run] 重试请求失败 HTTP:${retryRes.status}`)

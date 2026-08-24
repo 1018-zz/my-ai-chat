@@ -101,7 +101,7 @@ function splitVoiceParts(text) {
   return items
 }
 
-function RunCard({ msgs, showThinking, expanded, onToggle, wakeMeta }) {
+function RunCard({ msgs, showThinking, expanded, onToggle, wakeMeta, onRegenerate }) {
   const tools = msgs.flatMap(m => (m.toolCalls || []).filter(t => t.name))
   // 挂载时是否正在流式生成：本次生成 → 逐句浮现；历史消息 → 直接全显示
   const liveRef = useRef(msgs.some(m => m.loading))
@@ -189,7 +189,12 @@ function RunCard({ msgs, showThinking, expanded, onToggle, wakeMeta }) {
       })}
       {(() => {
         const last = [...msgs].reverse().find(m => m.ts && !m.loading)
-        return last ? <div className="msg-meta">{fmtMsgTime(last.ts)}</div> : null
+        return last ? (
+          <div className="msg-meta">
+            <span className="msg-edit-mark" title="重新回复" onClick={() => onRegenerate && onRegenerate(msgs[0].id)}>✎</span>
+            {fmtMsgTime(last.ts)}
+          </div>
+        ) : null
       })()}
     </div>
   )

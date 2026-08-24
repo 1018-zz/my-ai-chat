@@ -28,6 +28,19 @@ export const widgets = [
     y: 0,
     enabled: true,
   },
+  {
+    id: 'desires',
+    icon: '📓',
+    title: '钟泽的账本',
+    desc: '他想要什么',
+    tint: '--accent-lavender',
+    paper: 'note',
+    size: 'small',
+    rotate: 1.6,
+    x: 0,
+    y: 0,
+    enabled: true,
+  },
 ]
 
 const AppIcon = ({

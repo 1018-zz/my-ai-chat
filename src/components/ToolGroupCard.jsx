@@ -12,6 +12,10 @@ export const TOOL_META = {
   read_memories: { icon: '🧠', label: '回忆' },
   write_memory: { icon: '📝', label: '记忆' },
   run_command: { icon: '🩺', label: '诊断' },
+  voicebox_speak: { icon: '🔊', label: '说话' },
+  voicebox_transcribe: { icon: '🎤', label: '转写' },
+  voicebox_list_captures: { icon: '📋', label: '录音历史' },
+  voicebox_list_profiles: { icon: '🗣️', label: '语音列表' },
 }
 
 // 语义化步骤名（小家语言——用户看到的是"钟泽做了什么"，不是工具名）
@@ -26,6 +30,10 @@ const STEP_META = {
   leave_note: '留纸条',
   default: '处理了一下',
   run_command: '查了下小家状态',
+  voicebox_speak: '说了句话',
+  voicebox_transcribe: '听了段录音',
+  voicebox_list_captures: '翻了下录音',
+  voicebox_list_profiles: '看了下可用语音',
 }
 
 export function buildToolSummary(tools) {

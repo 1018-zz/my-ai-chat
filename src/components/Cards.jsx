@@ -62,6 +62,88 @@ function langFromPath(path) {
   return CODE_LANG[m[1]] || m[1].toUpperCase()
 }
 
+// Voicebox 语音卡片：钟泽说话/转写/查语音 等渲染成"他做了什么"，不是工具日志
+const VOICEBOX_TOOL = {
+  voicebox_speak: { icon: '🔊', label: '说了一句话' },
+  voicebox_transcribe: { icon: '🎤', label: '转写了录音' },
+  voicebox_list_captures: { icon: '📋', label: '翻了下录音' },
+  voicebox_list_profiles: { icon: '🗣️', label: '看了下可用语音' },
+}
+
+const VoiceboxCard = ({ tool, result }) => {
+  const isRunning = result === undefined || result === ''
+  const meta = VOICEBOX_TOOL[tool.name] || { icon: '🔊', label: '语音' }
+  const raw = String(result || '')
+  let data = null
+  if (!isRunning) { try { data = JSON.parse(raw) } catch { data = null } }
+  const isErr = !isRunning && (data === null || raw.startsWith('执行失败'))
+  const args = tool.arguments || {}
+
+  return (
+    <div style={{ ...paperCard, marginBottom: 6, overflow: 'hidden' }} className={`tool-card ${isRunning ? 'status-thinking' : isErr ? 'status-err' : 'status-ok'}`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', fontSize: 12, color: 'var(--color-text-gray)' }}>
+        <span style={{ fontSize: 14 }}>{meta.icon}</span>
+        <span style={{ color: 'var(--color-text-dark)', fontWeight: 600 }}>{meta.label}</span>
+        {isRunning && <span className="thinking-dot" style={{ marginLeft: 2 }} />}
+        <span style={{ marginLeft: 'auto' }}><StatusIcon status={isRunning ? 'running' : isErr ? 'err' : 'ok'} style={{ fontSize: 14 }} /></span>
+      </div>
+      {isRunning ? null : (
+        <div style={{ padding: '2px 12px 10px', fontSize: 12, lineHeight: 1.6 }}>
+          {isErr ? (
+            <div style={{ color: 'var(--color-danger)', whiteSpace: 'pre-wrap', fontSize: 11 }}>
+              {raw.startsWith('执行失败') ? raw : 'Voicebox 未运行或不可达。请确认泠泠电脑上 Voicebox 桌面应用已启动、代理在跑。'}
+            </div>
+          ) : tool.name === 'voicebox_speak' ? (
+            <>
+              {args.text && <div style={{ fontSize: 13, color: 'var(--color-text-dark)', marginBottom: 4, lineHeight: 1.6 }}>"{args.text.length > 80 ? args.text.slice(0, 80) + '…' : args.text}"</div>}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: 'var(--color-text-gray)', fontSize: 11 }}>
+                {data?.profile && <span>声线 · {data.profile}</span>}
+                <span>🔊 已在你电脑扬声器播放</span>
+              </div>
+            </>
+          ) : tool.name === 'voicebox_transcribe' ? (
+            <>
+              {data?.text && <div style={{ fontSize: 13, color: 'var(--color-text-dark)', marginBottom: 4, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{data.text}</div>}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: 'var(--color-text-gray)', fontSize: 11 }}>
+                {data?.duration != null && <span>时长 · {Number(data.duration).toFixed(1)}s</span>}
+                {data?.language && <span>语言 · {data.language}</span>}
+              </div>
+            </>
+          ) : tool.name === 'voicebox_list_captures' ? (
+            <>
+              <div style={{ color: 'var(--color-text-gray)', fontSize: 11, marginBottom: 4 }}>共 {data?.total ?? 0} 条录音</div>
+              {Array.isArray(data?.captures) && data.captures.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {data.captures.slice(0, 5).map((c, i) => (
+                    <div key={i} style={{ fontSize: 11, color: 'var(--color-text-gray)', lineHeight: 1.5 }}>
+                      {c.transcript ? `"${String(c.transcript).slice(0, 40)}${String(c.transcript).length > 40 ? '…' : ''}"` : '（无转写）'}
+                    </div>
+                  ))}
+                  {data.captures.length > 5 && <div style={{ fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.6 }}>还有 {data.captures.length - 5} 条…</div>}
+                </div>
+              ) : <div style={{ fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.6 }}>还没有录音</div>}
+            </>
+          ) : tool.name === 'voicebox_list_profiles' ? (
+            <>
+              {Array.isArray(data?.profiles) && data.profiles.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {data.profiles.map((p, i) => (
+                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 8, background: 'rgba(201,184,166,0.18)', fontSize: 11, color: 'var(--color-text-dark)' }}>
+                      {p.name}{p.voice_type ? ` · ${p.voice_type}` : ''}{p.language ? ` · ${p.language}` : ''}
+                    </span>
+                  ))}
+                </div>
+              ) : <div style={{ fontSize: 11, color: 'var(--color-text-gray)', opacity: 0.6 }}>没有可用语音</div>}
+            </>
+          ) : (
+            <div style={{ color: 'var(--color-text-gray)', whiteSpace: 'pre-wrap', fontSize: 11 }}>{raw}</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // —— 工具卡片（暖白饱和玻璃）：运行中只显头部状态，完成后自动折叠，点击展开详情 ——
 // 读写代码（read_file/write_file）结果用深色等宽代码块渲染，默认展开、不折行、可横向滚动
 export const ToolCard = ({ tool, result }) => {
@@ -115,6 +197,11 @@ export const ToolCard = ({ tool, result }) => {
         )}
       </div>
     )
+  }
+
+  // Voicebox 语音工具：渲染成"他做了什么"的语音卡片，不走通用代码块
+  if (tool.name?.startsWith('voicebox_')) {
+    return <VoiceboxCard tool={tool} result={result} />
   }
 
   // 复制代码块内容（含降级方案，兼容非 https 部署环境）

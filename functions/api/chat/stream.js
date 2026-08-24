@@ -40,7 +40,7 @@ export async function onRequestPost(context) {
   // 未来 30+ 工具时，改为按 context / Home State 检索注入（见 toolRegistry.js）。
   const defaultTools = getChatTools({ context: 'chat' })
 
-  const { messages: rawMessages, model = 'deepseek-v4-flash', conversationId, tools = defaultTools, skipSave = false, awarenessSince, forceTool } = body
+  const { messages: rawMessages, model = 'deepseek-v4-flash', thinking: thinkingMode, conversationId, tools = defaultTools, skipSave = false, awarenessSince, forceTool } = body
   // 模型名兜底：只认官方白名单，拼错/乱写的模型名回退默认，避免 400
   // （2026-08-23 用户手拼 vision 模型名多字少字 → DeepSeek 400 "supported API model names..."）
   const CHAT_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp']
@@ -178,9 +178,13 @@ export async function onRequestPost(context) {
     // 参考 chuan-101/Hamster-Nest 的 resolveHistoryTokenBudget + selectNewestContextWindow
     try { messages = trimHistoryByBudget(messages, env) } catch (_) {}
 
-    // max_tokens 16384：DeepSeek 带思考（reasoning_content 与 content 共享输出预算），
-    // 8192 时 thinking 可能占满导致 content 为空（现象：只显示"整理思路"、消息变空）。
-    const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 16384 }
+    // max_tokens 65536：DeepSeek V4 带思考（reasoning_content 与 content 共享输出预算），
+    // 16384 时 voicebox 等长思考场景 thinking 占满导致 content/tool_calls 为空（现象：消息消失）。
+    // V4 上限 384000，65536 给 thinking + tool_calls 都留够空间，正常对话不会因此变慢（模型自然停止）。
+    const dsBody = { messages, model: safeModel, temperature: 0.7, stream: true, max_tokens: 65536 }
+    // 思考模式（用户在输入框 + 菜单选）：off 关思考（thinking.type=disabled）/ low·max 调强度 / high 默认不传
+    if (thinkingMode === 'off') dsBody.thinking = { type: 'disabled' }
+    else if (thinkingMode === 'low' || thinkingMode === 'max') dsBody.reasoning_effort = thinkingMode
     if (Array.isArray(tools) && tools.length > 0) dsBody.tools = tools
     // 程序层工具门禁：forceTool=true（前端检测到疑似需要工具的请求）时强制模型调用工具，
     // 杜绝"光说不做"。

@@ -101,10 +101,9 @@ class MainActivity : AppCompatActivity() {
             if (missing.isEmpty()) {
                 doSync()
             } else {
-                // 没授全：告诉用户具体缺哪些，并自动再弹一次授权页（只请求缺失的）
+                // 缺权限：只提示，不自动重弹（自动重弹会死循环闪退——很多手机的 HC 授权页第二次弹会立刻返回原状态）
                 val names = missing.map(HealthSync::permissionLabel).joinToString("、")
-                statusText.text = "还缺：$names。请把这几项都勾上（授权页里每一项都要开）"
-                launchPermission(missing)
+                statusText.text = "还缺：$names。\n请去 系统设置 → 隐私 → Health Connect → 健康桥 手动把这${if (missing.size == 1) "一项" else "几项"}勾上，再回来点「立即同步」"
             }
         }
 
@@ -119,6 +118,7 @@ class MainActivity : AppCompatActivity() {
                     val missing = HealthSync.PERMISSIONS - granted
                     if (missing.isEmpty()) doSync()
                     else {
+                        // 缺权限：弹一次授权页（用户点的，不会死循环）。如果回来还缺，提示去系统设置手动勾
                         val names = missing.map(HealthSync::permissionLabel).joinToString("、")
                         statusText.text = "需要先授权：$names（授权页里每一项都要开）"
                         launchPermission(missing)

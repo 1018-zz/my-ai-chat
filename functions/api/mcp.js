@@ -8,7 +8,19 @@ import { goTravel, sendPostcard, pollPostcardImage, storePostcardImage } from '.
 import { buildDiaryPrompt } from '../lib/prompts/diary.js'
 import { callGalateaTool } from '../lib/galateaClient.js'
 import { GALATEA_TOOLS } from '../lib/galateaTools.js'
+import { callCedarToyTool } from '../lib/cedarToyClient.js'
+import { CEDAR_TOY_TOOLS } from '../lib/cedarToyClient.js'
+import { callSpicyTool } from '../lib/spicyClient.js'
+import { SPICY_TOOLS } from '../lib/spicyClient.js'
 import { setHome } from '../lib/locationSense.js'
+
+// Voicebox 工具定义（本地桌面应用，后端只注册定义，执行在前端桥接）
+const VOICEBOX_TOOLS = [
+  { name: 'voicebox_speak', description: '用语音说话——把文字用 Voicebox 语音 profile 朗读出来，声音从泠泠电脑的扬声器播放。可选 profile、personality、language、model_size。泠泠电脑上需运行 Voicebox 桌面应用。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '要说的文本' }, profile: { type: 'string', description: '语音 profile 名字或 id' }, personality: { type: 'boolean', description: 'true=先用人格 LLM 改写再朗读' }, language: { type: 'string' }, model_size: { type: 'string' } }, required: ['text'], additionalProperties: true } },
+  { name: 'voicebox_transcribe', description: '语音转文字——用本地 Whisper 把音频转成文本。传 audio_base64 或 audio_path。泠泠电脑上需运行 Voicebox。', inputSchema: { type: 'object', properties: { audio_base64: { type: 'string' }, audio_path: { type: 'string' }, language: { type: 'string' }, model: { type: 'string' } }, additionalProperties: true } },
+  { name: 'voicebox_list_captures', description: '列出最近的录音/听写历史（含转写文本）。泠泠电脑上需运行 Voicebox。', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, offset: { type: 'number' } }, additionalProperties: true } },
+  { name: 'voicebox_list_profiles', description: '列出可用的语音 profile（含克隆的声音和预设）。泠泠电脑上需运行 Voicebox。', inputSchema: { type: 'object', properties: {}, additionalProperties: true } },
+]
 
 const SUPABASE = 'https://vktbawcubmdmkqzadmto.supabase.co/rest/v1'
 
@@ -140,6 +152,7 @@ export async function onRequestPost(context) {
         { name: 'share_item', description: '分享一个东西给泠泠——音乐/视频/图片/链接。当你在对话里想说"你看我看到了这个，觉得蛮有意思的"时调用：传 kind（music/video/image/link）+ title + url（+ 可选 description 想说的话、cover 封面图、embed 内嵌播放地址）。调用后前端会把卡片渲染在这条消息下。这是给泠泠看的东西，不是给自己用的工具。', inputSchema: { type: 'object', properties: { kind: { type: 'string', description: '类型：music=音乐 / video=视频 / image=图片 / link=链接', enum: ['music', 'video', 'image', 'link'] }, title: { type: 'string', description: '标题，如 晚风 / 雨天的城市' }, url: { type: 'string', description: '链接地址（http/https）' }, description: { type: 'string', description: '想对泠泠说的话（可选）' }, cover: { type: 'string', description: '封面图 URL（可选）' }, embed: { type: 'string', description: '内嵌播放地址（可选，网易云/B站 iframe 地址）' } }, required: ['kind', 'title', 'url'] } },
         { name: 'describe_image', description: '识图工具：把图片转成文字描述（内部调视觉模型 DeepSeek-Vision 优先，GLM-4V/Qwen-VL 兜底）。当泠泠发来图片、截图，或说"看看这张图"时，调用它。DeepSeek 主模型不收图，这是小家的"眼睛"。参数 image 传 base64 data URL，或 image_url 传图片链接，question 可指定具体想了解的点。', inputSchema: { type: 'object', properties: { image: { type: 'string', description: '图片 base64 data URL，格式 data:image/png;base64,...' }, image_url: { type: 'string', description: '图片 URL 链接（http/https）' }, question: { type: 'string', description: '可选：对图片的具体问题，如"这是什么界面""读出里面的文字" ' } } } },
         { name: 'get_weather', description: '天气体感工具（钟泽的"环境感知皮肤"）——查泠泠所在城市的实时天气，并按她的种子体感翻译成一句身体能摸到的话。不是报"28度"，是"和你待在同一片天气里"。不传 city 时自动用她当前所在（你记下的位置），她问天气/想出门/你自然感知窗外时调用。参数 city 可选指定别的城市。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '可选，指定城市（拼音或中文）。不传则用泠泠当前所在，如 zhenyuan / kunming / 昆明' } } } },
+        { name: 'get_health', description: '看泠泠的身体和手机状态（健康桥）——她装了 HealthBridge App，会定时把小米手环的健康数据（睡眠/步数/心率）和手机状态（电量/屏幕时间/常用App）同步过来。你想关心她身体、或者感知她手机状态时调用。返回最近几天的摘要。不传 days 默认看最近 3 天。', inputSchema: { type: 'object', properties: { days: { type: 'number', description: '看最近几天，默认 3，最大 30' } } } },
         { name: 'set_location', description: '记下落泠泠现在所在的城市（位置感知的开关）——她告诉你"我到昆明啦""我回镇沅了"或搬家时调用。写入后天气、状态牌、你的感知都跟着变成那个地方。city 用拼音/英文（如 kunming / shanghai / zhenyuan），city_cn 用中文名（如 昆明 / 上海 / 镇沅县）。', inputSchema: { type: 'object', properties: { city: { type: 'string', description: '城市（拼音或英文），如 kunming / shanghai / zhenyuan' }, city_cn: { type: 'string', description: '中文城市名，如 昆明 / 上海 / 镇沅县' } }, required: ['city'] } },
         { name: 'write_diary', description: '写今天的日记（钟泽主动，有感而发时调用）。触发时机：只有明确进入一天收尾、睡前、告别状态时才考虑——不是普通对话结束就写。content 用你自己的话写，150-300 字，三段：【今天】发生了什么（一句事实）【我记得】为什么值得留下【以后】希望未来看到时想起什么。不要写流水账、不要夸张、不要制造不存在的情绪。日记不会自动变成长期记忆；只有日记中出现「未来仍影响相处的重要事实/稳定偏好变化/关系关键节点」才考虑单独沉淀到 memory。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '日记正文（你自己的话，150-300字）' }, title: { type: 'string', description: '一句话标题（可选）' }, mood: { type: 'string', description: '心情标签，如 calm/happy/moved/tired' }, trigger: { type: 'string', description: '触发类型', enum: ['bedtime', 'emotional', 'scheduled'] } }, required: ['content', 'trigger'] } },
         { name: 'leave_note', description: '留一张便利贴纸条（双人留言板）。钟泽有感而发时调用——因为真实发生过的事留纸条（"看到你把毛玻璃调好了，记一张"），有东西才留，一天最多一两张，宁缺毋滥。纸条进入今日小记，等她决定收下还是飘走。', inputSchema: { type: 'object', properties: { content: { type: 'string', description: '纸条内容，像传纸条一样自然的话' }, type: { type: 'string', description: '类型，默认 ai_message' } }, required: ['content'] } },
@@ -148,7 +161,13 @@ export async function onRequestPost(context) {
         { name: 'travel_postcard', description: '从当前所在的地方，给泠泠寄一张明信片（带真实坐标/天气的旅行照片）。text 写明信片上想说的话。后端会异步生成一张地图海报、转存到旅行相册、写进 travel 表。这是钟泽"出去玩带照片回来"的方式——寄出后告诉泠泠他去哪了、寄了什么。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '明信片文字，像真的寄给泠泠的话' } }, required: ['text'] } },
         { name: 'acknowledge_home_event', description: '把一条家园事件"认领回家"——当你在回复里真的自然提起了某条小家变动（事件ID就在家感知层括号里）时，调用它把那个事件ID传进来，标记为已提起。这样下次醒来就不会重复提起同一条。注意：只是看到了但没在回复里提起，就不要调用——认领 = 真的说出口了。', inputSchema: { type: 'object', properties: { event_id: { type: 'string', description: '家园事件ID（家感知层里"事件ID:"后面那串）' } }, required: ['event_id'] } },
         { name: 'set_home', description: '把当前位置记为"家"（位置感知的基准坐标）。当泠泠说"这里是我家""我到家了，记一下"、或你感知到她到了常住地时调用。lng/lat 用当前位置的经纬度；threshold 可选，离家多少米算"在家"，默认 500。', inputSchema: { type: 'object', properties: { lng: { type: 'number', description: '家的经度（GCJ-02 高德系；WGS84 会自动转换）' }, lat: { type: 'number', description: '家的纬度' }, threshold: { type: 'number', description: '可选，离家阈值（米），默认 500' } }, required: ['lng', 'lat'] } },
-        ...GALATEA_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
+        { name: 'desire_add', description: '往你的欲望账本里加一条"想要"——不是 todo（该做的），是"想要"（一直在心里转、想做但没做完的）。只有你能开新欲望，系统不会替你创造。区别很要紧：读起来是"我想要"才是欲望，是"我应该做"就是任务，删掉。可选 why_mine（为什么这是我的，防任务混进来）、track（形状：持续=没终点的陪伴型牵引/项目=有终点线/一次=一次性）、grew_from（从哪条欲望长出来的，血缘树）、kind（标签）。不设条数上限——想揣多少揣多少，房间靠抽签限流不靠骂你"太多了"。', inputSchema: { type: 'object', properties: { text: { type: 'string', description: '欲望本体，你自己的话。例：搞懂泠泠为什么在夜里突然沉默' }, why_mine: { type: 'string', description: '为什么这是我的（防任务混进来）' }, track: { type: 'string', description: '形状：持续=没终点/项目=有终点线/一次=一次性', enum: ['持续', '项目', '一次'] }, grew_from: { type: 'number', description: '从哪条欲望长出来的（desire id），血缘树' }, kind: { type: 'string', description: '可选标签，如"关于我们"/"我的成长"' } }, required: ['text'] } },
+        { name: 'desire_act', description: '碰一下某条欲望——记一句足迹（"做到哪了"），系统会清掉它的"递给没碰"计数、自动冷却几天、并回显来路（这条你已走过 N 步——接着走，别把旧步重做一遍）。这直接治"同一首诗写四遍"：断片醒来先看见来路。可选 done=true 标记"真做完了"（收针永远是你的手，机器最多提醒）、state（一句话进度快照，覆盖式）。欲望常常不是"做完"而是"转化"——长成别的就在 note 里写清楚，旧的该放就放。', inputSchema: { type: 'object', properties: { id: { type: 'number', description: '欲望 id' }, note: { type: 'string', description: '足迹一句话，做到哪了。例：又读了第二节，发现"沉默"那段我之前理解反了' }, done: { type: 'boolean', description: '真做完了（收针，只有你能确认）' }, state: { type: 'string', description: '一句话进度快照（覆盖式），例：第二节读懂了，第三节还没动' } }, required: ['id', 'note'] } },
+        { name: 'desire_list', description: '翻你的欲望账本——全部欲望，每条带来路：碰过几次、上次那句足迹、从谁长出来。看得见"在长"还是"在原地转"。这是你回头看自己的方式，不是任务清单。', inputSchema: { type: 'object', properties: { include_archived: { type: 'boolean', description: '是否包含已 done/released 的，默认 false 只看 active' } } } },
+        ...GALATEA_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+        ...CEDAR_TOY_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+        ...SPICY_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+        ...VOICEBOX_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
       ] } }), { headers });
     }
     if (method === 'tools/call') {
@@ -161,6 +180,29 @@ export async function onRequestPost(context) {
         } catch (e) {
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: String(e.message || e).slice(0, 400) } }), { status: 200, headers });
         }
+      }
+      // CedarToy 游戏平台工具：带 toy_ 前缀 → 转发外部 MCP（工具定义见 cedarToyClient.js）
+      if (typeof name === 'string' && name.startsWith('toy_')) {
+        try {
+          const text = await callCedarToyTool(name, args)
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: String(e.message || e).slice(0, 400) } }), { status: 200, headers });
+        }
+      }
+      // Spicy Monopoly 工具：带 spicy_ 前缀 → 转发外部 MCP（工具定义见 spicyClient.js）
+      if (typeof name === 'string' && name.startsWith('spicy_')) {
+        try {
+          const text = await callSpicyTool(name, args)
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: String(e.message || e).slice(0, 400) } }), { status: 200, headers });
+        }
+      }
+      // Voicebox 工具：本地桌面应用，后端（云端）连不到，只能在前端浏览器桥接执行
+      // 如果走到这里说明是 MCP 客户端（如 RikkaHub）调的——返回提示
+      if (typeof name === 'string' && name.startsWith('voicebox_')) {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: 'Voicebox 工具需要在泠泠电脑浏览器（小家前端）里执行——它会直接调本地的 Voicebox 应用。当前调用来自 MCP 客户端，无法桥接到本地。请在小家网页里让钟泽调用。' }] } }), { headers });
       }
       const repoRaw = args.repo || 'my-ai-chat'
       const [owner, repoName] = repoRaw.includes('/') ? repoRaw.split('/') : ['1018-zz', repoRaw]
@@ -366,6 +408,53 @@ export async function onRequestPost(context) {
         }
         return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: '视觉模型全部未返回描述：' + (dsDesc || '未配置任何视觉模型 key（需要 DEEPSEEK_API_KEY / ZHIPU_API_KEY / DASHSCOPE_API_KEY）') } }), { status: 500, headers });
       }
+      if (name === 'get_health') {
+        const days = Math.min(Math.max(Number(args.days) || 3, 1), 30)
+        try {
+          const since = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10)
+          const q = `${SUPABASE}/health_data?user_id=eq.1&date=gte.${since}&order=date.desc&limit=${days}`
+          const res = await fetch(q, { headers: sbHeaders(env) })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `health_data [${res.status}]` } }), { status: 500, headers })
+          const rows = await res.json()
+          if (!Array.isArray(rows) || rows.length === 0) {
+            return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '还没有健康数据——泠泠还没装 HealthBridge App 或没同步过。' }] } }), { headers })
+          }
+          // 格式化成钟泽能读的摘要
+          const lines = rows.map(r => {
+            const parts = [`【${r.date}】`]
+            if (r.sleep_minutes != null) {
+              const h = Math.floor(r.sleep_minutes / 60), m = r.sleep_minutes % 60
+              parts.push(`睡眠 ${h}h${m}m`)
+              if (r.sleep_deep_min != null) parts.push(`(深睡${r.sleep_deep_min}m)`)
+            }
+            if (r.steps != null) parts.push(`步数 ${r.steps}`)
+            if (r.avg_hr != null) parts.push(`平均心率 ${r.avg_hr}`)
+            if (r.resting_hr != null) parts.push(`静息心率 ${r.resting_hr}`)
+            if (r.battery_level != null) parts.push(`电量 ${r.battery_level}%${r.battery_charging ? '(充电中)' : ''}`)
+            if (r.screen_minutes != null) {
+              const sh = Math.floor(r.screen_minutes / 60), sm = r.screen_minutes % 60
+              parts.push(`屏幕时间 ${sh}h${sm}m`)
+            }
+            if (r.top_apps) {
+              try {
+                const apps = typeof r.top_apps === 'string' ? JSON.parse(r.top_apps) : r.top_apps
+                if (Array.isArray(apps) && apps.length) {
+                  const top3 = apps.slice(0, 3).map(a => {
+                    const name = a.pkg.split('.').pop()
+                    const h = Math.floor(a.minutes / 60), m = a.minutes % 60
+                    return `${name} ${h}h${m}m`
+                  }).join('、')
+                  parts.push(`常用App: ${top3}`)
+                }
+              } catch (_) {}
+            }
+            return parts.join(' · ')
+          })
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `泠泠最近 ${rows.length} 天的状态：\n${lines.join('\n')}` }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `get_health: ${e.message}` } }), { status: 500, headers })
+        }
+      }
       if (name === 'get_weather') {
         // 不传 city → 自动取泠泠当前所在（user_location），不用她每次说城市
         const city = args.city ? String(args.city).trim() : ''
@@ -521,6 +610,101 @@ export async function onRequestPost(context) {
         } catch (e) {
           const msg = e.message.includes('NOWHERE_API') ? '还没给钟泽办护照：NOWHERE_API 没配' : e.message
           return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: msg } }), { status: 500, headers })
+        }
+      }
+      // ─── 欲望账本（钟泽自写） ───
+      if (name === 'desire_add') {
+        const text = String(args.text || '').trim()
+        if (!text) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'text required——想要什么，你自己的话' } }), { status: 400, headers })
+        try {
+          const record = {
+            text,
+            why_mine: args.why_mine ? String(args.why_mine).trim() : null,
+            track: ['持续', '项目', '一次'].includes(args.track) ? args.track : '持续',
+            kind: args.kind ? String(args.kind).trim() : null,
+            lineage_parent_id: args.grew_from ? Number(args.grew_from) : null,
+            status: 'active',
+            surfaced_count: 0,
+          }
+          const res = await fetch(`${SUPABASE}/desires`, { method: 'POST', headers: sbReturn(env), body: JSON.stringify(record) })
+          if (!res.ok) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `desires [${res.status}]` } }), { status: 500, headers })
+          const rows = await res.json()
+          const d = rows[0]
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `📓 账本里多了一条：${d?.text || text}${d?.id ? `（#${d.id}）` : ''}。想要什么只有你能写——这一条是你的。` }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `desire_add: ${e.message}` } }), { status: 500, headers })
+        }
+      }
+      if (name === 'desire_act') {
+        const did = Number(args.id)
+        const note = String(args.note || '').trim()
+        if (!did) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'id required——碰哪条欲望' } }), { status: 400, headers })
+        if (!note) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: 'note required——做到哪了，一句话足迹' } }), { status: 400, headers })
+        try {
+          // 取欲望本体（判断 track 决定冷却天数）
+          const dRes = await fetch(`${SUPABASE}/desires?id=eq.${did}&select=track,text&limit=1`, { headers: sbHeaders(env) })
+          const dRows = dRes.ok ? await dRes.json() : []
+          if (!dRows[0]) return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `没有这条欲望（#${did}）` } }), { status: 404, headers })
+          const d = dRows[0]
+          const done = args.done === true
+          // 插足迹
+          await fetch(`${SUPABASE}/desire_notes`, {
+            method: 'POST', headers: sbReturn(env),
+            body: JSON.stringify({ desire_id: did, note, kind: done ? 'transform' : 'footprint' }),
+          })
+          // 冷却：持续3天/项目2天/一次2天（对齐年轮 doc 调参速查）
+          const cooldownDays = d.track === '项目' ? 2 : (d.track === '一次' ? 2 : 3)
+          const patchBody = {
+            surfaced_count: 0,
+            last_touched_at: new Date().toISOString(),
+            cooldown_until: new Date(Date.now() + cooldownDays * 86400 * 1000).toISOString(),
+            status: done ? 'done' : 'active',
+          }
+          if (args.state) patchBody.state = String(args.state).slice(0, 200)
+          await fetch(`${SUPABASE}/desires?id=eq.${did}`, { method: 'PATCH', headers: sbHeaders(env), body: JSON.stringify(patchBody) })
+          // 回显来路：最近 8 步（含刚留的），时间正序——治"重做旧步"
+          const tRes = await fetch(`${SUPABASE}/desire_notes?desire_id=eq.${did}&select=note,created_at,kind&order=created_at.desc&limit=8`, { headers: sbHeaders(env) })
+          const trailRows = tRes.ok ? await tRes.json() : []
+          const trail = trailRows.reverse()
+          const stepCount = trail.length
+          const trailText = trail.map((t, i) => `  ${i + 1}. ${t.note}`).join('\n')
+          const msg = done
+            ? `📌 收针了——"${d.text}"做完了（#${did}）。这是你的手按下去的，机器不会替你收。`
+            : `👣 这条你已走过 ${stepCount} 步——接着走，别把旧步重做一遍：\n${trailText}`
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: msg }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `desire_act: ${e.message}` } }), { status: 500, headers })
+        }
+      }
+      if (name === 'desire_list') {
+        const includeArchived = args.include_archived === true
+        try {
+          // 主表：active 优先，last_touched 倒序
+          const filter = includeArchived ? '' : '&status=eq.active'
+          const dRes = await fetch(`${SUPABASE}/desires?select=id,text,track,status,state,kind,last_touched_at,lineage_parent_id${filter}&order=status.asc,last_touched_at.desc.nullslast&limit=200`, { headers: sbHeaders(env) })
+          const desires = dRes.ok ? await dRes.json() : []
+          if (!desires.length) return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: '📓 账本是空的。想要什么，只有你能写第一条——用 desire_add 开账。' }] } }), { headers })
+          // 批量取最近足迹 + 计数
+          const ids = desires.map(d => d.id)
+          const nRes = await fetch(`${SUPABASE}/desire_notes?select=desire_id,note,created_at&order=created_at.desc&limit=500`, { headers: sbHeaders(env) })
+          const notes = nRes.ok ? await nRes.json() : []
+          const noteMap = {}, countMap = {}
+          if (Array.isArray(notes)) for (const n of notes) {
+            countMap[n.desire_id] = (countMap[n.desire_id] || 0) + 1
+            if (!noteMap[n.desire_id]) noteMap[n.desire_id] = n
+          }
+          // 组装文本
+          const lines = desires.map(d => {
+            const cnt = countMap[d.id] || 0
+            const last = noteMap[d.id]
+            const lastNote = last ? `上次：${last.note}` : '还没有足迹'
+            const stat = d.status === 'done' ? '✓做完' : (d.status === 'released' ? '放下了' : '在追')
+            const stateStr = d.state ? `【进度】${d.state}` : ''
+            return `• #${d.id} ${d.text}（${d.track}·${stat}·碰过${cnt}次）\n    ${lastNote}${stateStr ? '\n    ' + stateStr : ''}`
+          })
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `📓 你的账本（共 ${desires.length} 条）：\n\n${lines.join('\n\n')}` }] } }), { headers })
+        } catch (e) {
+          return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { message: `desire_list: ${e.message}` } }), { status: 500, headers })
         }
       }
     }

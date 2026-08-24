@@ -13,13 +13,23 @@ const NL = String.fromCharCode(10)
 // DEFAULT_MODEL 动态取「首个启用模型」，保证库被改后仍有合理默认。
 export const DEFAULT_MODEL = getDefaultEnabledModelId()
 
-export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quote, onClearQuote, model = DEFAULT_MODEL, onSelectModel }) {
+export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quote, onClearQuote, model = DEFAULT_MODEL, onSelectModel, thinking = 'high', onSelectThinking }) {
   const [text, setText] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [pendingImages, setPendingImages] = useState([]) // [{ dataUrl }]
   const [sending, setSending] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const [thinkingMenuOpen, setThinkingMenuOpen] = useState(false)
+  // 思考模式（DeepSeek V4 reasoning_effort / thinking.type）：low 浅 / high 标准（默认）/ max 深 / off 关
+  const THINKING_LABELS = { low: '浅', high: '标准', max: '深', off: '关' }
+  const thinkingLabel = THINKING_LABELS[thinking] || '标准'
+  const thinkingOptions = [
+    { id: 'low', label: '浅思考', desc: '快，少想' },
+    { id: 'high', label: '标准思考', desc: '默认' },
+    { id: 'max', label: '深思考', desc: '想最多' },
+    { id: 'off', label: '关思考', desc: '不思考，直接答' },
+  ]
   // 当前选中模型的展示名：优先库里找，找不到（已停用/历史值）就回退原 id
   const currentModelLabel = (findModel(model) || {}).label || model
   // 菜单项 = 启用的模型；若当前 model 不在启用列表（被停用），额外补一条让其仍可见
@@ -127,7 +137,7 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
           <div className="attach-menu">
             <div className="attach-item" onClick={() => fileInputRef.current?.click()}>📷 图片</div>
             <div className="attach-item attach-disabled">📎 文件（开发中）</div>
-            <div className="attach-item attach-model-item" onClick={() => setModelMenuOpen(o => !o)}>
+            <div className="attach-item attach-model-item" onClick={() => { setThinkingMenuOpen(false); setModelMenuOpen(o => !o) }}>
               <span className="attach-model-label">✦ 模型</span>
               <span className="attach-model-current">{currentModelLabel}</span>
               <span className="attach-caret">{modelMenuOpen ? '▴' : '▾'}</span>
@@ -148,6 +158,28 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
                       {m.desc && <span className="model-option-desc">{m.desc}</span>}
                     </span>
                     {model === m.id && <span className="model-option-check">✓</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="attach-item attach-model-item" onClick={() => { setModelMenuOpen(false); setThinkingMenuOpen(o => !o) }}>
+              <span className="attach-model-label">🧠 思考</span>
+              <span className="attach-model-current">{thinkingLabel}</span>
+              <span className="attach-caret">{thinkingMenuOpen ? '▴' : '▾'}</span>
+            </div>
+            {thinkingMenuOpen && (
+              <div className="model-submenu">
+                {thinkingOptions.map(opt => (
+                  <div
+                    key={opt.id}
+                    className={`model-option ${thinking === opt.id ? 'selected' : ''}`}
+                    onClick={() => { onSelectThinking?.(opt.id); setThinkingMenuOpen(false); setAttachOpen(false) }}
+                  >
+                    <span className="model-option-main">
+                      <span className="model-option-label">🧠 {opt.label}</span>
+                      {opt.desc && <span className="model-option-desc">{opt.desc}</span>}
+                    </span>
+                    {thinking === opt.id && <span className="model-option-check">✓</span>}
                   </div>
                 ))}
               </div>
