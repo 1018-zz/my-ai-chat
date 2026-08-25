@@ -911,7 +911,7 @@ const MemoryRoom = ({ onBack }) => {
   return (
     <div className="life-room room-enter">
       <LifeBackBtn label="LIFE" onBack={onBack} />
-      <h3 style={{ color: 'var(--color-primary)' }}>🧠 记忆</h3>
+      <div className="room-title-block"><span className="room-kicker">MEMORY</span><h3>我们的记忆</h3><p>像相册和手账一样，把不能丢的小事收好。</p></div>
       <div className="life-grid">
         <div className="life-card mem-room-card--moment" onClick={() => setView('moments')}>
           <span className="life-card-icon">🖼</span>
@@ -1139,8 +1139,8 @@ const LifePage = ({ navReq, onNavConsumed, avatarSelf, avatarAi, onPickAvatar })
     {
       title: '生活记录', icon: '📖', desc: '我们留下生活痕迹的地方',
       cards: [
-        { key: 'diary', icon: '📖', title: '日记', desc: '今日 · 往日 · 打卡' },
-        { key: 'memory', icon: '🧠', title: '回忆', desc: '不能丢的时刻 · 自我觉察' },
+        { key: 'diary', icon: '📖', title: '日常记录', desc: '今日 · 往日 · 共同日记' },
+        { key: 'memory', icon: '🖼️', title: '我们的记忆', desc: '相册 · 手账 · 被记住的小事' },
         { key: 'compress', icon: '🗜️', title: '整理角', desc: '收好生活的小痕迹' },
       ],
     },
@@ -1166,9 +1166,12 @@ const LifePage = ({ navReq, onNavConsumed, avatarSelf, avatarAi, onPickAvatar })
   return (
     <div className="life-page life-home">
       <header className="life-home__head">
-        <span className="life-home__kicker">LIFE · 小家</span>
-        <h2 className="life-home__greet">今天也见面了</h2>
-        <p className="life-home__sub">慢慢把这里装成我们的家</p>
+        <span className="life-home__kicker">DAILY JOURNAL</span>
+        <h2 className="life-home__greet">日常记录</h2>
+        <p className="life-home__sub">天气、心情、时间线和我们一起留下的小事。</p>
+        <div className="life-today-card" aria-hidden="true">
+          <span>☁️ 今日天气</span><span>😊 今日心情</span><span>📝 泽会帮你收好这一页</span>
+        </div>
       </header>
       {groups.map((g, gi) => (
         <div key={g.title} className="life-group" style={{ marginTop: gi === 0 ? 18 : 22 }}>
@@ -1286,7 +1289,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   return (
     <div className="chat-page">
       <div className="chat-header">
-        <div className="chat-header-title">{showTrash ? '🗑 回收站' : '💬 对话'}</div>
+        <div className="chat-header-title">{showTrash ? '🗑 回收站' : '和泽聊天'}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {showTrash
             ? <button className="btn" onClick={() => setShowTrash(false)} style={{ padding: '6px 14px', fontSize: 13 }}>← 返回</button>
@@ -1312,9 +1315,9 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
               </div>
             ))
         ) : (
-          conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
+          conversations.length === 0 ? <div className="chat-empty">泽在这里等你<br/>点「新建」，开始今天第一句话吧</div> : conversations.map(conv => (
             <div key={conv.id} className="chat-item" onClick={() => onOpenChat(conv)}>
-              <div className="chat-avatar">❤️</div>
+              <div className="chat-avatar chat-avatar-ze">泽</div>
               <div className="chat-info">
                 {editingId === conv.id
                   ? <input className="chat-rename-input" style={renameInputStyle} autoFocus value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }} />
@@ -2097,8 +2100,8 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
             title="点击换头像"
           >{avatarAi.startsWith('http') ? '' : avatarAi}</div>
           <div className="ai-meta">
-            <div className="ai-name">{chatInfo?.title || '钟泽'}</div>
-            <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}</div>
+            <div className="ai-name">{chatInfo?.title || '泽'}</div>
+            <div className="ai-status"><span className={`ai-dot ${aiActive ? 'active' : ''}`} />{aiStatus}<span className="ai-days">陪伴 166 天</span></div>
           </div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>

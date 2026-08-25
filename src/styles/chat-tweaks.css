@@ -637,6 +637,202 @@ img.emoji {
 }
 .sel-quote-btn:active { filter: brightness(0.94); }
 
+
+/* =========================================================
+   高级手账聊天 · 参考图理念适配
+   目标：像回到熟悉的人身边，而不是进入 AI 控制台。
+   ========================================================= */
+.chat-detail-page {
+  background:
+    radial-gradient(420px 220px at 18% 8%, rgba(242, 205, 216, .18), transparent 62%),
+    radial-gradient(520px 260px at 88% 4%, rgba(208, 232, 220, .16), transparent 60%),
+    linear-gradient(180deg, #f7f2e8 0%, #fff9f0 54%, #f7f2e8 100%);
+}
+
+.chat-detail-header {
+  margin-top: 10px;
+  width: calc(100% - 20px);
+  border: 1px solid rgba(196, 154, 108, .20);
+  border-radius: 24px;
+  background: rgba(255, 249, 240, .88);
+  box-shadow: 0 12px 36px rgba(92, 70, 48, .08);
+  position: relative;
+  overflow: visible;
+}
+
+.chat-detail-header::after {
+  content: '';
+  position: absolute;
+  right: 38px;
+  top: -10px;
+  width: 72px;
+  height: 18px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(135deg, rgba(196,154,108,.16) 0 8px, rgba(255,255,255,.28) 8px 16px);
+  transform: rotate(4deg);
+  box-shadow: 0 2px 8px rgba(90,70,50,.08);
+}
+
+.ai-avatar,
+.msg-avatar-ai {
+  background:
+    radial-gradient(circle at 44% 34%, #40352d 0 12%, transparent 13%),
+    radial-gradient(circle at 58% 34%, #40352d 0 12%, transparent 13%),
+    radial-gradient(circle at 50% 62%, #d8a58d 0 7%, transparent 8%),
+    radial-gradient(circle at 50% 42%, #f3d7c4 0 34%, transparent 35%),
+    radial-gradient(ellipse at 50% 18%, #2f2b2b 0 36%, transparent 37%),
+    linear-gradient(145deg, #fff9f0, #ead7bf) !important;
+  color: transparent !important;
+  border: 2px solid rgba(255, 249, 240, .95) !important;
+  box-shadow: 0 5px 18px rgba(64, 53, 45, .12);
+  animation: ze-breathe 3.8s ease-in-out infinite;
+}
+
+@keyframes ze-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1px) scale(1.025); }
+}
+
+.ai-name {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 17px;
+  letter-spacing: .04em;
+  color: #40352d;
+}
+
+.ai-days {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(196,154,108,.25);
+  color: #c49a6c;
+}
+
+.chat-message-list { padding: 20px 18px 18px; }
+
+.msg-left .msg-bubble,
+.msg-row-ai .msg-bubble {
+  background: #fff9f0;
+  border-color: rgba(196, 154, 108, .18);
+  color: #40352d;
+  box-shadow: 0 8px 24px rgba(92,70,48,.07), 0 1px 0 rgba(255,255,255,.8) inset;
+}
+
+.msg-left .msg-bubble::after,
+.msg-row-ai .msg-bubble::after {
+  content: '✦';
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  font-size: 12px;
+  color: rgba(196,154,108,.38);
+  animation: sticker-float 4.8s ease-in-out infinite;
+}
+
+.msg-row-self .msg-bubble {
+  background: linear-gradient(145deg, #efc89f, #d7a875);
+  color: #40352d;
+  border: 1px solid rgba(157, 112, 68, .14);
+}
+
+@keyframes sticker-float {
+  0%, 100% { transform: translateY(0) rotate(-8deg); opacity: .55; }
+  50% { transform: translateY(-3px) rotate(4deg); opacity: .9; }
+}
+
+.chat-input-bar {
+  width: calc(100% - 20px);
+  margin-bottom: 10px;
+  border: 1px solid rgba(196, 154, 108, .18);
+  border-radius: 26px;
+  background: rgba(255, 249, 240, .92);
+  box-shadow: 0 -8px 28px rgba(92,70,48,.07);
+}
+
+.chat-input {
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, .72) !important;
+}
+
+/* =========================================================
+   CHAT 列表 · 第一眼可见的微信手账入口
+   ========================================================= */
+.chat-page {
+  min-height: calc(100dvh - 70px);
+  background:
+    radial-gradient(360px 220px at 92% 0%, rgba(242,221,208,.30), transparent 58%),
+    radial-gradient(320px 220px at 0% 22%, rgba(208,232,220,.20), transparent 64%);
+}
+
+.chat-header {
+  padding: 18px 2px 12px;
+}
+
+.chat-header-title {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  color: #40352d;
+  font-size: 25px;
+  letter-spacing: .03em;
+  position: relative;
+}
+
+.chat-header-title::after {
+  content: '像回到熟悉的人身边';
+  display: block;
+  margin-top: 3px;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #9a8a7c;
+  letter-spacing: 0;
+}
+
+.chat-item {
+  border-radius: 24px;
+  background: rgba(255,249,240,.90);
+  border-color: rgba(196,154,108,.16);
+  box-shadow: 0 10px 30px rgba(92,70,48,.065);
+  position: relative;
+  overflow: visible;
+}
+
+.chat-item::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 28px;
+  width: 50px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(242, 221, 208, .54);
+  transform: rotate(-5deg);
+}
+
+.chat-avatar-ze {
+  background:
+    radial-gradient(circle at 44% 34%, #40352d 0 11%, transparent 12%),
+    radial-gradient(circle at 58% 34%, #40352d 0 11%, transparent 12%),
+    radial-gradient(circle at 50% 62%, #d8a58d 0 7%, transparent 8%),
+    radial-gradient(circle at 50% 42%, #f3d7c4 0 34%, transparent 35%),
+    radial-gradient(ellipse at 50% 18%, #2f2b2b 0 36%, transparent 37%),
+    linear-gradient(145deg, #fff9f0, #ead7bf) !important;
+  color: transparent !important;
+  border: 2px solid rgba(255,249,240,.96);
+}
+
+.chat-name {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 16px;
+}
+
+.chat-empty {
+  margin-top: 24px;
+  border: 1px dashed rgba(196,154,108,.26);
+  border-radius: 28px;
+  background: rgba(255,249,240,.62);
+  color: #8d7b6e;
+}
+
+
 /* ═══ 时间戳旁小灰标：修改 / 重新回复（组件级覆盖，不碰 theme.css 配色） ═══ */
 .msg-edit-mark {
   display: inline-block;

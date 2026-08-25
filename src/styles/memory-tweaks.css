@@ -21,3 +21,66 @@
 .mem-room-card--moment:hover { border-left-color: #eccdbd; }
 .mem-room-card--notes:hover  { border-left-color: #e7c2c9; }
 .mem-room-card--stats:hover  { border-left-color: #cdd8df; }
+
+/* =========================================================
+   MEMORY · 我们的记忆：私人相册 + 手账卡片
+   ========================================================= */
+.room-title-block {
+  margin: 6px 0 18px;
+  padding: 18px 18px 20px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255,249,240,.94), rgba(247,242,232,.88));
+  border: 1px solid rgba(196,154,108,.18);
+  box-shadow: 0 12px 34px rgba(92,70,48,.07);
+  position: relative;
+}
+.room-title-block::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 34px;
+  width: 68px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(242, 221, 208, .68);
+  transform: rotate(-5deg);
+}
+.room-kicker {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .22em;
+  color: #c49a6c;
+}
+.room-title-block h3 {
+  margin: 6px 0 4px;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 25px;
+  font-weight: 600;
+  color: #40352d;
+}
+.room-title-block p { margin: 0; color: #8d7b6e; font-size: 13px; }
+
+.mem-card,
+.mem-room-card--moment,
+.mem-room-card--notes,
+.mem-room-card--stats,
+.mem-room-card--insights {
+  background: #fff9f0 !important;
+  border: 1px solid rgba(196,154,108,.18) !important;
+  box-shadow: 0 12px 30px rgba(92,70,48,.07) !important;
+}
+
+.mem-card::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 26px;
+  width: 48px;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(208,232,220,.58);
+  transform: rotate(6deg);
+}
+
+.mem-card__badge { border-radius: 999px; }
+.mem-card__title { font-family: "Noto Serif SC", "Songti SC", serif; }

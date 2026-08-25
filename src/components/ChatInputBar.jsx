@@ -192,7 +192,7 @@ export default function ChatInputBar({ loading, mcpEnabled, onSend, onStop, quot
         ref={inputRef}
         className="input chat-input"
         rows={1}
-        placeholder={mcpEnabled ? "MCP 已开启，AI 可调用工具…" : "写点什么..."}
+        placeholder={mcpEnabled ? "和泽说点什么…" : "和泽说点什么…"}
         value={text}
         onChange={(e) => { setText(e.target.value); resize(e.target) }}
         disabled={loading || sending}
