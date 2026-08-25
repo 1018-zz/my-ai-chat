@@ -1,0 +1,194 @@
+/* ============================================================
+ *  小家 2.0 Design Tokens · 暖阳手账风
+ *  Spec: 《小家 2.0 Design Token · 微信 × 手账 × 二次元陪伴》
+ *
+ *  必须第一个 import（在所有其它 *.css 之前），
+ *  以保证下游组件文件能读取到这些变量。
+ * ============================================================ */
+
+:root {
+  /* ---------- 1. Color · Base (基础背景) ---------- */
+  --bg-main:           #F7F2E8;  /* App / Page / Chat 背景 */
+  --surface-paper:     #FFF9F0;  /* 卡片 / AI 消息气泡 / 记忆卡片 */
+  --surface-highlight: #FFFFFF;  /* 重要卡片 / 输入框 */
+
+  /* ---------- 1. Color · Text (文字) ---------- */
+  --text-primary:   #40352D;     /* 标题、正文 */
+  --text-secondary: #8D7C6C;     /* 日期、状态、辅助 */
+  --text-muted:     #B8AA9C;     /* 禁用 / 占位 */
+
+  /* ---------- 1. Color · Brand & Accent (品牌暖色) ---------- */
+  --brand-brown:  #B78B62;       /* 用户气泡 / 强调按钮 / 标签 */
+  --accent-peach: #F2C9A5;       /* 贴纸 / 提醒 */
+  --accent-tape:  #F3D8A8;       /* 胶带装饰 */
+  --accent-green: #B7CBB7;       /* 在线状态 / 天气 */
+  --accent-pink:  #EBC2C5;       /* 爱心 / 情绪标签 */
+
+  /* ---------- 1. Color · Dark (夜间) ---------- */
+  --dark-bg:    #171827;
+  --dark-paper: #24263A;
+  --dark-text:  #EEE6D8;
+  --night-gold: #D7B27C;
+
+  /* ---------- 1. 语义别名（推荐组件直接用这些） ---------- */
+  --color-page-bg:          var(--bg-main);
+  --color-card-bg:          var(--surface-paper);
+  --color-ai-bubble-bg:     var(--surface-paper);
+  --color-ai-bubble-text:   var(--text-primary);
+  --color-user-bubble-bg:   var(--brand-brown);
+  --color-user-bubble-text: #FFFFFF;
+  --color-tape:             rgba(243, 216, 168, 0.7);
+  --color-memory-bg:        #FFF8ED;
+  --color-memory-border:    #EBDDC8;
+
+  /* ---------- 2. Typography (字体) ---------- */
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  --font-body:    'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --text-title-xl: 32px;   /* 页面主标题（今天 / 我们的记忆） */
+  --text-title-lg: 24px;
+  --text-card:     18px;   /* 卡片标题 */
+  --text-chat:     16px;   /* 聊天正文 */
+  --text-caption:  13px;   /* 辅助文字 */
+
+  /* ---------- 3. Spacing (间距) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;   /* 气泡内部 */
+  --space-5: 24px;   /* 卡片内边距 */
+  --space-6: 32px;   /* 大区块 */
+  --space-7: 48px;
+
+  /* ---------- 4. Radius (圆角) ---------- */
+  --radius-sm:   10px;   /* 按钮 / 标签 */
+  --radius-chat: 18px;   /* 聊天气泡 */
+  --radius-card: 24px;   /* 卡片 */
+  --radius-xl:   32px;   /* 大容器 */
+
+  /* ---------- 5. Shadow (阴影) ---------- */
+  --shadow-paper: 0 8px 30px rgba(80, 60, 40, 0.08);  /* 纸张浮起 */
+  --shadow-float: 0 12px 40px rgba(80, 60, 40, 0.12); /* 浮动组件 */
+
+  /* ---------- 11. Animation (动画 token) ---------- */
+  --ease:         ease-in-out;
+  --dur-breathe:  4s;
+  --dur-msg-in:   280ms;
+  --dur-tape:     5s;
+
+  /* ---------- 12. Page Structure (页面比例：聊天 12/75/13) ---------- */
+  --chat-header-ratio: 12%;
+  --chat-body-ratio:   75%;
+  --chat-input-ratio:  13%;
+}
+
+/* 夜间主题：通过在根节点设置 data-theme="night" 切换 */
+[data-theme="night"] {
+  --bg-main:        var(--dark-bg);
+  --surface-paper:  var(--dark-paper);
+  --text-primary:   var(--dark-text);
+  --text-secondary: var(--dark-text);
+  --brand-brown:    var(--night-gold);
+  --color-tape:     rgba(215, 178, 124, 0.6);
+  --color-memory-bg:     #2A2C42;
+  --color-memory-border: #3A3D58;
+}
+
+
+/* ============================================================
+ *  组件原语（Primitive）—— spec 第 6/7/8/9/10 节
+ *  下游组件可以直接使用这些 class，也可以基于 token 自定义。
+ * ============================================================ */
+
+/* §6 Chat bubble · AI —— 像收到一张纸条 */
+.ai-message {
+  background: var(--color-ai-bubble-bg);
+  color: var(--color-ai-bubble-text);
+  border-radius: 18px 18px 18px 6px;
+  padding: 14px var(--space-4);
+  box-shadow: var(--shadow-paper);
+}
+
+/* §6 Chat bubble · User —— 暖棕品牌 */
+.user-message {
+  background: var(--color-user-bubble-bg);
+  color: var(--color-user-bubble-text);
+  border-radius: 18px 18px 6px 18px;
+  padding: 14px var(--space-4);
+  box-shadow: var(--shadow-paper);
+}
+
+/* §7 Memory Card —— 手账卡片 */
+.memory-card {
+  background: var(--color-memory-bg);
+  border: 1px solid var(--color-memory-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-paper);
+}
+
+/* §8 Tape —— CSS 模拟胶带（不要真的做图片） */
+.tape {
+  display: inline-block;
+  width: 80px;
+  height: 24px;
+  background: var(--color-tape);
+  border-radius: 2px;
+  transform: rotate(-6deg);
+}
+.tape--r { transform: rotate(6deg); }
+
+/* §9 Avatar System —— 泽的角色头像通用气泡 */
+.avatar-ze {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+}
+.avatar-ze--chat { width: 48px; height: 48px; }   /* 聊天消息旁 */
+.avatar-ze--top  { width: 64px; height: 64px; }   /* 顶部状态 */
+
+/* §10 Character Illustration —— 角色插画区 */
+.character-illust {
+  display: block;
+  max-width: 120px;       /* 永远别抢聊天内容 */
+  user-select: none;
+  pointer-events: none;
+}
+
+
+/* ============================================================
+ *  §11 Animation utilities —— 工具类，按需使用
+ * ============================================================ */
+@keyframes xj-breathe {
+  0%, 100% { transform: scale(1);    filter: saturate(1);   }
+  50%      { transform: scale(1.04); filter: saturate(1.1); }
+}
+.anim-breathe { animation: xj-breathe var(--dur-breathe) var(--ease) infinite; }
+
+@keyframes xj-msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.anim-msg-in { animation: xj-msg-in var(--dur-msg-in) var(--ease) both; }
+
+@keyframes xj-tape-float {
+  0%, 100% { transform: translateY(0)    rotate(-6deg); }
+  50%      { transform: translateY(-3px) rotate(-4deg); }
+}
+.anim-tape-float   { animation: xj-tape-float   var(--dur-tape) var(--ease) infinite; }
+@keyframes xj-tape-float-r {
+  0%, 100% { transform: translateY(0)    rotate(6deg); }
+  50%      { transform: translateY(-3px) rotate(8deg); }
+}
+.anim-tape-float-r { animation: xj-tape-float-r var(--dur-tape) var(--ease) infinite; }
+
+/* 无障碍：尊重系统的减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .anim-breathe,
+  .anim-msg-in,
+  .anim-tape-float,
+  .anim-tape-float-r { animation: none; }
+}
