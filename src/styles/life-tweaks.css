@@ -71,3 +71,60 @@
 @media (max-width: 375px) {
   .life-home__greet { font-size: 22px; }
 }
+
+/* =========================================================
+   LIFE · 日常记录：共同维护的一本数字日记
+   ========================================================= */
+.life-page,
+.life-room {
+  background:
+    radial-gradient(360px 220px at 100% 0%, rgba(228,222,240,.20), transparent 58%),
+    radial-gradient(320px 220px at 0% 18%, rgba(208,232,220,.18), transparent 62%);
+}
+
+.life-home__kicker { color: #c49a6c; }
+.life-home__greet {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  color: #40352d;
+}
+
+.life-today-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  background: rgba(255,249,240,.86);
+  border: 1px solid rgba(196,154,108,.16);
+  box-shadow: 0 10px 28px rgba(92,70,48,.06);
+  color: #6f5e51;
+  font-size: 13px;
+  position: relative;
+}
+.life-today-card::after {
+  content: 'Have a nice day';
+  justify-self: end;
+  width: max-content;
+  margin-top: 2px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #f2ddd0;
+  color: #a9744e;
+  transform: rotate(-4deg);
+  font-size: 11px;
+}
+
+.life-card {
+  background: rgba(255,249,240,.92);
+  border-color: rgba(196,154,108,.17);
+}
+.life-card-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.7), rgba(242,221,208,.42));
+  font-size: 24px;
+}
+.life-card-title { font-family: "Noto Serif SC", "Songti SC", serif; }
