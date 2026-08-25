@@ -1286,7 +1286,7 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
   return (
     <div className="chat-page">
       <div className="chat-header">
-        <div className="chat-header-title">{showTrash ? '🗑 回收站' : '💬 对话'}</div>
+        <div className="chat-header-title">{showTrash ? '🗑 回收站' : '和泽聊天'}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {showTrash
             ? <button className="btn" onClick={() => setShowTrash(false)} style={{ padding: '6px 14px', fontSize: 13 }}>← 返回</button>
@@ -1312,9 +1312,9 @@ const ChatListPage = ({ onOpenChat, refreshTrigger, onTitleChange }) => {
               </div>
             ))
         ) : (
-          conversations.length === 0 ? <div className="chat-empty">💬 暂无会话<br/>点「新建」开始第一条对话吧</div> : conversations.map(conv => (
+          conversations.length === 0 ? <div className="chat-empty">泽在这里等你<br/>点「新建」，开始今天第一句话吧</div> : conversations.map(conv => (
             <div key={conv.id} className="chat-item" onClick={() => onOpenChat(conv)}>
-              <div className="chat-avatar">❤️</div>
+              <div className="chat-avatar chat-avatar-ze">泽</div>
               <div className="chat-info">
                 {editingId === conv.id
                   ? <input className="chat-rename-input" style={renameInputStyle} autoFocus value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }} />

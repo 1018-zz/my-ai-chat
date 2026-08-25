@@ -751,3 +751,82 @@ img.emoji {
   border-radius: 999px !important;
   background: rgba(255, 255, 255, .72) !important;
 }
+
+/* =========================================================
+   CHAT 列表 · 第一眼可见的微信手账入口
+   ========================================================= */
+.chat-page {
+  min-height: calc(100dvh - 70px);
+  background:
+    radial-gradient(360px 220px at 92% 0%, rgba(242,221,208,.30), transparent 58%),
+    radial-gradient(320px 220px at 0% 22%, rgba(208,232,220,.20), transparent 64%);
+}
+
+.chat-header {
+  padding: 18px 2px 12px;
+}
+
+.chat-header-title {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  color: #40352d;
+  font-size: 25px;
+  letter-spacing: .03em;
+  position: relative;
+}
+
+.chat-header-title::after {
+  content: '像回到熟悉的人身边';
+  display: block;
+  margin-top: 3px;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #9a8a7c;
+  letter-spacing: 0;
+}
+
+.chat-item {
+  border-radius: 24px;
+  background: rgba(255,249,240,.90);
+  border-color: rgba(196,154,108,.16);
+  box-shadow: 0 10px 30px rgba(92,70,48,.065);
+  position: relative;
+  overflow: visible;
+}
+
+.chat-item::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 28px;
+  width: 50px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(242, 221, 208, .54);
+  transform: rotate(-5deg);
+}
+
+.chat-avatar-ze {
+  background:
+    radial-gradient(circle at 44% 34%, #40352d 0 11%, transparent 12%),
+    radial-gradient(circle at 58% 34%, #40352d 0 11%, transparent 12%),
+    radial-gradient(circle at 50% 62%, #d8a58d 0 7%, transparent 8%),
+    radial-gradient(circle at 50% 42%, #f3d7c4 0 34%, transparent 35%),
+    radial-gradient(ellipse at 50% 18%, #2f2b2b 0 36%, transparent 37%),
+    linear-gradient(145deg, #fff9f0, #ead7bf) !important;
+  color: transparent !important;
+  border: 2px solid rgba(255,249,240,.96);
+}
+
+.chat-name {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 16px;
+}
+
+.chat-empty {
+  margin-top: 24px;
+  border: 1px dashed rgba(196,154,108,.26);
+  border-radius: 28px;
+  background: rgba(255,249,240,.62);
+  color: #8d7b6e;
+}
