@@ -1,23 +1,23 @@
 /* =========================================================
-   记忆子页 · 三色情绪区分（小家 project · 2026-08-16）
+   记忆子页 · 三色情绪区分（小家 project）
    —— 极低饱和度，像旧照片里洗出来的颜色，不破坏奶油暖调
-   —— 只给 MemoryRoom 三张入口卡加 3px 左色带，不动 theme.css
+   —— 颜色取自 tokens.css（--accent-*）与 theme.css 语义变量
    ========================================================= */
 
 /* Moment 墙 · 暖杏（值得回头看的瞬间） */
 .mem-room-card--moment {
-  border-left: 3px solid #f3ddd3;
+  border-left: 3px solid var(--accent-peach);
 }
 /* 不能丢的时刻 · 淡粉（存云端的小事） */
 .mem-room-card--notes {
-  border-left: 3px solid #efd8dc;
+  border-left: 3px solid var(--accent-pink);
 }
 /* 统计 · 雾蓝（我们的足迹） */
 .mem-room-card--stats {
-  border-left: 3px solid #d9e1e6;
+  border-left: 3px solid var(--accent-sky);
 }
 
-/*  hover 时色带轻轻亮一点，像被手指碰到 */
+/* hover 时色带轻轻亮一点，像被手指碰到（保留微差色调） */
 .mem-room-card--moment:hover { border-left-color: #eccdbd; }
 .mem-room-card--notes:hover  { border-left-color: #e7c2c9; }
 .mem-room-card--stats:hover  { border-left-color: #cdd8df; }
@@ -28,10 +28,10 @@
 .room-title-block {
   margin: 6px 0 18px;
   padding: 18px 18px 20px;
-  border-radius: 28px;
-  background: linear-gradient(135deg, rgba(255,249,240,.94), rgba(247,242,232,.88));
-  border: 1px solid rgba(196,154,108,.18);
-  box-shadow: 0 12px 34px rgba(92,70,48,.07);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--surface-paper), var(--bg-main));
+  border: 1px solid var(--color-border-warm);
+  box-shadow: var(--shadow-paper);
   position: relative;
 }
 .room-title-block::before {
@@ -42,32 +42,32 @@
   width: 68px;
   height: 18px;
   border-radius: 4px;
-  background: rgba(242, 221, 208, .68);
+  background: var(--accent-peach);
   transform: rotate(-5deg);
 }
 .room-kicker {
   display: block;
   font-size: 11px;
   letter-spacing: .22em;
-  color: #c49a6c;
+  color: var(--brand-brown);
 }
 .room-title-block h3 {
   margin: 6px 0 4px;
-  font-family: "Noto Serif SC", "Songti SC", serif;
-  font-size: 25px;
+  font-family: var(--font-display);
+  font-size: var(--text-title-lg);
   font-weight: 600;
-  color: #40352d;
+  color: var(--text-primary);
 }
-.room-title-block p { margin: 0; color: #8d7b6e; font-size: 13px; }
+.room-title-block p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 
 .mem-card,
 .mem-room-card--moment,
 .mem-room-card--notes,
 .mem-room-card--stats,
 .mem-room-card--insights {
-  background: #fff9f0 !important;
-  border: 1px solid rgba(196,154,108,.18) !important;
-  box-shadow: 0 12px 30px rgba(92,70,48,.07) !important;
+  background: var(--color-memory-bg) !important;
+  border: 1px solid var(--color-memory-border) !important;
+  box-shadow: var(--shadow-paper) !important;
 }
 
 .mem-card::before {
@@ -78,9 +78,9 @@
   width: 48px;
   height: 16px;
   border-radius: 4px;
-  background: rgba(208,232,220,.58);
+  background: var(--accent-green);
   transform: rotate(6deg);
 }
 
 .mem-card__badge { border-radius: 999px; }
-.mem-card__title { font-family: "Noto Serif SC", "Songti SC", serif; }
+.mem-card__title { font-family: var(--font-display); }
