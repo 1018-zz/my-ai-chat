@@ -3,12 +3,32 @@
 import { useEffect, useRef, useState } from 'react'
 import Markdown from './Markdown'
 import { fmtMsgTime } from '../utils/time'
+import { getImageMap } from '../utils/imageStore'
 
-export default function UserMsgRow({ msg, avatar, onAvatarClick, editing, onEdit, onSaveEdit, onCancelEdit }) {
+export default function UserMsgRow({ msg, avatar, onAvatarClick, editing, onEdit, onSaveEdit, onCancelEdit, imageLookup }) {
   const [expanded, setExpanded] = useState(false)
   const bodyRef = useRef(null)
   const editRef = useRef(null)
   const [overflow, setOverflow] = useState((msg.text || '').length > 240)
+  // 异步把 imageIds 解析成 dataURL；查不到的 id 自动忽略
+  const [resolved, setResolved] = useState([])
+  useEffect(() => {
+    const ids = msg.imageIds || []
+    if (!ids.length) { setResolved([]); return }
+    let cancelled = false
+    if (imageLookup) {
+      // 父组件给同步查表 → 直接用
+      setResolved(ids.map(id => ({ id, src: imageLookup[id] })).filter(x => x.src))
+      return () => { cancelled = true }
+    }
+    // 兜底：异步从 IndexedDB 取
+    (async () => {
+      const map = await getImageMap(ids)
+      if (cancelled) return
+      setResolved(ids.map(id => ({ id, src: map[id] })).filter(x => x.src))
+    })()
+    return () => { cancelled = true }
+  }, [msg.imageIds, imageLookup])
   useEffect(() => {
     const el = bodyRef.current
     if (el) setOverflow(el.scrollHeight - el.clientHeight > 4)
@@ -50,7 +70,13 @@ export default function UserMsgRow({ msg, avatar, onAvatarClick, editing, onEdit
             <div className={`msg-bubble ${!expanded && overflow ? 'msg-folded' : ''}`} ref={bodyRef}>
               <Markdown>{String(msg.text || '').replace(/^【时间 [^】]*】\s*/, '')}</Markdown>
             </div>
-            {(() => { const imgs = msg.images || (msg.image ? [msg.image] : []); return imgs.length ? <div className="msg-images">{imgs.map((src, i) => <img key={i} className="msg-image" src={src} alt="" />)}</div> : null })()}
+            {(() => {
+              // 渲染顺序：imageIds 解析结果（持久化路径） → 兜底 msg.images (base64 / URL)
+              const a = (resolved || []).filter(x => x.src).map(x => ({ src: x.src, key: x.id }))
+              const b = (msg.images || (msg.image ? [msg.image] : [])).map((src, i) => ({ src, key: `legacy-${i}` }))
+              const all = a.length ? a : b
+              return all.length ? <div className="msg-images">{all.map(({ src, key }) => <img key={key} className="msg-image" src={src} alt="" />)}</div> : null
+            })()}
             {showToggle && (
               <button className="msg-fold-toggle" onClick={() => setExpanded(v => !v)}>
                 {expanded ? '收起 ▲' : '展开全文 ▼'}

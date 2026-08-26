@@ -714,19 +714,7 @@ img.emoji {
   border-radius: var(--radius-chat) var(--radius-chat) var(--radius-chat) 6px;
   box-shadow: var(--shadow-paper), inset 0 1px 0 rgba(255,255,255,.8);
 }
-.msg-left .msg-bubble::after,
-.msg-row-ai .msg-bubble::after {
-  content: '\2726';
-  position: absolute; right: -8px; bottom: -8px;
-  font-size: 12px;
-  color: var(--brand-brown);
-  opacity: .38;
-  animation: sticker-float 4.8s ease-in-out infinite;
-}
-@keyframes sticker-float {
-  0%, 100% { transform: translateY(0) rotate(-8deg); opacity: .55; }
-  50% { transform: translateY(-3px) rotate(4deg); opacity: .9; }
-}
+/* AI 消息气泡去贴纸（参考图风格统一：无装饰） */
 
 /* 用户气泡：暖棕品牌（spec §6） */
 .msg-row-self .msg-bubble {
@@ -1015,3 +1003,111 @@ img.emoji {
   background: rgba(255,255,255,0.8); color: var(--color-text-dark);
 }
 .desire-add-tip { font-size: 11px; color: var(--color-text-light); line-height: 1.5; }
+
+/* =========================================================
+ *  v2 工具栏 + 输入行 + 麦克风（参考图重做）
+ *  颜色全部取自 tokens.css；零 emoji / 零贴纸
+ * ========================================================= */
+
+/* 5 个工具按钮（左→右：相册 / 拍照 / 语音 / 陪伴 / 更多） */
+.chat-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px dashed var(--color-border-warm, rgba(201,184,166,.55));
+}
+.chat-tool-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary, #40352d);
+  border-radius: var(--radius-sm, 10px);
+  cursor: pointer;
+  transition: background .18s ease, transform .12s ease, color .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.chat-tool-btn:hover { background: rgba(255, 255, 255, .55); }
+.chat-tool-btn:active { transform: scale(.94); }
+.chat-tool-btn:disabled { opacity: .35; cursor: not-allowed; }
+.chat-tool-btn--active {
+  background: rgba(183, 139, 98, .10);
+  color: var(--brand-brown, #B78B62);
+}
+.chat-tool-label {
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--text-secondary, #8D7C6C);
+}
+.chat-tool-btn--active .chat-tool-label { color: var(--brand-brown, #B78B62); }
+
+/* 输入行：textarea + 麦克风（生成中是停止按钮） */
+.chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 4px;
+}
+.chat-input-row .chat-input { flex: 1; }
+.chat-mic-btn {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-warm, rgba(201,184,166,.55));
+  background: var(--surface-paper, #FFF9F0);
+  color: var(--text-primary, #40352d);
+  cursor: pointer;
+  transition: transform .14s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+  box-shadow: 0 2px 8px rgba(64, 53, 45, .08);
+}
+.chat-mic-btn:hover { background: #fff; box-shadow: 0 4px 14px rgba(64, 53, 45, .12); }
+.chat-mic-btn:active { transform: scale(.92); }
+.chat-mic-btn:disabled { opacity: .35; cursor: not-allowed; }
+.chat-mic-btn--rec {
+  background: var(--brand-brown, #B78B62);
+  color: #fff;
+  border-color: transparent;
+  animation: chat-mic-rec 1s ease-in-out infinite;
+}
+@keyframes chat-mic-rec {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(183, 139, 98, .55); }
+  50%      { box-shadow: 0 0 0 10px rgba(183, 139, 98, 0); }
+}
+.chat-stop-btn svg { display: none; }   /* 旧的 8px 方块被 span 替代，按钮现在放文字"停止" */
+
+/* "更多" 弹层：去掉 emoji 后的精简模型/思考菜单 */
+.attach-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 12px; right: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--color-border-warm, rgba(201,184,166,.55));
+  border-radius: var(--radius-card, 24px);
+  background: var(--surface-highlight, #FFFFFF);
+  box-shadow: 0 -12px 40px rgba(80, 60, 40, .12);
+  padding: 6px;
+  z-index: 5;
+}
+.attach-model-item {
+  display: flex; align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 10px);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #40352d);
+}
+.attach-model-item:hover { background: var(--surface-paper, #FFF9F0); }
+.attach-model-label { flex: 1; }
+.attach-model-current { color: var(--brand-brown, #B78B62); margin-right: 6px; font-size: 12px; }
+.attach-caret { color: var(--text-muted, #B8AA9C); font-size: 10px; }
+

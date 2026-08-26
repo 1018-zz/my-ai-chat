@@ -1,5 +1,6 @@
 import { fetchConversations, createConversation, deleteConversation, softDeleteConversation, restoreConversation, fetchTrashConversations, fetchMessages, searchMemories } from './utils/api'
 import { normalizeMessage } from './utils/normalize'
+import { putImage as idbPutImage, getImageMap as idbGetImageMap, isImageStoreAvailable } from './utils/imageStore'
 import { fmtMsgTime } from './utils/time'
 import { applyTwemoji } from './utils/emoji'
 import RunCard from './components/RunCard'
@@ -1395,6 +1396,11 @@ const Terminal = ({ open, onClose }) => {
 
 const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, setAvatarPick }) => {
   const [msgList, setMsgList] = useState([])
+  // 图片缓存：{ [imageId]: dataUrl } —— 选图后写入 IndexedDB 同时在内存留一份，
+  // AI 流式调用与即时渲染都从这份缓存里读 dataUrl，避免每次查 IndexedDB。
+  // 刷新页面后缓存清空，但 IndexedDB 仍在；下一轮（后端持久化 imageIds）即可恢复。
+  const imageCacheRef = useRef({})
+  const setImageCache = (id, dataUrl) => { imageCacheRef.current[id] = dataUrl }
   const [earlierSummary, setEarlierSummary] = useState('') // 更早对话的分层摘要（压缩后）
   const [showEarlier, setShowEarlier] = useState(false)    // 「更早的对话」摘要卡片展开/收起
   useTimeOfDay()
@@ -1904,6 +1910,17 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
     const um = { id: uidU, text: ut, isSelf: true, ts: Date.now() }
     if (imgs && imgs.length) {
       um.images = imgs.map(i => i.dataUrl)
+      // 并行存到 IndexedDB，得到 imageIds；同时填本会话的 imageCache。
+      // AI 流式调用继续走 dataUrl（本会话内存即用），刷新恢复依赖后端持久化 imageIds（下一轮）。
+      try {
+        const records = await Promise.all(imgs.map(async (i) => {
+          const rec = await idbPutImage(i.dataUrl, { mime: 'image/jpeg' })
+          return rec
+        }))
+        const ids = records.map(r => r.id).filter(Boolean)
+        if (ids.length) um.imageIds = ids
+        records.forEach(r => { if (r?.id && r?.dataUrl) setImageCache(r.id, r.dataUrl) })
+      } catch (_) { /* IndexedDB 失败时跳过；um.images 仍能让 AI 与渲染工作 */ }
       const direct = imgs.some(i => i.direct)
       if (direct) {
         um._visionDirect = true // vision 直传：图片原图直接喂给多模态模型，不转文字
@@ -2196,7 +2213,7 @@ const ChatDetailPage = ({ chatInfo, onBack, avatarSelf, avatarAi, avatarPick, se
                   onTouchEnd={handleMsgLongPressEnd}
                   onTouchMove={handleMsgLongPressEnd}
                 >
-                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} editing={editing} onEdit={(m) => setEditing({ id: m.id, text: m.text || '' })} onSaveEdit={(t) => saveEdit(msg, t)} onCancelEdit={() => setEditing(null)} />
+                  <UserMsgRow msg={msg} avatar={avatarSelf} onAvatarClick={() => setAvatarPick('self')} editing={editing} onEdit={(m) => setEditing({ id: m.id, text: m.text || '' })} onSaveEdit={(t) => saveEdit(msg, t)} onCancelEdit={() => setEditing(null)} imageLookup={imageCacheRef.current} />
                 </div>
               )
               i++
