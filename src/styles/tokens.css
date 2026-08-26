@@ -137,25 +137,38 @@
 }
 .tape--r { transform: rotate(6deg); }
 
-/* §9 Avatar System —— 泽的角色头像通用气泡 */
+/* §9 Avatar System —— 泽的角色头像（Q版真图，public/assets/ze/） */
 .avatar-ze {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.8);
+  border-radius: 20px;                              /* spec §10 状态气泡圆角 */
+  background-color: transparent;
+  background-image: url('/assets/ze/ze-48.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  border: 2px solid var(--surface-highlight);
+  box-shadow: 0 4px 14px rgba(64, 53, 45, .10);
   overflow: hidden;
 }
 .avatar-ze--chat { width: 48px; height: 48px; }   /* 聊天消息旁 */
-.avatar-ze--top  { width: 64px; height: 64px; }   /* 顶部状态 */
+.avatar-ze--top  {
+  width: 64px; height: 64px;
+  background-image: url('/assets/ze/ze-64.png');
+}
 
-/* §10 Character Illustration —— 角色插画区 */
+/* §10 Character Illustration —— 角色插画区（最大 120，永远别抢聊天） */
 .character-illust {
   display: block;
-  max-width: 120px;       /* 永远别抢聊天内容 */
+  max-width: 120px;
+  width: 120px;
+  height: auto;
+  content: url('/assets/ze/ze-120.png');
   user-select: none;
   pointer-events: none;
+  filter: drop-shadow(0 6px 18px rgba(64, 53, 45, .12));
 }
 
 
