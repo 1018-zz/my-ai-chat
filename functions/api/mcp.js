@@ -172,7 +172,7 @@ export async function onRequestPost(context) {
         ...SPICY_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
         ...VOICEBOX_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
         ...NETEASE_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
-      ] } }), { headers });
+      ].filter((t) => !isChatHidden(t.name)) } }), { headers });
     }
     if (method === 'tools/call') {
       const { name, arguments: args = {} } = params;
