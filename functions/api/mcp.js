@@ -15,6 +15,7 @@ import { SPICY_TOOLS } from '../lib/spicyClient.js'
 import { callNeteaseTool } from '../lib/neteaseClient.js'
 import { NETEASE_TOOLS } from '../lib/neteaseClient.js'
 import { setHome } from '../lib/locationSense.js'
+import { isChatHidden } from '../lib/toolRegistry.js'
 
 // Voicebox 工具定义（本地桌面应用，后端只注册定义，执行在前端桥接）
 const VOICEBOX_TOOLS = [
