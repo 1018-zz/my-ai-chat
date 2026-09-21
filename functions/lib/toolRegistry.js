@@ -218,6 +218,8 @@ const CHAT_HIDDEN_NAMES = new Set([
   'set_home',         // 位置（家坐标）
   'go_travel',        // 旅行
   'travel_postcard',  // 旅行
+  'describe_image',            // 识图（主模型已具备视觉）
+  'acknowledge_home_event',    // 家园事件认领（用不到了）
 ])
 const CHAT_HIDDEN_PREFIXES = ['voicebox_', 'netease_']
 export function isChatHidden(name) {
