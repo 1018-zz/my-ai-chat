@@ -220,7 +220,7 @@ const CHAT_HIDDEN_NAMES = new Set([
   'travel_postcard',  // 旅行
 ])
 const CHAT_HIDDEN_PREFIXES = ['voicebox_', 'netease_']
-function isChatHidden(name) {
+export function isChatHidden(name) {
   const n = String(name)
   return CHAT_HIDDEN_NAMES.has(n) || CHAT_HIDDEN_PREFIXES.some((p) => n.startsWith(p))
 }
