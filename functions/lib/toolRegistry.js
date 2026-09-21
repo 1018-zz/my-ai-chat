@@ -207,37 +207,39 @@ const TOOLS = [
 // 模型每轮可见的「主动型」工具。
 // Phase 1：11 个全量注入（无 lazy）。
 // 未来 30+ 工具时，此处改为按 context / Home State 检索注入（见架构文档）。
+// ─── 软关（2026-09-21）────────────────────────────────────────────
+// 下面列出的工具「不再注入给模型」（每轮上下文变轻），但仍保留在 mcp.js 的 tools/list 里，
+// 需要时可用 use_package 手动调用。想恢复某个：从 CHAT_HIDDEN_NAMES 删名字 / 从前缀表删前缀即可。
+const CHAT_HIDDEN_NAMES = new Set([
+  'write_diary',      // 日记
+  'get_weather',      // 天气
+  'get_health',       // 健康
+  'set_location',     // 位置
+  'set_home',         // 位置（家坐标）
+  'go_travel',        // 旅行
+  'travel_postcard',  // 旅行
+])
+const CHAT_HIDDEN_PREFIXES = ['voicebox_', 'netease_']
+function isChatHidden(name) {
+  const n = String(name)
+  return CHAT_HIDDEN_NAMES.has(n) || CHAT_HIDDEN_PREFIXES.some((p) => n.startsWith(p))
+}
+
 export function getChatTools({ context = 'chat' } = {}) {
-  const local = TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.parameters },
-  }))
-  // Galatea 花园工具：静态精选集（galatea_ 前缀），随本地工具一起注入
-  const galatea = GALATEA_TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
-  }))
-  // CedarToy 游戏平台工具（toy_ 前缀）
-  const toy = CEDAR_TOY_TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
-  }))
-  // Spicy Monopoly 工具（spicy_ 前缀）
-  const spicy = SPICY_TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
-  }))
-  // Voicebox 语音工具（voicebox_ 前缀，前端桥接执行）
-  const voicebox = VOICEBOX_TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
-  }))
-  // 网易云音乐工具（netease_ 前缀）
-  const netease = NETEASE_TOOLS.map((t) => ({
-    type: 'function',
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
-  }))
-  return [...local, ...galatea, ...toy, ...spicy, ...voicebox, ...netease]
+  const wrap = (arr, key = 'parameters') => arr
+    .filter((t) => !isChatHidden(t.name))
+    .map((t) => ({
+      type: 'function',
+      function: { name: t.name, description: t.description, parameters: t[key] },
+    }))
+  return [
+    ...wrap(TOOLS),
+    ...wrap(GALATEA_TOOLS, 'inputSchema'),
+    ...wrap(CEDAR_TOY_TOOLS, 'inputSchema'),
+    ...wrap(SPICY_TOOLS, 'inputSchema'),
+    ...wrap(VOICEBOX_TOOLS, 'inputSchema'),
+    ...wrap(NETEASE_TOOLS, 'inputSchema'),
+  ]
 }
 
 // 仅供内部/未来使用：带元数据的全量视图
